@@ -1,0 +1,20 @@
+{
+  "name": "ngoaingu3k-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve:dist": "node scripts/serve-dist.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "vite": "^5.4.2"
+  }
+}

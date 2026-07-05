@@ -1,0 +1,18 @@
+{
+  "name": "ngoaingu3k-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "seed:test-users": "node scripts/seed-test-users.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21"
+  }
+}
