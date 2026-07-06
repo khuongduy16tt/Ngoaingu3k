@@ -11,32 +11,12 @@ import {
   TeacherDashboardPage
 } from './pages/DashboardPage';
 import { useAuth } from './providers/AuthProvider';
-import { getDashboardPathForRole, getEffectiveRole, isRoleAllowed } from './lib/permissions';
+import { getDashboardPathForRole, getEffectiveRole } from './lib/permissions';
 
 function LoadingScreen() {
   return (
     <div className="page centered">
       <p>Loading session...</p>
-    </div>
-  );
-}
-
-function UnauthorizedPage({ reason = 'You do not have permission to access this page.' }) {
-  return (
-    <div className="page centered">
-      <div className="content-card content-card--enterprise" style={{ maxWidth: '520px' }}>
-        <span className="eyebrow">403</span>
-        <h1>Access denied</h1>
-        <p>{reason}</p>
-        <div className="home-actions">
-          <a className="button" href="/home">
-            Go home
-          </a>
-          <a className="button button-ghost" href="/auth">
-            Sign in
-          </a>
-        </div>
-      </div>
     </div>
   );
 }
@@ -55,10 +35,8 @@ function ProtectedRoute({ children, allowedRoles, requireSession = true }) {
 
   const effectiveRole = getEffectiveRole(auth);
 
-  if (!isRoleAllowed(effectiveRole, allowedRoles)) {
-    return (
-      <UnauthorizedPage reason={`Your current role is ${effectiveRole.toUpperCase()}, which cannot access this page.`} />
-    );
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(effectiveRole)) {
+    return <Navigate to={getDashboardPathForRole(effectiveRole)} replace />;
   }
 
   return children;
