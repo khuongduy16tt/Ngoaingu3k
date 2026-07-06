@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
 import { createAssignment, getAssignmentsForStudent, getAssignmentsForTeacher, getCourseOptions } from '../lib/assignmentService';
+import { getCourseCatalog, getOwnedCourseIds } from '../lib/courseService';
 
 function DashboardShell({ title, description, metrics, children }) {
   return (
@@ -53,6 +54,7 @@ export function StudentDashboardPage() {
   const auth = useAuth();
   const email = auth.user?.email || '';
   const [assignments, setAssignments] = useState([]);
+  const [ownedCount, setOwnedCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,9 +62,15 @@ export function StudentDashboardPage() {
 
     async function load() {
       setLoading(true);
-      const nextAssignments = await getAssignmentsForStudent(email);
+      const [nextAssignments, courses] = await Promise.all([
+        getAssignmentsForStudent(email),
+        getCourseCatalog()
+      ]);
+      const nextOwnedIds = await getOwnedCourseIds(auth.user?.id, courses);
+
       if (active) {
         setAssignments(nextAssignments);
+        setOwnedCount(nextOwnedIds.length);
         setLoading(false);
       }
     }
@@ -72,21 +80,21 @@ export function StudentDashboardPage() {
     return () => {
       active = false;
     };
-  }, [email]);
+  }, [auth.user?.id, email]);
 
   const metrics = useMemo(
     () => [
-      { label: 'Courses owned', value: '4' },
+      { label: 'Courses owned', value: String(ownedCount) },
       { label: 'Available tasks', value: String(assignments.length) },
       { label: 'Average score', value: '89' },
       { label: 'Study streak', value: '12 days' }
     ],
-    [assignments.length]
+    [assignments.length, ownedCount]
   );
 
   return (
     <DashboardShell
-      title="Student dashboard"
+      title="Dashboard"
       description="Purchased courses, assigned lessons, grades, and certificate tracking."
       metrics={metrics}
     >
@@ -217,7 +225,7 @@ export function TeacherDashboardPage() {
 
   return (
     <DashboardShell
-      title="Teacher dashboard"
+      title="Dashboard"
       description="Create assignments, upload lesson files, and deliver them to selected students."
       metrics={metrics}
     >
@@ -370,7 +378,7 @@ export function TeacherDashboardPage() {
 export function AdminDashboardPage() {
   return (
     <DashboardShell
-      title="Admin dashboard"
+      title="Dashboard"
       description="Users, approvals, payments, and platform analytics."
       metrics={[
         { label: 'Users', value: '12,480' },

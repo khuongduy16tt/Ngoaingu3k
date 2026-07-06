@@ -2677,6 +2677,407 @@ button:disabled {
   border-color: rgba(97, 200, 255, 0.28);
 }
 
+.course-market-page {
+  gap: 1.15rem;
+}
+
+.marketplace-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 360px);
+  gap: 1rem;
+  padding: 1.35rem;
+  overflow: hidden;
+}
+
+.marketplace-hero__copy {
+  display: grid;
+  align-content: center;
+  gap: 0.9rem;
+}
+
+.marketplace-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.marketplace-hero__stats {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.marketplace-stat {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem;
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.marketplace-stat span,
+.marketplace-field span,
+.marketplace-filter-group > span,
+.marketplace-sort span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.marketplace-stat strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.marketplace-stat small {
+  color: var(--muted);
+}
+
+.marketplace-feedback {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(180deg, rgba(72, 241, 206, 0.12), rgba(57, 201, 255, 0.08));
+  border-color: rgba(72, 241, 206, 0.18);
+}
+
+.marketplace-feedback p {
+  margin: 0;
+}
+
+.marketplace-layout {
+  align-items: start;
+}
+
+.marketplace-filters {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1.2rem;
+  gap: 1rem;
+}
+
+.marketplace-filters::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.marketplace-filters::-webkit-scrollbar-thumb {
+  background: rgba(120, 138, 165, 0.3);
+  border-radius: 999px;
+}
+
+.marketplace-filters__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.marketplace-filters__head h2 {
+  margin: 0.35rem 0 0;
+  font-size: 1.55rem;
+  line-height: 1.05;
+}
+
+.marketplace-reset {
+  padding: 0;
+}
+
+.marketplace-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.marketplace-search {
+  margin-top: 0;
+}
+
+.marketplace-filter-group {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.marketplace-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.marketplace-filter-pill {
+  width: auto;
+}
+
+.marketplace-results {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.marketplace-sort {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 220px;
+}
+
+.marketplace-sort select {
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.marketplace-owned-strip {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.1rem;
+}
+
+.marketplace-owned-strip__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.marketplace-owned-strip__head h3 {
+  margin: 0.35rem 0 0;
+}
+
+.marketplace-owned-strip__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.marketplace-owned-tile {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.marketplace-owned-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(97, 200, 255, 0.26);
+}
+
+.marketplace-owned-tile span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.marketplace-results__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.marketplace-card {
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.marketplace-card.is-owned {
+  border-color: rgba(124, 224, 181, 0.28);
+}
+
+.marketplace-card__media {
+  position: relative;
+  min-height: 220px;
+  background: linear-gradient(135deg, rgba(18, 26, 44, 0.94), rgba(8, 12, 21, 0.92));
+}
+
+.marketplace-card__media img {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.marketplace-card__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(6, 11, 22, 0.06), rgba(6, 11, 22, 0.82)),
+    radial-gradient(circle at top right, rgba(97, 200, 255, 0.16), transparent 35%);
+  pointer-events: none;
+}
+
+.marketplace-card__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  align-content: end;
+  gap: 0.35rem;
+  padding: 1rem;
+}
+
+.marketplace-card__fallback span {
+  width: fit-content;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d7e8ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.marketplace-card__badges {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.marketplace-pill {
+  background: rgba(137, 166, 255, 0.12);
+  color: #cad7ff;
+}
+
+.marketplace-owned-tag {
+  margin-left: auto;
+  padding: 0.38rem 0.78rem;
+  border-radius: 999px;
+  background: rgba(124, 224, 181, 0.14);
+  color: #a3f4d0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.marketplace-card__body {
+  display: grid;
+  gap: 0.95rem;
+  padding: 1.15rem;
+}
+
+.marketplace-card__headline {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.marketplace-card__headline h3 {
+  margin: 0.35rem 0 0;
+}
+
+.marketplace-card__badge {
+  color: #7ce0b5;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+}
+
+.marketplace-card__rating {
+  padding: 0.45rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.marketplace-card__facts,
+.course-detail__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.marketplace-card__facts span,
+.course-detail__facts span {
+  padding: 0.48rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.marketplace-card__audience {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.marketplace-card__audience small {
+  color: var(--muted);
+}
+
+.marketplace-card__footer {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.marketplace-card__price {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.marketplace-card__price strong {
+  font-size: 1.6rem;
+}
+
+.marketplace-card__price span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.marketplace-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+.marketplace-card__actions .button,
+.marketplace-card__actions .button-ghost {
+  min-width: 136px;
+}
+
+.marketplace-empty {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1.2rem;
+}
+
+.marketplace-empty h3 {
+  margin: 0.2rem 0 0;
+}
+
+.course-detail__sidebar {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.course-detail__facts {
+  margin-top: 1rem;
+}
+
 @media (max-width: 1200px) {
   .home-hero--enterprise,
   .auth-layout,
@@ -2690,6 +3091,16 @@ button:disabled {
 
   .hero-visual-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .marketplace-hero,
+  .marketplace-owned-strip__list {
+    grid-template-columns: 1fr;
+  }
+
+  .marketplace-filters {
+    position: static;
+    max-height: none;
   }
 
   .media-grid,
@@ -2758,6 +3169,17 @@ button:disabled {
     width: 100%;
     justify-content: start;
     flex-wrap: wrap;
+  }
+
+  .marketplace-card__footer,
+  .marketplace-owned-strip__head {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .marketplace-sort {
+    min-width: 0;
+    width: 100%;
   }
 
   .stat-grid,
@@ -3024,6 +3446,31 @@ button:disabled {
 
 :root[data-theme='light'] .quote-card p {
   color: var(--text);
+}
+
+:root[data-theme='light'] .marketplace-stat,
+:root[data-theme='light'] .marketplace-owned-tile,
+:root[data-theme='light'] .marketplace-sort select,
+:root[data-theme='light'] .marketplace-card__rating,
+:root[data-theme='light'] .marketplace-card__facts span,
+:root[data-theme='light'] .course-detail__facts span {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--border);
+}
+
+:root[data-theme='light'] .marketplace-feedback {
+  background: linear-gradient(180deg, rgba(29, 190, 163, 0.16), rgba(34, 139, 255, 0.12));
+  border-color: rgba(29, 190, 163, 0.18);
+}
+
+:root[data-theme='light'] .marketplace-pill {
+  background: rgba(41, 91, 216, 0.12);
+  color: #2148a3;
+}
+
+:root[data-theme='light'] .marketplace-owned-tag {
+  background: rgba(12, 143, 100, 0.14);
+  color: #0b7a58;
 }
 
 :root[data-theme='light'] .course-preview__grid img,

@@ -149,9 +149,9 @@ function Footer() {
             <div>
               <h3>Support</h3>
               <span>Exercises and quizzes</span>
-              <span>Student dashboard</span>
-              <span>Teacher dashboard</span>
-              <span>Admin dashboard</span>
+              <span>Dashboard workspace</span>
+              <span>Course management</span>
+              <span>Progress tracking</span>
             </div>
           </div>
         </div>

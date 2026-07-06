@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
 import { createAssignment, getAssignmentsForStudent, getAssignmentsForTeacher, getCourseOptions } from '../lib/assignmentService';
+import { PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
 
 const lessons = [
   { id: 'lesson-1', title: 'Lesson 1. Introduction', status: 'done', note: 'Warm up + basic greetings' },
@@ -34,7 +35,7 @@ const storageKeys = {
   audioByLesson: 'learning-audio-by-lesson',
   filesByLesson: 'learning-files-by-lesson',
   allowedStudents: 'learning-allowed-students',
-  purchasedCourses: 'learning-purchased-courses'
+  purchasedCourses: PURCHASED_COURSES_STORAGE_KEY
 };
 
 function readStoredJson(key, fallback) {
@@ -79,7 +80,7 @@ export default function LearningPage() {
   const [audioMap, setAudioMap] = useState(() => readStoredJson(storageKeys.audioByLesson, {}));
   const [fileMap, setFileMap] = useState(() => readStoredJson(storageKeys.filesByLesson, {}));
   const [allowedStudents, setAllowedStudents] = useState(() => readStoredJson(storageKeys.allowedStudents, []));
-  const [purchasedCourses, setPurchasedCourses] = useState(() => readStoredJson(storageKeys.purchasedCourses, ['english-foundation']));
+  const [purchasedCourses, setPurchasedCourses] = useState(() => readStoredJson(storageKeys.purchasedCourses, []));
   const [selectedStudentEmail, setSelectedStudentEmail] = useState(demoStudents[0].email);
   const [teacherAssignments, setTeacherAssignments] = useState([]);
   const [studentAssignments, setStudentAssignments] = useState([]);
