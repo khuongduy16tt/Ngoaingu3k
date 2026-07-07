@@ -21,6 +21,10 @@ const gallery = [
   }
 ];
 
+function getAuthModeFromSearch(search) {
+  return new URLSearchParams(search).get('mode') === 'sign-up' ? 'sign-up' : 'sign-in';
+}
+
 export default function AuthPage() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -29,7 +33,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [mode, setMode] = useState('sign-in');
+  const [mode, setMode] = useState(() => getAuthModeFromSearch(location.search));
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const redirectTo = location.state?.from || '/dashboard';
@@ -49,6 +53,10 @@ export default function AuthPage() {
       navigate(redirectTo, { replace: true });
     }
   }, [auth.session, navigate, redirectTo]);
+
+  useEffect(() => {
+    setMode(getAuthModeFromSearch(location.search));
+  }, [location.search]);
 
   async function handleSubmit(event) {
     event.preventDefault();

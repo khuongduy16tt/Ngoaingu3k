@@ -257,7 +257,7 @@ export default function LearningPage() {
               onClick={() => setSelectedLessonId(lesson.id)}
             >
               <span className="lesson-item__icon" aria-hidden="true">
-                {lesson.status === 'done' ? '✓' : lesson.status === 'active' ? '▶' : '□'}
+                {lesson.status === 'done' ? 'OK' : lesson.status === 'active' ? 'IN' : '--'}
               </span>
               <span className="lesson-item__copy">
                 <strong>{lesson.title}</strong>

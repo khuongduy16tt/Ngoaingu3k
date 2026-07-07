@@ -89,45 +89,43 @@ export default function HomePage() {
 
   return (
     <div className="page home-page home-page--new">
-      <section className="hero hero--new">
+      <section className="hero hero--new hero--campaign">
+        <img className="hero__cover" src="/images/imported/hsk-cover.png" alt="Khóa luyện thi tiếng Trung HSK 1-5" />
+        <div className="hero__veil" aria-hidden="true" />
         <div className="hero__copy">
-          <span className="hero__tag">KỸ NĂNG HỌC TẬP MỚI</span>
           <h1>
-            Nâng tầm <em>Tri Thức Số</em>
+            Khóa luyện thi
             <br />
-            không giới hạn.
+            <em>tiếng Trung HSK 1-5</em>
+            <br />
+            theo lộ trình cá nhân.
           </h1>
           <p>
-            Phá bỏ rào cản ngôn ngữ với phương pháp học tương tác thế hệ mới. Trải nghiệm môi trường giáo dục
-            boutique tinh tế ngay tại không gian của bạn.
+            Một không gian học có định hướng rõ ràng: đánh giá đầu vào, giáo trình chuẩn HSK,
+            giảng viên theo sát và lộ trình luyện thi được cá nhân hóa cho từng mục tiêu.
           </p>
 
           <div className="hero__actions">
             <Link to="/courses" className="button">
-              Khám Phá Ngay
+              Xem khóa HSK
             </Link>
             <Link to="/learn" className="button button-ghost">
-              Xem Lộ Trình
+              Kiểm tra trình độ
             </Link>
           </div>
 
           <div className="hero__search">
             <span className="hero__search-icon">⌕</span>
-            <input type="text" placeholder="Tìm khóa học, lộ trình, mentor..." aria-label="Search courses" />
+            <input type="text" placeholder="Tìm HSK 1, HSK 3, giao tiếp, luyện đề..." aria-label="Search courses" />
             <button type="button">Tìm</button>
           </div>
         </div>
 
-        <div className="hero__visual">
-          <div className="hero__tilt hero__tilt--top">
-            <img src="/images/imported/5_Trang-chu_GT-sp.webp" alt="Ngoaingu3k introduction" />
-          </div>
-          <div className="hero__tilt hero__tilt--middle">
-            <img src="/images/imported/7_Trang-chu_GT-TT.webp" alt="Teaching visual" />
-          </div>
-          <div className="hero__tilt hero__tilt--bottom">
-            <img src="/images/imported/11.3_KH-TA-scaled.webp" alt="English course banner" />
-          </div>
+        <div className="hero__campaign-panel" aria-label="Course highlights">
+          <span>HSK 1-5</span>
+          <span>Lộ trình cá nhân hóa</span>
+          <span>Giáo trình chuẩn HSK</span>
+          <span>Giảng viên kinh nghiệm</span>
         </div>
       </section>
 
@@ -206,7 +204,7 @@ export default function HomePage() {
           <h2>Không gian học, seminar và đội ngũ Ngoaingu3k</h2>
           <p>
             Những hình ảnh bạn đưa mình đã gắn sẵn vào phần giao diện để homepage trông giống một trang doanh nghiệp thật
-            hơn, không còn cảm giác “AI demo”.
+            hơn, rõ nội dung, rõ sản phẩm và dễ tạo niềm tin với người học.
           </p>
         </div>
 

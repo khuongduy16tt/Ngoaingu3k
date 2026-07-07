@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { navLinks } from '../data/mock';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -42,11 +42,32 @@ function readStoredTheme() {
 }
 
 function ThemeIcon({ theme }) {
-  return <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>;
+  if (theme === 'dark') {
+    return (
+      <svg className="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 4.5V2.75" />
+        <path d="M12 21.25V19.5" />
+        <path d="M4.5 12H2.75" />
+        <path d="M21.25 12H19.5" />
+        <path d="M6.7 6.7 5.45 5.45" />
+        <path d="m18.55 18.55-1.25-1.25" />
+        <path d="m6.7 17.3-1.25 1.25" />
+        <path d="m18.55 5.45-1.25 1.25" />
+        <circle cx="12" cy="12" r="4.25" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20.2 15.25A7.35 7.35 0 0 1 8.75 3.8a8.35 8.35 0 1 0 11.45 11.45Z" />
+    </svg>
+  );
 }
 
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
+  const [activeHeaderLink, setActiveHeaderLink] = useState('');
   const signedIn = Boolean(auth.session);
   const currentRole = auth.role || auth.profile?.role || 'student';
   const visibleLinks = navLinks.filter((link) => !link.role || (signedIn && link.role === currentRole));
@@ -56,7 +77,7 @@ function TopBar({ theme, setTheme, themeLabel }) {
       <div className="topbar-inner">
         <Link className="brand-block" to="/home">
           <div className="brand-mark brand-mark--enterprise brand-mark--image">
-            <img src="/images/imported/logo-ngoaingu3k.png" alt="Ngoaingu3k logo" />
+            <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
           </div>
           <div className="brand-copy">
             <div className="brand">Ngoaingu3k Academy</div>
@@ -68,10 +89,22 @@ function TopBar({ theme, setTheme, themeLabel }) {
 
         <nav className="nav">
           {visibleLinks.map((link) => (
-            <Link key={link.to} to={link.to} className="nav-link">
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) => `nav-link ${isActive && activeHeaderLink !== 'contact' ? 'is-active' : ''}`}
+              onClick={() => setActiveHeaderLink('')}
+            >
               {link.label}
-            </Link>
+            </NavLink>
           ))}
+          <a
+            className={`nav-link ${activeHeaderLink === 'contact' ? 'is-active' : ''}`}
+            href="#contact"
+            onClick={() => setActiveHeaderLink('contact')}
+          >
+            Liên hệ
+          </a>
         </nav>
 
         <div className="toolbar">
@@ -89,9 +122,14 @@ function TopBar({ theme, setTheme, themeLabel }) {
               Sign out
             </button>
           ) : (
-            <Link className="text-control" to="/auth">
-              Sign in
-            </Link>
+            <>
+              <Link className="text-control auth-nav-link" to="/auth">
+                Sign in
+              </Link>
+              <Link className="text-control auth-nav-link" to="/auth?mode=sign-up">
+                Sign up
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -108,13 +146,13 @@ function Footer() {
   ];
 
   return (
-    <footer className="footer footer--enterprise">
+    <footer id="contact" className="footer footer--enterprise">
       <div className="footer-inner">
         <div className="footer-main">
           <div className="footer-brand">
             <Link className="brand-block footer-brand-block" to="/home">
               <div className="brand-mark brand-mark--enterprise brand-mark--image">
-                <img src="/images/imported/logo-ngoaingu3k.png" alt="Ngoaingu3k logo" />
+                <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
               </div>
               <div className="brand-copy">
                 <div className="footer-title">Ngoaingu3k Academy</div>
@@ -157,8 +195,8 @@ function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 Ngoaingu3k Academy</span>
-          <span>Built with React · Supabase · Vercel</span>
+          <span>Copyright 2026 Ngoaingu3k Academy</span>
+          <span>React / Supabase / Vercel</span>
         </div>
       </div>
     </footer>
