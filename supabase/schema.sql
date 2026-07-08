@@ -84,9 +84,13 @@ create table if not exists public.lesson_assignments (
   audio_url text,
   attachment_name text,
   attachment_url text,
+  exercise_config jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.lesson_assignments
+add column if not exists exercise_config jsonb not null default '{}'::jsonb;
 
 create table if not exists public.lesson_assignment_recipients (
   assignment_id uuid not null references public.lesson_assignments(id) on delete cascade,

@@ -13,6 +13,12 @@ const initialFilters = {
   sort: 'featured'
 };
 
+const roleLabels = {
+  student: 'học viên',
+  teacher: 'giảng viên',
+  admin: 'quản trị viên'
+};
+
 function MarketplaceStat({ label, value, note }) {
   return (
     <article className="marketplace-stat">
@@ -183,11 +189,11 @@ export default function CoursesPage() {
       setOwnedCourseIds(result.ownedCourseIds);
       setFeedback(
         result.mode === 'supabase'
-          ? `${course.title} has been added to this student's library.`
-          : `${course.title} is now available in owned courses for demo checkout flow.`
+          ? `${course.title} đã được thêm vào thư viện học tập của học viên.`
+          : `${course.title} đã được kích hoạt trong thư viện khóa học.`
       );
     } catch (error) {
-      setFeedback(error?.message || 'We could not complete the purchase right now.');
+      setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
     } finally {
       setPurchasingCourseId('');
     }
@@ -201,39 +207,39 @@ export default function CoursesPage() {
     <div className="page course-market-page">
       <section className="content-card content-card--enterprise marketplace-hero">
         <div className="marketplace-hero__copy">
-          <span className="eyebrow">Course marketplace</span>
-          <h1>Buy the right course, filter the catalog, and keep owned courses in one student library.</h1>
+          <span className="eyebrow">Danh mục đào tạo</span>
+          <h1>Lựa chọn đúng khóa học, quản lý quyền sở hữu và theo dõi thư viện học viên trong một nơi.</h1>
           <p>
-            This page now behaves like a real storefront: students can browse every course, filter by
-            level or topic, and instantly move purchased courses into their owned collection.
+            Trải nghiệm danh mục được thiết kế như một cổng bán khóa học chuyên nghiệp: học viên có thể
+            tìm kiếm, lọc theo cấp độ hoặc chủ đề, sau đó kích hoạt khóa học vào thư viện cá nhân.
           </p>
 
           <div className="marketplace-hero__actions">
             <a className="button" href="#course-market-grid">
-              Explore courses
+              Xem khóa học
             </a>
             {auth.session ? (
               <Link className="button-ghost" to="/dashboard/student">
-                Open student dashboard
+                Mở bảng điều khiển học viên
               </Link>
             ) : (
               <Link className="button-ghost" to="/auth">
-                Sign in to buy
+                Đăng nhập để mua
               </Link>
             )}
           </div>
         </div>
 
         <div className="marketplace-hero__stats">
-          <MarketplaceStat label="Published courses" value={courses.length || '0'} note="Ready for browsing" />
-          <MarketplaceStat label="Owned courses" value={ownedCourses.length} note="Stored for this student" />
-          <MarketplaceStat label="Learning tracks" value={categories.length - 1 || 0} note="Exam, speaking, career" />
+          <MarketplaceStat label="Khóa học công khai" value={courses.length || '0'} note="Sẵn sàng tư vấn và bán" />
+          <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="Ghi nhận theo từng học viên" />
+          <MarketplaceStat label="Nhóm năng lực" value={categories.length - 1 || 0} note="Luyện thi, giao tiếp, công sở" />
         </div>
       </section>
 
       {feedback ? (
         <section className="content-card content-card--enterprise marketplace-feedback">
-          <strong>Marketplace update</strong>
+          <strong>Cập nhật danh mục</strong>
           <p>{feedback}</p>
         </section>
       ) : null}
@@ -242,45 +248,45 @@ export default function CoursesPage() {
         <aside className="content-card content-card--enterprise catalog-filters marketplace-filters">
           <div className="marketplace-filters__head">
             <div>
-              <span className="eyebrow">Filters</span>
-              <h2>Refine the catalog</h2>
+              <span className="eyebrow">Bộ lọc</span>
+              <h2>Tinh chỉnh danh mục</h2>
             </div>
             <button type="button" className="text-control marketplace-reset" onClick={resetFilters}>
-              Reset
+              Đặt lại
             </button>
           </div>
 
           <label className="marketplace-field">
-            <span>Search by course or instructor</span>
+            <span>Tìm theo khóa học hoặc giảng viên</span>
             <input
               className="lesson-input marketplace-search"
               type="search"
               value={filters.search}
               onChange={(event) => setFilters((previous) => ({ ...previous, search: event.target.value }))}
-              placeholder="Try IELTS, speaking, business..."
+              placeholder="Ví dụ: IELTS, giao tiếp, doanh nghiệp..."
             />
           </label>
 
           <div className="marketplace-filter-group">
-            <span>Ownership</span>
+            <span>Trạng thái sở hữu</span>
             <div className="marketplace-chip-row">
               <FilterButton active={filters.status === 'all'} onClick={() => setFilters((previous) => ({ ...previous, status: 'all' }))}>
-                All
+                Tất cả
               </FilterButton>
               <FilterButton
                 active={filters.status === 'available'}
                 onClick={() => setFilters((previous) => ({ ...previous, status: 'available' }))}
               >
-                Available
+                Có thể mua
               </FilterButton>
               <FilterButton active={filters.status === 'owned'} onClick={() => setFilters((previous) => ({ ...previous, status: 'owned' }))}>
-                Owned
+                Đã sở hữu
               </FilterButton>
             </div>
           </div>
 
           <div className="marketplace-filter-group">
-            <span>Level</span>
+            <span>Cấp độ</span>
             <div className="marketplace-chip-row">
               {levels.map((level) => (
                 <FilterButton
@@ -288,14 +294,14 @@ export default function CoursesPage() {
                   active={filters.level === level}
                   onClick={() => setFilters((previous) => ({ ...previous, level }))}
                 >
-                  {level === 'all' ? 'All levels' : level}
+                  {level === 'all' ? 'Tất cả cấp độ' : level}
                 </FilterButton>
               ))}
             </div>
           </div>
 
           <div className="marketplace-filter-group">
-            <span>Category</span>
+            <span>Chủ đề</span>
             <div className="marketplace-chip-row">
               {categories.map((category) => (
                 <FilterButton
@@ -303,29 +309,29 @@ export default function CoursesPage() {
                   active={filters.category === category}
                   onClick={() => setFilters((previous) => ({ ...previous, category }))}
                 >
-                  {category === 'all' ? 'All topics' : category}
+                  {category === 'all' ? 'Tất cả chủ đề' : category}
                 </FilterButton>
               ))}
             </div>
           </div>
 
           <div className="marketplace-filter-group">
-            <span>Price</span>
+            <span>Ngân sách</span>
             <div className="marketplace-chip-row">
               <FilterButton active={filters.price === 'all'} onClick={() => setFilters((previous) => ({ ...previous, price: 'all' }))}>
-                All prices
+                Tất cả mức giá
               </FilterButton>
               <FilterButton
                 active={filters.price === 'under-60'}
                 onClick={() => setFilters((previous) => ({ ...previous, price: 'under-60' }))}
               >
-                Under $60
+                Dưới $60
               </FilterButton>
               <FilterButton active={filters.price === '60-89'} onClick={() => setFilters((previous) => ({ ...previous, price: '60-89' }))}>
-                $60-$89
+                $60 - $89
               </FilterButton>
               <FilterButton active={filters.price === '90-plus'} onClick={() => setFilters((previous) => ({ ...previous, price: '90-plus' }))}>
-                $90+
+                Từ $90
               </FilterButton>
             </div>
           </div>
@@ -334,25 +340,25 @@ export default function CoursesPage() {
         <div className="marketplace-results">
           <div className="section-head marketplace-results__head">
             <div className="section-head__copy">
-              <span className="eyebrow">Student catalog</span>
-              <h2>{filters.status === 'owned' ? 'Owned courses ready to revisit' : 'Courses ready to buy'}</h2>
+              <span className="eyebrow">Danh mục học viên</span>
+              <h2>{filters.status === 'owned' ? 'Khóa học đã sở hữu' : 'Khóa học sẵn sàng đăng ký'}</h2>
               <p>
                 {auth.session
-                  ? 'Signed-in students can purchase a course and see it move straight into owned status.'
-                  : 'Browsing is public. Sign in with a student account when you want to buy.'}
+                  ? 'Học viên đã đăng nhập có thể mua khóa học và thấy trạng thái sở hữu được cập nhật ngay.'
+                  : 'Bạn có thể xem danh mục công khai. Hãy đăng nhập tài khoản học viên khi cần mua khóa học.'}
               </p>
             </div>
 
             <label className="marketplace-sort">
-              <span>Sort by</span>
+              <span>Sắp xếp</span>
               <select
                 value={filters.sort}
                 onChange={(event) => setFilters((previous) => ({ ...previous, sort: event.target.value }))}
               >
-                <option value="featured">Featured</option>
-                <option value="rating">Top rated</option>
-                <option value="price-low">Price: low to high</option>
-                <option value="price-high">Price: high to low</option>
+                <option value="featured">Nổi bật</option>
+                <option value="rating">Đánh giá cao</option>
+                <option value="price-low">Giá tăng dần</option>
+                <option value="price-high">Giá giảm dần</option>
               </select>
             </label>
           </div>
@@ -361,10 +367,10 @@ export default function CoursesPage() {
             <section className="content-card content-card--enterprise marketplace-owned-strip">
               <div className="marketplace-owned-strip__head">
                 <div>
-                  <span className="eyebrow">Owned library</span>
-                  <h3>Your purchased courses</h3>
+                  <span className="eyebrow">Thư viện sở hữu</span>
+                  <h3>Khóa học đã mua</h3>
                 </div>
-                <span className="pill">{ownedCourses.length} owned</span>
+                <span className="pill">{ownedCourses.length} khóa</span>
               </div>
 
               <div className="marketplace-owned-strip__list">
@@ -381,20 +387,20 @@ export default function CoursesPage() {
           ) : null}
 
           <div className="marketplace-results__meta">
-            <span>{filteredCourses.length} matching courses</span>
-            <span>{activeFilterCount} active filters</span>
-            <span>{auth.session ? `Current role: ${currentRole}` : 'Guest browsing mode'}</span>
+            <span>{filteredCourses.length} khóa học phù hợp</span>
+            <span>{activeFilterCount} bộ lọc đang áp dụng</span>
+            <span>{auth.session ? `Vai trò hiện tại: ${roleLabels[currentRole] || currentRole}` : 'Chế độ xem khách'}</span>
           </div>
 
           {loading ? (
-            <p className="empty-state">Loading course marketplace...</p>
+            <p className="empty-state">Đang tải danh mục khóa học...</p>
           ) : filteredCourses.length ? (
             <div id="course-market-grid" className="card-grid marketplace-grid">
               {filteredCourses.map((course) => {
                 const isOwned = ownedCourseIdSet.has(course.id);
                 const canBuy = auth.session && currentRole === 'student' && !isOwned;
                 const buyLabel =
-                  purchasingCourseId === course.id ? 'Processing...' : isOwned ? 'Owned' : 'Buy now';
+                  purchasingCourseId === course.id ? 'Đang xử lý...' : isOwned ? 'Đã sở hữu' : 'Mua ngay';
 
                 return (
                   <article
@@ -414,7 +420,7 @@ export default function CoursesPage() {
                       <div className="marketplace-card__badges">
                         <span className="pill">{course.level}</span>
                         <span className="pill marketplace-pill">{course.category}</span>
-                        {isOwned ? <span className="marketplace-owned-tag">Owned</span> : null}
+                        {isOwned ? <span className="marketplace-owned-tag">Đã sở hữu</span> : null}
                       </div>
                     </div>
 
@@ -431,7 +437,7 @@ export default function CoursesPage() {
 
                       <div className="marketplace-card__facts">
                         <span>{course.duration}</span>
-                        <span>{course.lessonsCount} lessons</span>
+                        <span>{course.lessonsCount} bài học</span>
                         <span>{course.instructor}</span>
                       </div>
 
@@ -439,23 +445,23 @@ export default function CoursesPage() {
                         <div className="meter">
                           <span style={{ width: `${course.progress}%` }} />
                         </div>
-                        <small>{course.studentsCount.toLocaleString()} students enrolled</small>
+                        <small>{course.studentsCount.toLocaleString('vi-VN')} học viên đã đăng ký</small>
                       </div>
 
                       <div className="marketplace-card__footer">
                         <div className="marketplace-card__price">
                           <strong>{course.price}</strong>
-                          <span>One-time purchase · lifetime access</span>
+                          <span>Thanh toán một lần · truy cập dài hạn</span>
                         </div>
 
                         <div className="marketplace-card__actions">
                           <Link className="button-ghost" to={`/courses/${course.id}`}>
-                            Details
+                            Chi tiết
                           </Link>
 
                           {isOwned ? (
                             <Link className="button" to={course.id === 'english-foundation' ? '/learn' : `/courses/${course.id}`}>
-                              {course.id === 'english-foundation' ? 'Start learning' : 'View owned'}
+                              {course.id === 'english-foundation' ? 'Vào học' : 'Xem khóa học'}
                             </Link>
                           ) : auth.session ? (
                             <button
@@ -464,11 +470,11 @@ export default function CoursesPage() {
                               disabled={!canBuy || purchasingCourseId === course.id}
                               onClick={() => handlePurchase(course)}
                             >
-                              {currentRole === 'student' ? buyLabel : 'Student only'}
+                              {currentRole === 'student' ? buyLabel : 'Chỉ dành cho học viên'}
                             </button>
                           ) : (
                             <Link className="button" to="/auth">
-                              Sign in to buy
+                              Đăng nhập để mua
                             </Link>
                           )}
                         </div>
@@ -480,11 +486,11 @@ export default function CoursesPage() {
             </div>
           ) : (
             <section className="content-card content-card--enterprise marketplace-empty">
-              <span className="eyebrow">No results</span>
-              <h3>No course matches the current filters.</h3>
-              <p>Try clearing some filters to reveal more courses that students can buy or already own.</p>
+              <span className="eyebrow">Không có kết quả</span>
+              <h3>Chưa có khóa học phù hợp với bộ lọc hiện tại.</h3>
+              <p>Hãy bỏ bớt điều kiện lọc để xem thêm khóa học có thể mua hoặc đã sở hữu.</p>
               <button type="button" className="button" onClick={resetFilters}>
-                Clear filters
+                Xóa bộ lọc
               </button>
             </section>
           )}

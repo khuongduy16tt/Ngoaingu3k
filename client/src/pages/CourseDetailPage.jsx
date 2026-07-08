@@ -5,6 +5,16 @@ import { getCourseBySlug, getOwnedCourseIds, purchaseCourse } from '../lib/cours
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 
+const lessonStatusLabels = {
+  done: 'hoàn thành',
+  active: 'đang học',
+  locked: 'đang khóa'
+};
+
+function formatLessonStatus(status) {
+  return lessonStatusLabels[status] || status;
+}
+
 export default function CourseDetailPage() {
   const { courseId } = useParams();
   const auth = useAuth();
@@ -13,9 +23,9 @@ export default function CourseDetailPage() {
     ...mockCourseDetail,
     price: '$0',
     priceValue: 0,
-    instructor: 'Coach Linh',
-    level: 'Beginner',
-    category: 'Core Skills',
+    instructor: 'Cô Linh',
+    level: 'Nền tảng',
+    category: 'Kỹ năng cốt lõi',
     whatYouGet: []
   });
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
@@ -66,9 +76,9 @@ export default function CourseDetailPage() {
       });
 
       setOwnedCourseIds(result.ownedCourseIds);
-      setFeedback(`${course.title} is now available in this student's owned library.`);
+      setFeedback(`${course.title} đã được kích hoạt trong thư viện học tập của học viên.`);
     } catch (error) {
-      setFeedback(error?.message || 'We could not complete the purchase right now.');
+      setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
     } finally {
       setPurchasing(false);
     }
@@ -78,30 +88,30 @@ export default function CourseDetailPage() {
     <div className="page">
       <section className="course-hero">
         <div>
-          <span className="eyebrow">{course.category || 'Course details'}</span>
+          <span className="eyebrow">{course.category || 'Thông tin khóa học'}</span>
           <h1>{course.title}</h1>
-          <p>{loading ? 'Loading course details...' : course.hero}</p>
+          <p>{loading ? 'Đang tải thông tin khóa học...' : course.hero}</p>
 
           <div className="marketplace-card__facts course-detail__facts">
             <span>{course.level}</span>
-            <span>{course.duration || 'Flexible schedule'}</span>
-            <span>{course.lessonsCount || 0} lessons</span>
+            <span>{course.duration || 'Lịch học linh hoạt'}</span>
+            <span>{course.lessonsCount || 0} bài học</span>
             <span>{course.instructor}</span>
           </div>
         </div>
 
         <div className="price-box course-detail__sidebar">
-          <span className="pill">{isOwned ? 'Owned' : 'One-time purchase'}</span>
+          <span className="pill">{isOwned ? 'Đã sở hữu' : 'Thanh toán một lần'}</span>
           <strong>{course.price}</strong>
           <p>
             {isOwned
-              ? 'This course already belongs to the current student account.'
-              : 'Buy once and keep the course in the owned library with instant access.'}
+              ? 'Khóa học này đã thuộc thư viện của tài khoản học viên hiện tại.'
+              : 'Mua một lần, kích hoạt ngay và lưu khóa học trong thư viện cá nhân.'}
           </p>
 
           {isOwned ? (
             <Link className="button" to={course.id === 'english-foundation' ? '/learn' : `/courses/${course.id}`}>
-              {course.id === 'english-foundation' ? 'Start learning' : 'View owned'}
+              {course.id === 'english-foundation' ? 'Vào học' : 'Xem khóa học'}
             </Link>
           ) : auth.session ? (
             <button
@@ -110,30 +120,30 @@ export default function CourseDetailPage() {
               disabled={currentRole !== 'student' || purchasing}
               onClick={handlePurchase}
             >
-              {currentRole === 'student' ? (purchasing ? 'Processing...' : 'Buy now') : 'Student only'}
+              {currentRole === 'student' ? (purchasing ? 'Đang xử lý...' : 'Mua ngay') : 'Chỉ dành cho học viên'}
             </button>
           ) : (
             <Link className="button" to="/auth">
-              Sign in to buy
+              Đăng nhập để mua
             </Link>
           )}
 
           <Link className="button-ghost" to="/courses">
-            Back to catalog
+            Quay lại danh mục
           </Link>
         </div>
       </section>
 
       {feedback ? (
         <section className="content-card content-card--enterprise marketplace-feedback">
-          <strong>Course update</strong>
+          <strong>Cập nhật khóa học</strong>
           <p>{feedback}</p>
         </section>
       ) : null}
 
       <section className="section split-layout">
         <div className="content-card content-card--enterprise">
-          <h2>Course content</h2>
+          <h2>Nội dung khóa học</h2>
           {course.sections?.map((section) => (
             <div key={section.title}>
               <h3>{section.title}</h3>
@@ -141,13 +151,13 @@ export default function CourseDetailPage() {
                 section.lessons.map((lesson) => (
                   <div key={lesson.id} className="detail-row">
                     <span>{lesson.title}</span>
-                    <span>{lesson.status}</span>
+                    <span>{formatLessonStatus(lesson.status)}</span>
                   </div>
                 ))
               ) : (
                 <div className="detail-row">
-                  <span>Lesson list will appear here when chapters are synced.</span>
-                  <span>Preview</span>
+                  <span>Danh sách bài học sẽ hiển thị khi chương được đồng bộ.</span>
+                  <span>Xem trước</span>
                 </div>
               )}
             </div>
@@ -155,20 +165,20 @@ export default function CourseDetailPage() {
         </div>
 
         <div className="content-card content-card--enterprise">
-          <h2>What you get</h2>
+          <h2>Quyền lợi học viên</h2>
           <ul className="plain-list">
             {(course.whatYouGet || []).map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
 
-          <h3>Instructor</h3>
+          <h3>Giảng viên</h3>
           <p>{course.instructor}</p>
 
-          <h3>Ownership</h3>
+          <h3>Quyền sở hữu</h3>
           <p>
-            Purchased courses are tracked in the student library so they can be filtered later by
-            owned status on the catalog page.
+            Khóa học đã mua được ghi nhận trong thư viện học viên, giúp đội ngũ vận hành dễ kiểm tra
+            quyền truy cập và trạng thái sở hữu trong danh mục.
           </p>
         </div>
       </section>

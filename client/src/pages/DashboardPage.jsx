@@ -4,12 +4,131 @@ import { getEffectiveRole } from '../lib/permissions';
 import { createAssignment, getAssignmentsForStudent, getAssignmentsForTeacher, getCourseOptions } from '../lib/assignmentService';
 import { getCourseCatalog, getOwnedCourseIds } from '../lib/courseService';
 
+const exerciseTypeLabels = {
+  mcq: 'Trắc nghiệm',
+  tf: 'Đúng / Sai',
+  match: 'Nối cặp',
+  blank: 'Điền khuyết',
+  flash: 'Thẻ ghi nhớ'
+};
+
+const defaultExerciseConfig = {
+  type: 'mcq',
+  lessonPosition: '1',
+  prompt: 'Từ nào phù hợp nhất với "hello"?',
+  options: ['xin chào', 'tạm biệt', 'cảm ơn', 'xin lỗi'],
+  correctAnswer: 'xin chào',
+  trueFalseAnswer: 'Đúng',
+  pairs: [
+    { term: 'Hello', answer: 'Xin chào' },
+    { term: 'Teacher', answer: 'Giảng viên' },
+    { term: 'Practice', answer: 'Luyện tập' }
+  ],
+  blankText: 'Hello, my name ____ Linh.',
+  blankAnswer: 'is',
+  flashFront: 'Hello',
+  flashBack: 'Xin chào',
+  explanation: 'Học viên cần chọn đáp án đúng theo nội dung giảng viên cấu hình.'
+};
+
+function getExerciseConfig(assignment) {
+  return {
+    ...defaultExerciseConfig,
+    ...(assignment?.exerciseConfig || {})
+  };
+}
+
+function formatAssignmentScope(scope) {
+  return scope === 'course_buyers' ? 'Học viên đã mua khóa' : 'Học viên được chọn';
+}
+
+function AssignmentExercisePreview({ assignment, showAnswer = false }) {
+  const config = getExerciseConfig(assignment);
+  const options = (config.options || []).filter(Boolean);
+  const pairs = (config.pairs || []).filter((pair) => pair.term || pair.answer);
+
+  return (
+    <div className="assignment-exercise-preview">
+      <div className="assignment-exercise-preview__head">
+        <span>{exerciseTypeLabels[config.type] || 'Bài luyện'}</span>
+        <strong>Bước {config.lessonPosition || '1'} trong lộ trình</strong>
+      </div>
+
+      {config.type === 'mcq' ? (
+        <>
+          <p>{config.prompt}</p>
+          <div className="exercise-options">
+            {options.map((option) => (
+              <span key={option} className="answer-pill">
+                {option}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {config.type === 'tf' ? (
+        <>
+          <p>{config.prompt}</p>
+          <div className="exercise-options">
+            <span className="answer-pill">Đúng</span>
+            <span className="answer-pill">Sai</span>
+          </div>
+        </>
+      ) : null}
+
+      {config.type === 'match' ? (
+        <>
+          <p>{config.prompt || 'Ghép từng mục với đáp án phù hợp.'}</p>
+          <div className="match-list">
+            {pairs.map((pair, index) => (
+              <div key={`${pair.term}-${index}`} className="match-row">
+                <span>{pair.term}</span>
+                <span className="exercise-chip">Chọn đáp án</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {config.type === 'blank' ? (
+        <>
+          <p>{config.blankText}</p>
+          <input className="lesson-input" placeholder="Nhập đáp án" readOnly />
+        </>
+      ) : null}
+
+      {config.type === 'flash' ? (
+        <button type="button" className="flashcard">
+          <span>{config.flashFront}</span>
+          <small>Bấm để xem mặt sau</small>
+        </button>
+      ) : null}
+
+      {showAnswer ? (
+        <div className="exercise-feedback success">
+          <strong>Đáp án giáo viên:</strong>{' '}
+          {config.type === 'tf'
+            ? config.trueFalseAnswer
+            : config.type === 'blank'
+              ? config.blankAnswer
+              : config.type === 'flash'
+                ? config.flashBack
+                : config.type === 'match'
+                  ? pairs.map((pair) => `${pair.term} = ${pair.answer}`).join('; ')
+                  : config.correctAnswer}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DashboardShell({ title, description, metrics, children }) {
   return (
     <div className="page">
       <section className="dashboard-head">
         <div>
-          <span className="eyebrow">Dashboard</span>
+          <span className="eyebrow">Bảng điều khiển</span>
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
@@ -30,6 +149,8 @@ function DashboardShell({ title, description, metrics, children }) {
 }
 
 function AssignmentCard({ assignment }) {
+  const config = getExerciseConfig(assignment);
+
   return (
     <article className="content-card content-card--enterprise assignment-card">
       <div className="assignment-card__head">
@@ -38,14 +159,16 @@ function AssignmentCard({ assignment }) {
           <h3>{assignment.title}</h3>
           <p>{assignment.lessonTitle}</p>
         </div>
-        <span className="pill">{assignment.assignmentScope === 'course_buyers' ? 'Course buyers' : 'Selected students'}</span>
+        <span className="pill">{formatAssignmentScope(assignment.assignmentScope)}</span>
       </div>
       {assignment.description ? <p className="assignment-card__description">{assignment.description}</p> : null}
       <div className="assignment-card__meta">
-        <span>{assignment.recipients.length} student(s)</span>
-        <span>{assignment.audioName || 'No audio'}</span>
-        <span>{assignment.attachmentName || 'No attachment'}</span>
+        <span>{exerciseTypeLabels[config.type] || 'Bài luyện'}</span>
+        <span>Bước {config.lessonPosition || '1'} trong lộ trình</span>
+        <span>{assignment.audioName || 'Chưa có audio'}</span>
+        <span>{assignment.attachmentName || 'Chưa có tài liệu'}</span>
       </div>
+      <AssignmentExercisePreview assignment={assignment} />
     </article>
   );
 }
@@ -84,26 +207,26 @@ export function StudentDashboardPage() {
 
   const metrics = useMemo(
     () => [
-      { label: 'Courses owned', value: String(ownedCount) },
-      { label: 'Available tasks', value: String(assignments.length) },
-      { label: 'Average score', value: '89' },
-      { label: 'Study streak', value: '12 days' }
+      { label: 'Khóa đã sở hữu', value: String(ownedCount) },
+      { label: 'Nhiệm vụ khả dụng', value: String(assignments.length) },
+      { label: 'Điểm trung bình', value: '89' },
+      { label: 'Chuỗi học tập', value: '12 ngày' }
     ],
     [assignments.length, ownedCount]
   );
 
   return (
     <DashboardShell
-      title="Dashboard"
-      description="Purchased courses, assigned lessons, grades, and certificate tracking."
+      title="Bảng điều khiển học viên"
+      description="Theo dõi khóa học đã mua, bài học được giao, kết quả học tập và tiến độ chứng chỉ."
       metrics={metrics}
     >
       <section className="section split-layout">
         <div className="content-card content-card--enterprise">
-          <h2>Your assigned lessons</h2>
-          {loading ? <p>Loading assignments...</p> : null}
+          <h2>Bài học được giao</h2>
+          {loading ? <p>Đang tải nhiệm vụ học tập...</p> : null}
           {!loading && assignments.length === 0 ? (
-            <p className="empty-state">No assignments yet. Ask your teacher to grant access.</p>
+            <p className="empty-state">Chưa có nhiệm vụ học tập. Vui lòng liên hệ giảng viên để được cấp quyền.</p>
           ) : null}
           <div className="assignment-list">
             {assignments.map((assignment) => (
@@ -113,11 +236,11 @@ export function StudentDashboardPage() {
         </div>
 
         <div className="content-card content-card--enterprise">
-          <h2>Access rules</h2>
+          <h2>Quy tắc truy cập</h2>
           <ul className="plain-list">
-            <li>Students see only lessons assigned to their email.</li>
-            <li>Course-buyers see buyer-only lessons if enabled by teacher.</li>
-            <li>Audio and attachments are prepared by the teacher.</li>
+            <li>Học viên chỉ thấy bài học được giao đúng email tài khoản.</li>
+            <li>Người đã mua khóa sẽ thấy học liệu dành riêng khi giảng viên bật quyền.</li>
+            <li>Audio và tài liệu đính kèm do giảng viên chuẩn bị.</li>
           </ul>
         </div>
       </section>
@@ -134,18 +257,19 @@ export function TeacherDashboardPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [recipientInput, setRecipientInput] = useState('minh@student.demo, linh@student.demo');
+  const [showStudentView, setShowStudentView] = useState(false);
   const [form, setForm] = useState({
     courseKey: courses[0]?.key || 'english-foundation',
-    courseTitle: courses[0]?.title || 'English Foundation A1-A2',
-    lessonTitle: 'Lesson 2. Pronunciation',
-    title: 'Pronunciation task',
-    description: 'Upload the audio, then deliver the listening activity to selected students.',
-    assignmentScope: 'selected_students',
+    courseTitle: courses[0]?.title || 'Tiếng Anh nền tảng A1-A2',
+    lessonTitle: 'Bài 2. Phát âm trọng tâm',
+    title: 'Nhiệm vụ luyện phát âm',
+    description: 'Giao hoạt động nghe cho học viên đã mua khóa trong đúng lộ trình học.',
+    assignmentScope: 'course_buyers',
     audioName: 'sample-audio.mp3',
     audioUrl: 'https://example.com/sample-audio.mp3',
     attachmentName: 'worksheet.pdf',
-    attachmentUrl: 'https://example.com/worksheet.pdf'
+    attachmentUrl: 'https://example.com/worksheet.pdf',
+    exerciseConfig: defaultExerciseConfig
   });
 
   useEffect(() => {
@@ -180,34 +304,55 @@ export function TeacherDashboardPage() {
     };
   }, [teacherId]);
 
+  function updateExerciseConfig(nextConfig) {
+    setForm((previous) => ({
+      ...previous,
+      exerciseConfig: {
+        ...getExerciseConfig(previous),
+        ...nextConfig
+      }
+    }));
+  }
+
+  function updateExerciseOption(index, value) {
+    const nextOptions = [...getExerciseConfig(form).options];
+    nextOptions[index] = value;
+    updateExerciseConfig({ options: nextOptions });
+  }
+
+  function updateMatchingPair(index, field, value) {
+    const nextPairs = getExerciseConfig(form).pairs.map((pair, pairIndex) =>
+      pairIndex === index ? { ...pair, [field]: value } : pair
+    );
+    updateExerciseConfig({ pairs: nextPairs });
+  }
+
   async function handleCreateAssignment(event) {
     event.preventDefault();
     setError('');
     setSuccess('');
 
     if (!teacherId) {
-      setError('Missing teacher account.');
+      setError('Thiếu tài khoản giảng viên.');
       return;
     }
 
     setSaving(true);
     try {
-      const recipientEmails = recipientInput
-        .split(/[\n,;]/)
-        .map((item) => item.trim().toLowerCase())
-        .filter(Boolean);
-
       await createAssignment({
         teacherId,
-        assignment: form,
-        recipients: recipientEmails
+        assignment: {
+          ...form,
+          assignmentScope: 'course_buyers'
+        },
+        recipients: []
       });
 
       const nextAssignments = await getAssignmentsForTeacher(teacherId);
       setAssignments(nextAssignments);
-      setSuccess('Assignment saved to Supabase successfully.');
+      setSuccess('Nhiệm vụ học tập đã được lưu thành công.');
     } catch (submissionError) {
-      setError(submissionError.message || 'Could not save assignment.');
+      setError(submissionError.message || 'Chưa thể lưu nhiệm vụ học tập.');
     } finally {
       setSaving(false);
     }
@@ -215,28 +360,30 @@ export function TeacherDashboardPage() {
 
   const metrics = useMemo(
     () => [
-      { label: 'Active courses', value: String(courses.length || 0) },
-      { label: 'Assignments', value: String(assignments.length) },
-      { label: 'Recipients', value: assignments.reduce((sum, assignment) => sum + assignment.recipients.length, 0).toString() },
-      { label: 'Saved in DB', value: 'Yes' }
+      { label: 'Khóa đang vận hành', value: String(courses.length || 0) },
+      { label: 'Nhiệm vụ đã tạo', value: String(assignments.length) },
+      { label: 'Bài trong lộ trình', value: String(assignments.length) },
+      { label: 'Trạng thái lưu', value: 'Hoàn tất' }
     ],
     [assignments, courses.length]
   );
 
   return (
     <DashboardShell
-      title="Dashboard"
-      description="Create assignments, upload lesson files, and deliver them to selected students."
+      title="Bảng điều khiển giảng viên"
+      description="Tạo nhiệm vụ học tập, quản lý học liệu và phân phối bài học cho đúng nhóm học viên."
       metrics={metrics}
     >
       <section className="section split-layout">
         <form className="content-card content-card--enterprise dashboard-form" onSubmit={handleCreateAssignment}>
           <div className="section-head">
             <div>
-              <span className="eyebrow">Assignment manager</span>
-              <h2>Create lesson assignment</h2>
+              <span className="eyebrow">Quản lý giao bài</span>
+              <h2>Tạo nhiệm vụ học tập</h2>
             </div>
-            <span className="pill">Supabase ready</span>
+            <button type="button" className="button-ghost" onClick={() => setShowStudentView((value) => !value)}>
+              Student view
+            </button>
           </div>
 
           {error ? <div className="auth-message">{error}</div> : null}
@@ -244,7 +391,7 @@ export function TeacherDashboardPage() {
 
           <div className="dashboard-form__grid">
             <label className="auth-field">
-              <span>Course</span>
+              <span>Khóa học</span>
               <select
                 value={form.courseKey}
                 onChange={(event) => {
@@ -265,46 +412,193 @@ export function TeacherDashboardPage() {
             </label>
 
             <label className="auth-field">
-              <span>Assignment scope</span>
-              <select
-                value={form.assignmentScope}
-                onChange={(event) => setForm((previous) => ({ ...previous, assignmentScope: event.target.value }))}
-              >
-                <option value="selected_students">Selected students</option>
-                <option value="course_buyers">Course buyers</option>
-              </select>
-            </label>
-
-            <label className="auth-field">
-              <span>Lesson title</span>
+              <span>Thứ tự trong lộ trình</span>
               <input
-                value={form.lessonTitle}
-                onChange={(event) => setForm((previous) => ({ ...previous, lessonTitle: event.target.value }))}
-                placeholder="Lesson 2. Pronunciation"
+                type="number"
+                min="1"
+                value={getExerciseConfig(form).lessonPosition}
+                onChange={(event) => updateExerciseConfig({ lessonPosition: event.target.value })}
+                placeholder="1"
               />
             </label>
 
             <label className="auth-field">
-              <span>Assignment title</span>
+              <span>Tên bài học</span>
+              <input
+                value={form.lessonTitle}
+                onChange={(event) => setForm((previous) => ({ ...previous, lessonTitle: event.target.value }))}
+                placeholder="Bài 2. Phát âm trọng tâm"
+              />
+            </label>
+
+            <label className="auth-field">
+              <span>Tên nhiệm vụ</span>
               <input
                 value={form.title}
                 onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
-                placeholder="Pronunciation task"
+                placeholder="Nhiệm vụ luyện phát âm"
               />
             </label>
 
             <label className="auth-field auth-field--full">
-              <span>Description</span>
+              <span>Mô tả</span>
               <textarea
                 rows="4"
                 value={form.description}
                 onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))}
-                placeholder="Describe what students should do..."
+                placeholder="Mô tả yêu cầu học viên cần thực hiện..."
               />
             </label>
 
+            <div className="auth-field auth-field--full assignment-builder">
+              <span>Cấu hình bài tập</span>
+              <div className="assignment-builder__grid">
+                <label>
+                  <span>Dạng bài</span>
+                  <select
+                    value={getExerciseConfig(form).type}
+                    onChange={(event) => updateExerciseConfig({ type: event.target.value })}
+                  >
+                    {Object.entries(exerciseTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {getExerciseConfig(form).type !== 'blank' && getExerciseConfig(form).type !== 'flash' ? (
+                  <label>
+                    <span>Câu hỏi / yêu cầu</span>
+                    <input
+                      value={getExerciseConfig(form).prompt}
+                      onChange={(event) => updateExerciseConfig({ prompt: event.target.value })}
+                      placeholder="Nhập câu hỏi học viên sẽ thấy"
+                    />
+                  </label>
+                ) : null}
+
+                {getExerciseConfig(form).type === 'mcq' ? (
+                  <>
+                    {getExerciseConfig(form).options.map((option, index) => (
+                      <label key={`option-${index}`}>
+                        <span>Phương án {index + 1}</span>
+                        <input
+                          value={option}
+                          onChange={(event) => updateExerciseOption(index, event.target.value)}
+                          placeholder={`Phương án ${index + 1}`}
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      <span>Đáp án đúng</span>
+                      <select
+                        value={getExerciseConfig(form).correctAnswer}
+                        onChange={(event) => updateExerciseConfig({ correctAnswer: event.target.value })}
+                      >
+                        {getExerciseConfig(form).options.filter(Boolean).map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                ) : null}
+
+                {getExerciseConfig(form).type === 'tf' ? (
+                  <label>
+                    <span>Đáp án đúng</span>
+                    <select
+                      value={getExerciseConfig(form).trueFalseAnswer}
+                      onChange={(event) => updateExerciseConfig({ trueFalseAnswer: event.target.value })}
+                    >
+                      <option value="Đúng">Đúng</option>
+                      <option value="Sai">Sai</option>
+                    </select>
+                  </label>
+                ) : null}
+
+                {getExerciseConfig(form).type === 'match' ? (
+                  <>
+                    {getExerciseConfig(form).pairs.map((pair, index) => (
+                      <div key={`pair-${index}`} className="assignment-builder__pair">
+                        <label>
+                          <span>Mục {index + 1}</span>
+                          <input
+                            value={pair.term}
+                            onChange={(event) => updateMatchingPair(index, 'term', event.target.value)}
+                            placeholder="Từ / câu hỏi"
+                          />
+                        </label>
+                        <label>
+                          <span>Đáp án đúng</span>
+                          <input
+                            value={pair.answer}
+                            onChange={(event) => updateMatchingPair(index, 'answer', event.target.value)}
+                            placeholder="Nghĩa / cặp đúng"
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </>
+                ) : null}
+
+                {getExerciseConfig(form).type === 'blank' ? (
+                  <>
+                    <label>
+                      <span>Câu điền khuyết</span>
+                      <input
+                        value={getExerciseConfig(form).blankText}
+                        onChange={(event) => updateExerciseConfig({ blankText: event.target.value })}
+                        placeholder="Hello, my name ____ Linh."
+                      />
+                    </label>
+                    <label>
+                      <span>Đáp án đúng</span>
+                      <input
+                        value={getExerciseConfig(form).blankAnswer}
+                        onChange={(event) => updateExerciseConfig({ blankAnswer: event.target.value })}
+                        placeholder="is"
+                      />
+                    </label>
+                  </>
+                ) : null}
+
+                {getExerciseConfig(form).type === 'flash' ? (
+                  <>
+                    <label>
+                      <span>Mặt trước</span>
+                      <input
+                        value={getExerciseConfig(form).flashFront}
+                        onChange={(event) => updateExerciseConfig({ flashFront: event.target.value })}
+                        placeholder="Hello"
+                      />
+                    </label>
+                    <label>
+                      <span>Mặt sau</span>
+                      <input
+                        value={getExerciseConfig(form).flashBack}
+                        onChange={(event) => updateExerciseConfig({ flashBack: event.target.value })}
+                        placeholder="Xin chào"
+                      />
+                    </label>
+                  </>
+                ) : null}
+
+                <label>
+                  <span>Phản hồi sau khi làm bài</span>
+                  <input
+                    value={getExerciseConfig(form).explanation}
+                    onChange={(event) => updateExerciseConfig({ explanation: event.target.value })}
+                    placeholder="Gợi ý hoặc giải thích ngắn"
+                  />
+                </label>
+              </div>
+            </div>
+
             <label className="auth-field">
-              <span>Audio file name</span>
+              <span>Tên file audio</span>
               <input
                 value={form.audioName}
                 onChange={(event) => setForm((previous) => ({ ...previous, audioName: event.target.value }))}
@@ -313,7 +607,7 @@ export function TeacherDashboardPage() {
             </label>
 
             <label className="auth-field">
-              <span>Audio URL</span>
+              <span>Đường dẫn audio</span>
               <input
                 value={form.audioUrl}
                 onChange={(event) => setForm((previous) => ({ ...previous, audioUrl: event.target.value }))}
@@ -322,7 +616,7 @@ export function TeacherDashboardPage() {
             </label>
 
             <label className="auth-field">
-              <span>Attachment file name</span>
+              <span>Tên tài liệu đính kèm</span>
               <input
                 value={form.attachmentName}
                 onChange={(event) => setForm((previous) => ({ ...previous, attachmentName: event.target.value }))}
@@ -331,7 +625,7 @@ export function TeacherDashboardPage() {
             </label>
 
             <label className="auth-field">
-              <span>Attachment URL</span>
+              <span>Đường dẫn tài liệu</span>
               <input
                 value={form.attachmentUrl}
                 onChange={(event) => setForm((previous) => ({ ...previous, attachmentUrl: event.target.value }))}
@@ -339,29 +633,43 @@ export function TeacherDashboardPage() {
               />
             </label>
 
-            <label className="auth-field auth-field--full">
-              <span>Student emails, separated by comma</span>
-              <textarea
-                rows="3"
-                value={recipientInput}
-                onChange={(event) => setRecipientInput(event.target.value)}
-                placeholder="minh@student.demo, linh@student.demo"
-              />
-            </label>
           </div>
 
+          {showStudentView ? (
+            <section className="student-view-preview">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">Student view</span>
+                  <h3>Học viên sẽ nhìn thấy bài tập như sau</h3>
+                </div>
+                <span className="pill">{form.courseTitle}</span>
+              </div>
+              <article className="content-card content-card--enterprise assignment-card">
+                <div className="assignment-card__head">
+                  <div>
+                    <span className="eyebrow">{form.courseTitle}</span>
+                    <h3>{form.title}</h3>
+                    <p>{form.lessonTitle}</p>
+                  </div>
+                </div>
+                {form.description ? <p className="assignment-card__description">{form.description}</p> : null}
+                <AssignmentExercisePreview assignment={form} />
+              </article>
+            </section>
+          ) : null}
+
           <button type="submit" className="button dashboard-submit" disabled={saving || !teacherId}>
-            {saving ? 'Saving...' : 'Save to Supabase'}
+            {saving ? 'Đang lưu...' : 'Lưu nhiệm vụ'}
           </button>
         </form>
 
         <div className="content-card content-card--enterprise">
           <div className="section-head">
             <div>
-              <span className="eyebrow">Saved assignments</span>
-              <h2>What you have already delivered</h2>
+              <span className="eyebrow">Nhiệm vụ đã lưu</span>
+              <h2>Học liệu đã phân phối</h2>
             </div>
-            <span className="pill">{loading ? 'Loading' : `${assignments.length} items`}</span>
+            <span className="pill">{loading ? 'Đang tải' : `${assignments.length} mục`}</span>
           </div>
 
           <div className="assignment-list">
@@ -378,31 +686,31 @@ export function TeacherDashboardPage() {
 export function AdminDashboardPage() {
   return (
     <DashboardShell
-      title="Dashboard"
-      description="Users, approvals, payments, and platform analytics."
+      title="Bảng điều khiển quản trị"
+      description="Theo dõi người dùng, phê duyệt nội dung, thanh toán và chỉ số vận hành nền tảng."
       metrics={[
-        { label: 'Users', value: '12,480' },
-        { label: 'Revenue', value: '$128k' },
-        { label: 'Transactions', value: '1,248' },
-        { label: 'Approval queue', value: '6' }
+        { label: 'Người dùng', value: '12,480' },
+        { label: 'Doanh thu', value: '$128k' },
+        { label: 'Giao dịch', value: '1,248' },
+        { label: 'Chờ phê duyệt', value: '6' }
       ]}
     >
       <section className="section split-layout">
         <div className="content-card content-card--enterprise">
-          <h2>Platform controls</h2>
+          <h2>Điều phối nền tảng</h2>
           <ul className="plain-list">
-            <li>Approve teacher courses and assignments</li>
-            <li>Monitor student enrollment and payments</li>
-            <li>Audit access to learning materials</li>
+            <li>Phê duyệt khóa học và nhiệm vụ do giảng viên tạo.</li>
+            <li>Theo dõi ghi danh, thanh toán và trạng thái học viên.</li>
+            <li>Kiểm tra quyền truy cập vào học liệu và tài khoản liên quan.</li>
           </ul>
         </div>
 
         <div className="content-card content-card--enterprise">
-          <h2>Next integration points</h2>
+          <h2>Kế hoạch vận hành tiếp theo</h2>
           <ul className="plain-list">
-            <li>Database persistence</li>
-            <li>JWT auth and refresh tokens</li>
-            <li>Realtime progress tracking</li>
+            <li>Hoàn thiện hồ sơ học viên và lịch sử giao dịch.</li>
+            <li>Nâng cấp quy trình đăng nhập và bảo vệ tài khoản.</li>
+            <li>Theo dõi tiến độ học tập nhanh hơn cho đội ngũ vận hành.</li>
           </ul>
         </div>
       </section>

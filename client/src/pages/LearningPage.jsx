@@ -5,30 +5,30 @@ import { createAssignment, getAssignmentsForStudent, getAssignmentsForTeacher, g
 import { PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
 
 const lessons = [
-  { id: 'lesson-1', title: 'Lesson 1. Introduction', status: 'done', note: 'Warm up + basic greetings' },
-  { id: 'lesson-2', title: 'Lesson 2. Pronunciation', status: 'active', note: 'Main lesson with audio practice' },
-  { id: 'lesson-3', title: 'Lesson 3. Small talk', status: 'locked', note: 'Unlock after receiving access' },
-  { id: 'lesson-4', title: 'Lesson 4. Mini test', status: 'locked', note: 'Chapter quiz' }
+  { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
+  { id: 'lesson-2', title: 'Bài 2. Phát âm trọng tâm', status: 'active', note: 'Bài học chính kèm luyện nghe và nhại âm' },
+  { id: 'lesson-3', title: 'Bài 3. Hội thoại ngắn', status: 'locked', note: 'Mở khóa sau khi được cấp quyền học' },
+  { id: 'lesson-4', title: 'Bài 4. Kiểm tra nhanh', status: 'locked', note: 'Bài đánh giá cuối chương' }
 ];
 
 const exerciseTabs = [
-  { id: 'mcq', label: 'Multiple choice' },
-  { id: 'tf', label: 'True / false' },
-  { id: 'match', label: 'Matching' },
-  { id: 'blank', label: 'Fill in the blank' },
-  { id: 'flash', label: 'Flashcard' }
+  { id: 'mcq', label: 'Trắc nghiệm' },
+  { id: 'tf', label: 'Đúng / Sai' },
+  { id: 'match', label: 'Nối cặp' },
+  { id: 'blank', label: 'Điền khuyết' },
+  { id: 'flash', label: 'Thẻ ghi nhớ' }
 ];
 
 const matchingPairs = [
   { word: 'Apple', answer: 'Quả táo' },
-  { word: 'Teacher', answer: 'Giáo viên' },
+  { word: 'Teacher', answer: 'Giảng viên' },
   { word: 'Practice', answer: 'Luyện tập' }
 ];
 
 const demoStudents = [
-  { email: 'minh@student.demo', label: 'Minh' },
-  { email: 'linh@student.demo', label: 'Linh' },
-  { email: 'tuan@student.demo', label: 'Tuấn' }
+  { email: 'minh@ngoaingu3k.com', label: 'Minh' },
+  { email: 'linh@ngoaingu3k.com', label: 'Linh' },
+  { email: 'tuan@ngoaingu3k.com', label: 'Tuấn' }
 ];
 
 const storageKeys = {
@@ -65,10 +65,14 @@ function PracticeBadge({ title, text }) {
   );
 }
 
+function formatAssignmentScope(scope) {
+  return scope === 'course_buyers' ? 'Học viên đã mua khóa' : 'Học viên được chọn';
+}
+
 export default function LearningPage() {
   const auth = useAuth();
   const currentRole = getEffectiveRole(auth);
-  const currentEmail = auth.user?.email || auth.profile?.full_name || 'demo@student.demo';
+  const currentEmail = auth.user?.email || auth.profile?.full_name || 'hocvien@ngoaingu3k.com';
 
   const [selectedLessonId, setSelectedLessonId] = useState('lesson-2');
   const [activeTab, setActiveTab] = useState('mcq');
@@ -85,6 +89,7 @@ export default function LearningPage() {
   const [teacherAssignments, setTeacherAssignments] = useState([]);
   const [studentAssignments, setStudentAssignments] = useState([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [showTeacherStudentView, setShowTeacherStudentView] = useState(false);
 
   useEffect(() => {
     writeStoredJson(storageKeys.audioByLesson, audioMap);
@@ -203,25 +208,21 @@ export default function LearningPage() {
   }
 
   async function saveAssignmentToSupabase() {
-    const recipientEmails = demoStudents
-      .filter((student) => allowedStudents.includes(student.email))
-      .map((student) => student.email);
-
     await createAssignment({
       teacherId: auth.user?.id,
       assignment: {
         courseKey: 'english-foundation',
-        courseTitle: 'English Foundation A1-A2',
+        courseTitle: 'Tiếng Anh nền tảng A1-A2',
         lessonTitle: currentLesson.title,
-        title: `${currentLesson.title} learning pack`,
+        title: `${currentLesson.title} - bộ học liệu`,
         description: currentLesson.note,
-        assignmentScope: 'selected_students',
+        assignmentScope: 'course_buyers',
         audioName: audioMap[selectedLessonId]?.name || '',
         audioUrl: audioMap[selectedLessonId]?.url || '',
         attachmentName: fileMap[selectedLessonId]?.name || '',
         attachmentUrl: fileMap[selectedLessonId]?.url || ''
       },
-      recipients: recipientEmails
+      recipients: []
     });
   }
 
@@ -234,14 +235,14 @@ export default function LearningPage() {
       <section className="learning-shell">
         <aside className="lesson-sidebar">
           <div className="sidebar-head">
-            <span className="eyebrow">Learning room</span>
-            <h2>Chapter 1. Greetings</h2>
-            <p>A real teaching flow: teacher uploads, student receives, then learns in one continuous room.</p>
+            <span className="eyebrow">Phòng học</span>
+            <h2>Chương 1. Chào hỏi chuyên nghiệp</h2>
+            <p>Quy trình học liền mạch: giảng viên tải học liệu, học viên nhận quyền truy cập và học trong cùng một không gian.</p>
           </div>
 
           <div className="lesson-sidebar__progress">
             <div>
-              <strong>Progress</strong>
+              <strong>Tiến độ</strong>
               <span>{lessonProgress}%</span>
             </div>
             <div className="meter">
@@ -257,7 +258,7 @@ export default function LearningPage() {
               onClick={() => setSelectedLessonId(lesson.id)}
             >
               <span className="lesson-item__icon" aria-hidden="true">
-                {lesson.status === 'done' ? 'OK' : lesson.status === 'active' ? 'IN' : '--'}
+                {lesson.status === 'done' ? 'OK' : lesson.status === 'active' ? 'HỌC' : 'KHÓA'}
               </span>
               <span className="lesson-item__copy">
                 <strong>{lesson.title}</strong>
@@ -270,39 +271,39 @@ export default function LearningPage() {
         <div className="learning-stage">
           <section className="content-card content-card--enterprise learning-hero">
             <div className="learning-hero__copy">
-              <span className="eyebrow">Current lesson</span>
+              <span className="eyebrow">Bài học hiện tại</span>
               <h1>{currentLesson.title}</h1>
               <p>{currentLesson.note}</p>
 
               <div className="learning-flow">
-                <PracticeBadge title="1. Listen" text="Use uploaded audio or teacher-provided recording." />
-                <PracticeBadge title="2. Practice" text="Transcript, notes, and vocabulary are shown below." />
-                <PracticeBadge title="3. Submit" text="Teacher can assign to selected students or all buyers." />
+                <PracticeBadge title="1. Nghe" text="Sử dụng audio do giảng viên tải lên hoặc bản ghi được cung cấp." />
+                <PracticeBadge title="2. Luyện tập" text="Transcript, ghi chú và từ vựng được đặt ngay bên dưới." />
+                <PracticeBadge title="3. Nộp bài" text="Giảng viên có thể giao cho học viên được chọn hoặc toàn bộ người mua khóa." />
               </div>
             </div>
 
             <div className="learning-hero__panel">
               <div className="learning-status">
-                <span>Access</span>
-                <strong>{hasLessonAccess ? 'Unlocked' : 'Locked'}</strong>
-                <p>{hasLessonAccess ? 'You can study this lesson now.' : 'You need purchase or teacher access.'}</p>
+                <span>Quyền truy cập</span>
+                <strong>{hasLessonAccess ? 'Đã mở khóa' : 'Đang khóa'}</strong>
+                <p>{hasLessonAccess ? 'Bạn có thể học bài này ngay.' : 'Cần mua khóa học hoặc được giảng viên cấp quyền.'}</p>
               </div>
 
               <div className="learning-stat-grid">
                 <article>
-                  <span>Audio</span>
-                  <strong>{lessonAudio ? 'Ready' : 'Missing'}</strong>
+                  <span>Âm thanh</span>
+                  <strong>{lessonAudio ? 'Sẵn sàng' : 'Chưa có'}</strong>
                 </article>
                 <article>
-                  <span>Attachment</span>
-                  <strong>{lessonFile ? 'Ready' : 'Missing'}</strong>
+                  <span>Tài liệu</span>
+                  <strong>{lessonFile ? 'Sẵn sàng' : 'Chưa có'}</strong>
                 </article>
                 <article>
-                  <span>Audience</span>
-                  <strong>{allowedStudents.length}</strong>
+                  <span>Quyền học</span>
+                  <strong>{hasLessonAccess ? 'Mở' : 'Khóa'}</strong>
                 </article>
                 <article>
-                  <span>Tasks</span>
+                  <span>Nhiệm vụ</span>
                   <strong>{visibleAssignments.length}</strong>
                 </article>
               </div>
@@ -314,33 +315,32 @@ export default function LearningPage() {
               <section className="content-card content-card--enterprise learning-media">
                 <div className="section-head">
                   <div>
-                    <span className="eyebrow">Lesson studio</span>
-                    <h2>Everything students need in one place</h2>
+                    <span className="eyebrow">Học liệu</span>
+                    <h2>Tài nguyên học tập trong một không gian</h2>
                   </div>
-                  <span className="pill">No embedded Drive frame</span>
                 </div>
 
                 <div className="learning-media__grid">
                   <div className="lesson-upload-box">
-                    <strong>Audio lesson</strong>
+                    <strong>File nghe</strong>
                     <p>
                       {lessonAudio
-                        ? `Uploaded file: ${lessonAudio.name}`
-                        : 'No audio uploaded yet. Teacher can upload one below.'}
+                        ? `File đã tải lên: ${lessonAudio.name}`
+                        : 'Chưa có audio. Giảng viên có thể tải file ở khu vực bên dưới.'}
                     </p>
                     {lessonAudio?.url ? <audio controls src={lessonAudio.url} className="lesson-audio" /> : null}
                   </div>
 
                   <div className="lesson-upload-box">
-                    <strong>Transcript / attachment</strong>
+                    <strong>Bản chép lời / tài liệu đính kèm</strong>
                     <p>
                       {lessonFile
-                        ? `Attached file: ${lessonFile.name}`
-                        : 'No attachment uploaded yet. Use this area for PDF, transcript, or worksheet.'}
+                        ? `Tài liệu đã đính kèm: ${lessonFile.name}`
+                        : 'Chưa có tài liệu. Khu vực này dùng cho PDF, transcript hoặc worksheet.'}
                     </p>
                     {lessonFile?.url ? (
                       <a className="auth-link" href={lessonFile.url} download={lessonFile.name}>
-                        Download attachment
+                        Tải tài liệu
                       </a>
                     ) : null}
                   </div>
@@ -348,16 +348,16 @@ export default function LearningPage() {
 
                 <div className="lesson-notes-grid">
                   <article className="lesson-note-card">
-                    <strong>Transcript</strong>
-                    <p>Teacher can paste or later sync transcript from PDF / audio processing.</p>
+                    <strong>Bản chép lời</strong>
+                    <p>Giảng viên có thể dán bản chép lời hoặc đồng bộ từ PDF / xử lý audio ở bước sau.</p>
                   </article>
                   <article className="lesson-note-card">
-                    <strong>Notes</strong>
-                    <p>Call out pronunciation, key phrases, and what students should repeat aloud.</p>
+                    <strong>Ghi chú</strong>
+                    <p>Làm nổi bật phát âm, cụm từ trọng tâm và nội dung học viên cần luyện nói lại.</p>
                   </article>
                   <article className="lesson-note-card">
-                    <strong>Homework</strong>
-                    <p>Ask students to record a reply, submit answers, or complete the matching task.</p>
+                    <strong>Bài tập về nhà</strong>
+                    <p>Yêu cầu học viên ghi âm phản hồi, nộp đáp án hoặc hoàn thành bài nối cặp.</p>
                   </article>
                 </div>
               </section>
@@ -365,10 +365,10 @@ export default function LearningPage() {
               <section className="content-card content-card--enterprise">
                 <div className="section-head">
                   <div>
-                    <span className="eyebrow">Exercises</span>
-                    <h2>Practice modes for the lesson</h2>
+                    <span className="eyebrow">Bài luyện</span>
+                    <h2>Chế độ luyện tập cho bài học</h2>
                   </div>
-                  <span className="pill">Interactive</span>
+                  <span className="pill">Tương tác</span>
                 </div>
 
                 <div className="exercise-tabs">
@@ -387,8 +387,8 @@ export default function LearningPage() {
                 <div className="exercise-panel">
                   {activeTab === 'mcq' ? (
                     <div className="exercise-card">
-                      <h3>Multiple choice</h3>
-                      <p>Which word best matches "hello"?</p>
+                      <h3>Trắc nghiệm</h3>
+                      <p>Từ nào phù hợp nhất với "hello"?</p>
                       <div className="exercise-options">
                         {['xin chào', 'tạm biệt', 'cảm ơn'].map((option) => (
                           <button
@@ -402,17 +402,17 @@ export default function LearningPage() {
                         ))}
                       </div>
                       <div className={mcqAnswer === 'xin chào' ? 'exercise-feedback success' : 'exercise-feedback'}>
-                        {mcqAnswer ? `Selected: ${mcqAnswer}` : 'Choose one answer to see feedback.'}
+                        {mcqAnswer ? `Đã chọn: ${mcqAnswer}` : 'Chọn một đáp án để xem phản hồi.'}
                       </div>
                     </div>
                   ) : null}
 
                   {activeTab === 'tf' ? (
                     <div className="exercise-card">
-                      <h3>True / false</h3>
-                      <p>"Good morning" is used before noon.</p>
+                      <h3>Đúng / Sai</h3>
+                      <p>"Good morning" được dùng trước buổi trưa.</p>
                       <div className="exercise-options">
-                        {['True', 'False'].map((option) => (
+                        {['Đúng', 'Sai'].map((option) => (
                           <button
                             key={option}
                             type="button"
@@ -423,16 +423,16 @@ export default function LearningPage() {
                           </button>
                         ))}
                       </div>
-                      <div className={tfAnswer === 'True' ? 'exercise-feedback success' : 'exercise-feedback'}>
-                        {tfAnswer ? (tfAnswer === 'True' ? 'Correct — that is true.' : 'Not quite. It is true.') : 'Pick a statement.'}
+                      <div className={tfAnswer === 'Đúng' ? 'exercise-feedback success' : 'exercise-feedback'}>
+                        {tfAnswer ? (tfAnswer === 'Đúng' ? 'Chính xác, nhận định này đúng.' : 'Chưa đúng. Nhận định này là đúng.') : 'Chọn một nhận định.'}
                       </div>
                     </div>
                   ) : null}
 
                   {activeTab === 'match' ? (
                     <div className="exercise-card">
-                      <h3>Matching</h3>
-                      <p>Match the English word to the Vietnamese meaning.</p>
+                      <h3>Nối cặp</h3>
+                      <p>Ghép từ tiếng Anh với nghĩa tiếng Việt phù hợp.</p>
                       <div className="match-list">
                         {matchingPairs.map((item, index) => (
                           <label key={item.word} className="match-row">
@@ -445,7 +445,7 @@ export default function LearningPage() {
                                 setMatchAnswers(next);
                               }}
                             >
-                              <option value="">Choose meaning</option>
+                              <option value="">Chọn nghĩa</option>
                               {matchingPairs.map((pair) => (
                                 <option key={pair.answer} value={pair.answer}>
                                   {pair.answer}
@@ -455,37 +455,37 @@ export default function LearningPage() {
                           </label>
                         ))}
                       </div>
-                      <div className="exercise-feedback">{matchAnswers.filter(Boolean).length}/3 pairs selected.</div>
+                      <div className="exercise-feedback">{matchAnswers.filter(Boolean).length}/3 cặp đã chọn.</div>
                     </div>
                   ) : null}
 
                   {activeTab === 'blank' ? (
                     <div className="exercise-card">
-                      <h3>Fill in the blank</h3>
+                      <h3>Điền khuyết</h3>
                       <p>Hello, my name ____ Linh.</p>
                       <input
                         type="text"
                         value={blankAnswer}
                         onChange={(event) => setBlankAnswer(event.target.value)}
-                        placeholder="Type your answer"
+                        placeholder="Nhập đáp án"
                         className="lesson-input"
                       />
                       <div className={blankAnswer.trim().toLowerCase() === 'is' ? 'exercise-feedback success' : 'exercise-feedback'}>
                         {blankAnswer
                           ? blankAnswer.trim().toLowerCase() === 'is'
-                            ? 'Correct — "is" fits here.'
-                            : 'Try again. Hint: use a form of "to be".'
-                          : 'Type your answer to check it.'}
+                            ? 'Chính xác, "is" phù hợp trong câu này.'
+                            : 'Thử lại nhé. Gợi ý: dùng một dạng của động từ "to be".'
+                          : 'Nhập đáp án để kiểm tra.'}
                       </div>
                     </div>
                   ) : null}
 
                   {activeTab === 'flash' ? (
                     <div className="exercise-card">
-                      <h3>Flashcard</h3>
+                      <h3>Thẻ ghi nhớ</h3>
                       <button type="button" className="flashcard" onClick={() => setFlashFlip((value) => !value)}>
                         <span>{flashFlip ? 'Xin chào = Hello' : 'Hello'}</span>
-                        <small>{flashFlip ? 'Tap to flip back' : 'Tap to reveal translation'}</small>
+                        <small>{flashFlip ? 'Bấm để lật lại' : 'Bấm để xem nghĩa'}</small>
                       </button>
                     </div>
                   ) : null}
@@ -494,12 +494,12 @@ export default function LearningPage() {
             </>
           ) : (
             <section className="content-card content-card--enterprise lesson-lock">
-              <span className="eyebrow">Access control</span>
-              <h2>You have no access to this lesson yet.</h2>
-              <p>Students can only receive lesson materials if they either bought the course or were explicitly selected by the teacher.</p>
+              <span className="eyebrow">Quản lý quyền truy cập</span>
+              <h2>Bạn chưa có quyền học bài này.</h2>
+              <p>Học viên chỉ nhận được học liệu khi đã mua khóa học hoặc được giảng viên cấp quyền trực tiếp.</p>
               <div className="lesson-lock__chips">
-                <span className="pill">Purchased course required</span>
-                <span className="pill">Teacher selection required</span>
+                <span className="pill">Cần mua khóa học</span>
+                <span className="pill">Hoặc được giảng viên chọn</span>
               </div>
             </section>
           )}
@@ -508,38 +508,38 @@ export default function LearningPage() {
             <section className="content-card content-card--enterprise lesson-teacher-panel">
               <div className="section-head">
                 <div>
-                  <span className="eyebrow">Teacher tools</span>
-                  <h2>Upload audio, attachment, and save assignment</h2>
+                  <span className="eyebrow">Công cụ giảng viên</span>
+                  <h2>Tải audio, đính kèm tài liệu và lưu nhiệm vụ học tập</h2>
                 </div>
-                <span className="pill">Teacher only</span>
+                <span className="pill">Chỉ dành cho giảng viên</span>
               </div>
 
               <div className="teacher-assignment-grid">
                 <div className="lesson-upload-box">
-                  <strong>Upload audio file</strong>
-                  <p>Use mp3 / wav for listening tasks.</p>
+                  <strong>Tải file audio</strong>
+                  <p>Sử dụng mp3 / wav cho hoạt động nghe và luyện phát âm.</p>
                   <label className="upload-button">
-                    Choose audio
+                    Chọn audio
                     <input type="file" accept="audio/*" onChange={handleAudioUpload} />
                   </label>
-                  <span className="upload-filename">{lessonAudio?.name || 'No audio uploaded yet'}</span>
+                  <span className="upload-filename">{lessonAudio?.name || 'Chưa tải audio'}</span>
                 </div>
 
                 <div className="lesson-upload-box">
-                  <strong>Attach worksheet / PDF</strong>
-                  <p>Add transcript, quiz sheet, or vocabulary list.</p>
+                  <strong>Đính kèm worksheet / PDF</strong>
+                  <p>Thêm transcript, phiếu bài tập hoặc danh sách từ vựng.</p>
                   <label className="upload-button">
-                    Choose file
+                    Chọn file
                     <input type="file" onChange={handleAttachmentUpload} />
                   </label>
-                  <span className="upload-filename">{lessonFile?.name || 'No file uploaded yet'}</span>
+                  <span className="upload-filename">{lessonFile?.name || 'Chưa tải tài liệu'}</span>
                 </div>
               </div>
 
               <div className="teacher-assignment-grid">
                 <div className="lesson-upload-box">
-                  <strong>Publish to course buyers</strong>
-                  <p>Students who bought the course receive this lesson automatically.</p>
+                  <strong>Phát hành cho học viên đã mua khóa</strong>
+                  <p>Học viên đã mua khóa sẽ tự động nhận quyền truy cập bài học này.</p>
                   <button
                     type="button"
                     className={purchasedCourses.includes('english-foundation') ? 'answer-pill is-active' : 'answer-pill'}
@@ -549,45 +549,55 @@ export default function LearningPage() {
                       )
                     }
                   >
-                    English Foundation A1-A2
+                    Tiếng Anh nền tảng A1-A2
                   </button>
                 </div>
 
                 <div className="lesson-upload-box">
-                  <strong>Send to selected students</strong>
-                  <div className="teacher-recipient-list">
-                    {demoStudents.map((student) => (
-                      <label key={student.email} className="teacher-recipient">
-                        <input
-                          type="checkbox"
-                          checked={allowedStudents.includes(student.email)}
-                          onChange={() => toggleRecipient(student.email)}
-                        />
-                        <span>
-                          {student.label}
-                          <small>{student.email}</small>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="teacher-recipient-actions">
-                    <select value={selectedStudentEmail} onChange={(event) => setSelectedStudentEmail(event.target.value)}>
-                      {demoStudents.map((student) => (
-                        <option key={student.email} value={student.email}>
-                          {student.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="button" className="button" onClick={publishAccessToSelected}>
-                      Grant access
-                    </button>
-                  </div>
+                  <strong>Student view</strong>
+                  <p>Xem nhanh học viên sẽ nhìn thấy bài học, học liệu và bài luyện như thế nào trước khi phát hành theo khóa.</p>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => setShowTeacherStudentView((value) => !value)}
+                  >
+                    {showTeacherStudentView ? 'Ẩn Student view' : 'Student view'}
+                  </button>
                 </div>
               </div>
 
+              {showTeacherStudentView ? (
+                <div className="student-view-preview">
+                  <div className="section-head">
+                    <div>
+                      <span className="eyebrow">Student view</span>
+                      <h3>Học viên đã mua khóa sẽ thấy bài học này</h3>
+                    </div>
+                    <span className="pill">Tiếng Anh nền tảng A1-A2</span>
+                  </div>
+                  <div className="lesson-upload-box">
+                    <strong>{currentLesson.title}</strong>
+                    <p>{currentLesson.note}</p>
+                    <div className="lesson-notes-grid">
+                      <article className="lesson-note-card">
+                        <strong>File nghe</strong>
+                        <p>{lessonAudio?.name || 'Audio sẽ hiển thị tại đây khi giảng viên tải lên.'}</p>
+                      </article>
+                      <article className="lesson-note-card">
+                        <strong>Tài liệu</strong>
+                        <p>{lessonFile?.name || 'Tài liệu sẽ hiển thị tại đây khi giảng viên đính kèm.'}</p>
+                      </article>
+                      <article className="lesson-note-card">
+                        <strong>Bài luyện</strong>
+                        <p>Học viên làm bài theo dạng bài giảng viên cấu hình trong lộ trình khóa.</p>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <button type="button" className="button dashboard-submit" onClick={saveAssignmentToSupabase}>
-                Save assignment to Supabase
+                Lưu nhiệm vụ
               </button>
             </section>
           ) : null}
@@ -595,10 +605,10 @@ export default function LearningPage() {
           <section className="content-card content-card--enterprise">
             <div className="section-head">
               <div>
-                <span className="eyebrow">{isTeacher ? 'Teacher feed' : 'My assignments'}</span>
-                <h2>{isTeacher ? 'Saved assignments' : 'Your assigned lessons'}</h2>
+                <span className="eyebrow">{isTeacher ? 'Bảng giao việc' : 'Nhiệm vụ của tôi'}</span>
+                <h2>{isTeacher ? 'Nhiệm vụ đã lưu' : 'Bài học được giao'}</h2>
               </div>
-              <span className="pill">{loadingAssignments ? 'Loading' : `${visibleAssignments.length} items`}</span>
+              <span className="pill">{loadingAssignments ? 'Đang tải' : `${visibleAssignments.length} mục`}</span>
             </div>
 
             {visibleAssignments.length ? (
@@ -612,21 +622,21 @@ export default function LearningPage() {
                         <p>{assignment.lessonTitle}</p>
                       </div>
                       <span className="pill">
-                        {assignment.assignmentScope === 'course_buyers' ? 'Course buyers' : 'Selected students'}
+                        {formatAssignmentScope(assignment.assignmentScope)}
                       </span>
                     </div>
                     {assignment.description ? <p className="assignment-card__description">{assignment.description}</p> : null}
                     <div className="assignment-card__meta">
-                      <span>{assignment.recipients.length} student(s)</span>
-                      <span>{assignment.audioName || 'No audio'}</span>
-                      <span>{assignment.attachmentName || 'No attachment'}</span>
+                      <span>{assignment.recipients.length} học viên</span>
+                      <span>{assignment.audioName || 'Chưa có audio'}</span>
+                      <span>{assignment.attachmentName || 'Chưa có tài liệu'}</span>
                     </div>
                   </article>
                 ))}
               </div>
             ) : (
               <p className="empty-state">
-                {isTeacher ? 'No assignments have been saved yet.' : 'No assignment has been granted to your account yet.'}
+                {isTeacher ? 'Chưa có nhiệm vụ nào được lưu.' : 'Tài khoản của bạn chưa được giao nhiệm vụ học tập.'}
               </p>
             )}
           </section>

@@ -1,9 +1,9 @@
 import { isSupabaseReady, supabase } from './supabase';
 
 export const assignmentFallbackCourses = [
-  { key: 'english-foundation', title: 'English Foundation A1-A2' },
-  { key: 'business-communication', title: 'Business Communication' },
-  { key: 'ielts-boost', title: 'IELTS Boost Sprint' }
+  { key: 'english-foundation', title: 'Tiếng Anh nền tảng A1-A2' },
+  { key: 'business-communication', title: 'Giao tiếp doanh nghiệp' },
+  { key: 'ielts-boost', title: 'Tăng tốc IELTS chuyên sâu' }
 ];
 
 function normalizeRecipients(recipients = []) {
@@ -11,6 +11,61 @@ function normalizeRecipients(recipients = []) {
     studentEmail: recipient.student_email || recipient.studentEmail || ''
   }));
 }
+
+function normalizeExerciseConfig(config) {
+  if (!config) {
+    return {};
+  }
+
+  if (typeof config === 'string') {
+    try {
+      return JSON.parse(config);
+    } catch {
+      return {};
+    }
+  }
+
+  return config;
+}
+
+function isMissingExerciseConfigColumn(error) {
+  return /exercise_config/i.test(error?.message || '');
+}
+
+const assignmentSelectBase = `
+  id,
+  teacher_id,
+  course_key,
+  course_title,
+  lesson_title,
+  title,
+  description,
+  assignment_scope,
+  audio_name,
+  audio_url,
+  attachment_name,
+  attachment_url,
+  created_at,
+  recipients:lesson_assignment_recipients(student_email)
+`;
+
+const assignmentSelectWithExercise = `
+  id,
+  teacher_id,
+  course_key,
+  course_title,
+  lesson_title,
+  title,
+  description,
+  assignment_scope,
+  audio_name,
+  audio_url,
+  attachment_name,
+  attachment_url,
+  exercise_config,
+  created_at,
+  recipients:lesson_assignment_recipients(student_email)
+`;
 
 function normalizeAssignment(item) {
   return {
@@ -26,9 +81,21 @@ function normalizeAssignment(item) {
     audioUrl: item.audio_url || '',
     attachmentName: item.attachment_name || '',
     attachmentUrl: item.attachment_url || '',
+    exerciseConfig: normalizeExerciseConfig(item.exercise_config || item.exerciseConfig),
     createdAt: item.created_at,
     recipients: normalizeRecipients(item.recipients)
   };
+}
+
+async function selectAssignments(createQuery, includeExerciseConfig = true) {
+  const query = createQuery(includeExerciseConfig ? assignmentSelectWithExercise : assignmentSelectBase);
+  const { data, error } = await query.order('created_at', { ascending: false });
+
+  if (error && includeExerciseConfig && isMissingExerciseConfigColumn(error)) {
+    return selectAssignments(createQuery, false);
+  }
+
+  return { data, error };
 }
 
 export async function getAssignmentsForTeacher(teacherId) {
@@ -36,28 +103,9 @@ export async function getAssignmentsForTeacher(teacherId) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from('lesson_assignments')
-    .select(
-      `
-        id,
-        teacher_id,
-        course_key,
-        course_title,
-        lesson_title,
-        title,
-        description,
-        assignment_scope,
-        audio_name,
-        audio_url,
-        attachment_name,
-        attachment_url,
-        created_at,
-        recipients:lesson_assignment_recipients(student_email)
-      `
-    )
-    .eq('teacher_id', teacherId)
-    .order('created_at', { ascending: false });
+  const { data, error } = await selectAssignments(
+    (fields) => supabase.from('lesson_assignments').select(fields).eq('teacher_id', teacherId)
+  );
 
   if (error || !data) {
     return [];
@@ -71,27 +119,7 @@ export async function getAssignmentsForStudent(studentEmail) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from('lesson_assignments')
-    .select(
-      `
-        id,
-        teacher_id,
-        course_key,
-        course_title,
-        lesson_title,
-        title,
-        description,
-        assignment_scope,
-        audio_name,
-        audio_url,
-        attachment_name,
-        attachment_url,
-        created_at,
-        recipients:lesson_assignment_recipients(student_email)
-      `
-    )
-    .order('created_at', { ascending: false });
+  const { data, error } = await selectAssignments((fields) => supabase.from('lesson_assignments').select(fields));
 
   if (error || !data) {
     return [];
@@ -110,7 +138,7 @@ export async function getAssignmentsForStudent(studentEmail) {
 
 export async function createAssignment({ teacherId, assignment, recipients }) {
   if (!isSupabaseReady() || !teacherId) {
-    throw new Error('Supabase is not ready.');
+    throw new Error('Hệ thống chưa sẵn sàng.');
   }
 
   const payload = {
@@ -124,14 +152,27 @@ export async function createAssignment({ teacherId, assignment, recipients }) {
     audio_name: assignment.audioName,
     audio_url: assignment.audioUrl,
     attachment_name: assignment.attachmentName,
-    attachment_url: assignment.attachmentUrl
+    attachment_url: assignment.attachmentUrl,
+    exercise_config: assignment.exerciseConfig || {}
   };
 
-  const { data: created, error: createError } = await supabase
+  let { data: created, error: createError } = await supabase
     .from('lesson_assignments')
     .insert(payload)
     .select('id')
     .single();
+
+  if (createError && isMissingExerciseConfigColumn(createError)) {
+    const { exercise_config: _exerciseConfig, ...fallbackPayload } = payload;
+    const fallbackResult = await supabase
+      .from('lesson_assignments')
+      .insert(fallbackPayload)
+      .select('id')
+      .single();
+
+    created = fallbackResult.data;
+    createError = fallbackResult.error;
+  }
 
   if (createError) {
     throw createError;

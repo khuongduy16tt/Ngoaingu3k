@@ -5,7 +5,7 @@ export const PURCHASED_COURSES_STORAGE_KEY = 'learning-purchased-courses';
 
 function formatPrice(value) {
   const amount = Number.isFinite(Number(value)) ? Number(value) : 0;
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0
@@ -13,27 +13,27 @@ function formatPrice(value) {
 }
 
 function defaultLevel(index) {
-  return ['Beginner', 'Intermediate', 'Advanced'][index % 3];
+  return ['Nền tảng', 'Trung cấp', 'Nâng cao'][index % 3];
 }
 
 function defaultCategory(index) {
-  return ['Core Skills', 'Career', 'Exam Prep', 'Speaking'][index % 4];
+  return ['Kỹ năng cốt lõi', 'Công sở', 'Luyện thi', 'Giao tiếp'][index % 4];
 }
 
 function defaultBadge(index) {
-  return ['Popular', 'Recommended', 'Career ready', 'Fast track'][index % 4];
+  return ['Phổ biến', 'Đề xuất', 'Sẵn sàng công việc', 'Tăng tốc'][index % 4];
 }
 
 function defaultWhatYouGet(course) {
   return [
-    `${course.lessonsCount} structured lessons`,
-    `${course.duration} study roadmap`,
-    'Instant access after purchase'
+    `${course.lessonsCount} bài học có cấu trúc`,
+    `Lộ trình học ${course.duration}`,
+    'Kích hoạt quyền học ngay sau khi mua'
   ];
 }
 
 function defaultHero(course) {
-  return course.summary || 'A structured learning path with practical lessons, assignments, and progress tracking.';
+  return course.summary || 'Lộ trình học có cấu trúc với bài học thực hành, nhiệm vụ và theo dõi tiến độ rõ ràng.';
 }
 
 function normalizeCourse(course, fallbackIndex = 0) {
@@ -45,22 +45,22 @@ function normalizeCourse(course, fallbackIndex = 0) {
     id: slug,
     databaseId: course.databaseId || course.id || slug,
     slug,
-    title: course.title || 'Untitled course',
+    title: course.title || 'Khóa học chưa đặt tên',
     level: course.level || defaultLevel(fallbackIndex),
     priceValue,
     price: formatPrice(priceValue),
     progress: course.progress ?? 0,
-    instructor: course.instructor || 'Supabase instructor',
-    summary: course.description || course.summary || 'Course synced from Supabase.',
+    instructor: course.instructor || 'Giảng viên trung tâm',
+    summary: course.description || course.summary || 'Khóa học được đồng bộ từ hệ thống.',
     category: course.category || defaultCategory(fallbackIndex),
     bannerUrl: course.banner_url || course.bannerUrl || null,
-    duration: course.duration || `${6 + fallbackIndex} weeks`,
+    duration: course.duration || `${6 + fallbackIndex} tuần`,
     lessonsCount,
     rating: typeof course.rating === 'number' ? course.rating : 4.5 + ((fallbackIndex % 4) * 0.1),
     studentsCount: course.studentsCount ?? 320 + fallbackIndex * 110,
     badge: course.badge || defaultBadge(fallbackIndex),
-    hero: course.hero || course.description || 'A polished learning journey with lessons, practice, and buyer access.',
-    language: course.language || 'English',
+    hero: course.hero || course.description || 'Hành trình học chuyên nghiệp với bài học, thực hành và quyền truy cập sau khi mua.',
+    language: course.language || 'Tiếng Anh',
     certificate: course.certificate ?? true,
     whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : []
   };
@@ -182,7 +182,7 @@ export async function getOwnedCourseIds(userId, courses = []) {
 
 export async function purchaseCourse({ course, userId }) {
   if (!course?.id) {
-    throw new Error('Course data is missing.');
+    throw new Error('Thiếu dữ liệu khóa học.');
   }
 
   const currentIds = getStoredPurchasedCourseIds();

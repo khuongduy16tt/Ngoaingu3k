@@ -67,6 +67,15 @@ function NotFoundPage() {
   );
 }
 
+function TestPage() {
+  return (
+    <div className="page centered">
+      <h1>Bài test</h1>
+      <p>Trang bài test đang được chuẩn bị.</p>
+    </div>
+  );
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -74,6 +83,7 @@ export function AppRoutes() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/courses" element={<CoursesPage />} />
       <Route path="/courses/:courseId" element={<CourseDetailPage />} />
+      <Route path="/test" element={<TestPage />} />
       <Route
         path="/learn"
         element={

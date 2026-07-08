@@ -6,18 +6,18 @@ import { getDashboardPathForRole, getEffectiveRole } from '../lib/permissions';
 const gallery = [
   {
     src: '/images/imported/12.5_KH-TT-scaled.webp',
-    title: 'Online learning',
-    meta: 'Live classes · progress tracking'
+    title: 'Học trực tuyến',
+    meta: 'Lớp học live · theo dõi tiến độ'
   },
   {
     src: '/images/imported/11.4_KH-TA-scaled.webp',
-    title: 'Exam prep',
-    meta: 'IELTS · HSK · placement tests'
+    title: 'Luyện thi',
+    meta: 'IELTS · HSK · kiểm tra đầu vào'
   },
   {
     src: '/images/imported/8.4_Trang-chu_GT-TT.webp',
-    title: 'Trusted by learners',
-    meta: 'Sales-ready demo for clients'
+    title: 'Được học viên tin chọn',
+    meta: 'Sẵn sàng cho tư vấn và vận hành'
   }
 ];
 
@@ -39,12 +39,12 @@ export default function AuthPage() {
   const redirectTo = location.state?.from || '/dashboard';
 
   const isSignUp = mode === 'sign-up';
-  const cardTitle = useMemo(() => (isSignUp ? 'Create your account' : 'Welcome back'), [isSignUp]);
+  const cardTitle = useMemo(() => (isSignUp ? 'Tạo tài khoản' : 'Chào mừng bạn trở lại'), [isSignUp]);
   const cardSubtitle = useMemo(
     () =>
       isSignUp
-        ? 'Set up a student profile in seconds and unlock the full learning path.'
-        : 'Continue your linguistic journey with email, password, or Google sign-in.',
+        ? 'Thiết lập hồ sơ học viên nhanh chóng và bắt đầu lộ trình học đầy đủ.'
+        : 'Tiếp tục học tập với email, mật khẩu hoặc tài khoản Google.',
     [isSignUp]
   );
 
@@ -62,17 +62,17 @@ export default function AuthPage() {
     event.preventDefault();
 
     if (!auth.supabase) {
-      setMessage('Supabase is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+      setMessage('Hệ thống đăng nhập chưa sẵn sàng. Vui lòng thử lại sau.');
       return;
     }
 
     if (!email || !password) {
-      setMessage('Please enter both email and password.');
+      setMessage('Vui lòng nhập email và mật khẩu.');
       return;
     }
 
     if (isSignUp && !fullName.trim()) {
-      setMessage('Please enter your full name before creating an account.');
+      setMessage('Vui lòng nhập họ tên trước khi tạo tài khoản.');
       return;
     }
 
@@ -95,7 +95,7 @@ export default function AuthPage() {
           return;
         }
 
-        setMessage('Account created. Please check your inbox if email confirmation is required.');
+        setMessage('Tài khoản đã được tạo. Vui lòng kiểm tra email nếu hệ thống yêu cầu xác nhận.');
       } else {
         const result = await auth.signInWithEmail(email, password);
 
@@ -108,7 +108,7 @@ export default function AuthPage() {
         }
       }
     } catch (error) {
-      setMessage(error.message || 'Authentication failed.');
+      setMessage(error.message || 'Đăng nhập chưa thành công.');
     } finally {
       setBusy(false);
     }
@@ -116,7 +116,7 @@ export default function AuthPage() {
 
   async function handleGoogleLogin() {
     if (!auth.supabase) {
-      setMessage('Supabase is not configured yet. Google OAuth will work after the env is connected.');
+      setMessage('Đăng nhập bằng Google chưa sẵn sàng. Vui lòng thử lại sau.');
       return;
     }
 
@@ -130,17 +130,17 @@ export default function AuthPage() {
       return;
     }
 
-    setMessage('Redirecting to Google...');
+    setMessage('Đang chuyển đến Google...');
   }
 
   async function handleResetPassword() {
     if (!auth.supabase) {
-      setMessage('Supabase is not configured yet, so the reset email cannot be sent.');
+      setMessage('Chưa thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.');
       return;
     }
 
     if (!email) {
-      setMessage('Enter your email before requesting a reset.');
+      setMessage('Vui lòng nhập email trước khi yêu cầu đặt lại mật khẩu.');
       return;
     }
 
@@ -151,7 +151,7 @@ export default function AuthPage() {
     if (result?.error) {
       setMessage(result.error.message);
     } else {
-      setMessage('Password reset email sent.');
+      setMessage('Email đặt lại mật khẩu đã được gửi.');
     }
 
     setBusy(false);
@@ -163,27 +163,27 @@ export default function AuthPage() {
         <aside className="auth-hero">
           <div className="auth-hero__copy">
             <span className="eyebrow auth-hero__badge">Ngoaingu3k Academy</span>
-            <h1>Enterprise learning, ready for demo and real operations.</h1>
+            <h1>Nền tảng học tập chuyên nghiệp cho học viên, giảng viên và quản trị.</h1>
             <p>
-              A clean, business-ready login experience for students, teachers, and admins — with fast access to
-              courses, progress, and role-based dashboards.
+              Trải nghiệm đăng nhập rõ ràng, hiện đại, giúp truy cập nhanh vào
+              khóa học, tiến độ và bảng điều khiển theo vai trò.
             </p>
 
             <div className="auth-stat-grid">
               <div className="auth-stat">
                 <strong>15k+</strong>
-                <span>active learners</span>
+                <span>học viên đang học</span>
               </div>
               <div className="auth-stat">
                 <strong>98%</strong>
-                <span>satisfaction</span>
+                <span>hài lòng</span>
               </div>
             </div>
 
             <div className="auth-points">
-              <div>• Email / password / Google OAuth</div>
-              <div>• Student, teacher, and admin roles</div>
-              <div>• Progress saved through Supabase</div>
+              <div>• Đăng nhập bằng email, mật khẩu hoặc Google</div>
+              <div>• Phân quyền học viên, giảng viên và quản trị</div>
+              <div>• Theo dõi tiến độ học tập theo từng tài khoản</div>
             </div>
           </div>
 
@@ -212,25 +212,25 @@ export default function AuthPage() {
 
         <form className="auth-card auth-card--enterprise" onSubmit={handleSubmit}>
           <div className="auth-card__head">
-            <span className="eyebrow">Ngoaingu3k Login</span>
+            <span className="eyebrow">Đăng nhập Ngoaingu3k</span>
             <h2>{cardTitle}</h2>
             <p>{cardSubtitle}</p>
           </div>
 
-          <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
+          <div className="auth-tabs" role="tablist" aria-label="Chế độ đăng nhập">
             <button
               type="button"
               className={mode === 'sign-in' ? 'auth-tab is-active' : 'auth-tab'}
               onClick={() => setMode('sign-in')}
             >
-              Sign in
+              Đăng nhập
             </button>
             <button
               type="button"
               className={mode === 'sign-up' ? 'auth-tab is-active' : 'auth-tab'}
               onClick={() => setMode('sign-up')}
             >
-              Sign up
+              Đăng ký
             </button>
           </div>
 
@@ -239,7 +239,7 @@ export default function AuthPage() {
           <div className="auth-fields">
             {isSignUp ? (
               <label className="auth-field">
-                <span>Full name</span>
+                <span>Họ và tên</span>
                 <input
                   type="text"
                   placeholder="Alex Johnson"
@@ -250,7 +250,7 @@ export default function AuthPage() {
             ) : null}
 
             <label className="auth-field">
-              <span>Email address</span>
+              <span>Email</span>
               <input
                 type="email"
                 placeholder="student@example.com"
@@ -261,9 +261,9 @@ export default function AuthPage() {
 
             <label className="auth-field">
               <span className="auth-field__row">
-                <span>Password</span>
+                <span>Mật khẩu</span>
                 <button type="button" className="auth-link" onClick={handleResetPassword} disabled={busy}>
-                  Forgot?
+                  Quên?
                 </button>
               </span>
               <input
@@ -276,23 +276,23 @@ export default function AuthPage() {
           </div>
 
           <button type="submit" className="button auth-submit" disabled={busy || !auth.supabase}>
-            {busy ? 'Please wait...' : isSignUp ? 'Create account' : 'Sign in'}
+            {busy ? 'Vui lòng chờ...' : isSignUp ? 'Tạo tài khoản' : 'Đăng nhập'}
           </button>
 
           <div className="auth-divider">
             <span />
-            <span>Or continue with</span>
+            <span>Hoặc tiếp tục với</span>
             <span />
           </div>
 
           <button type="button" className="button button-ghost auth-google" onClick={handleGoogleLogin} disabled={busy || !auth.supabase}>
-            Continue with Google
+            Tiếp tục với Google
           </button>
 
           <p className="auth-footnote">
-            {isSignUp ? 'Already have an account?' : 'New to Ngoaingu3k?'}{' '}
+            {isSignUp ? 'Đã có tài khoản?' : 'Mới đến Ngoaingu3k?'}{' '}
             <button type="button" className="auth-link auth-link--inline" onClick={() => setMode(isSignUp ? 'sign-in' : 'sign-up')}>
-              {isSignUp ? 'Sign in now' : 'Create an account'}
+              {isSignUp ? 'Đăng nhập ngay' : 'Tạo tài khoản'}
             </button>
           </p>
         </form>
