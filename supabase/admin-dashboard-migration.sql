@@ -1,79 +1,22 @@
 create extension if not exists "pgcrypto";
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  full_name text,
-  email text,
-  role text not null default 'student' check (role in ('student', 'teacher', 'admin')),
-  avatar_url text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
 alter table public.profiles
 add column if not exists email text;
 
-create table if not exists public.courses (
-  id uuid primary key default gen_random_uuid(),
-  slug text unique not null,
-  title text not null,
-  description text,
-  price numeric(12,2) not null default 0,
-  status text not null default 'draft' check (status in ('draft', 'published', 'hidden')),
-  teacher_id uuid references public.profiles(id) on delete set null,
-  banner_url text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.chapters (
-  id uuid primary key default gen_random_uuid(),
-  course_id uuid not null references public.courses(id) on delete cascade,
-  title text not null,
-  position int not null default 0,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.lessons (
-  id uuid primary key default gen_random_uuid(),
-  chapter_id uuid not null references public.chapters(id) on delete cascade,
-  title text not null,
-  video_url text,
-  content text,
-  position int not null default 0,
-  is_preview boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.progress (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  lesson_id uuid not null references public.lessons(id) on delete cascade,
-  completed boolean not null default false,
-  last_position_seconds int not null default 0,
-  updated_at timestamptz not null default now(),
-  unique (user_id, lesson_id)
-);
-
-create table if not exists public.orders (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  course_id uuid not null references public.courses(id) on delete cascade,
-  provider text not null default 'stripe',
-  status text not null default 'pending' check (status in ('pending', 'paid', 'failed', 'refunded')),
-  amount numeric(12,2) not null,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.quiz_attempts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  lesson_id uuid references public.lessons(id) on delete cascade,
-  score numeric(5,2) not null default 0,
-  max_score numeric(5,2) not null default 0,
-  attempt_no int not null default 1,
-  created_at timestamptz not null default now()
-);
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles profile
+    where profile.id = auth.uid()
+      and profile.role = 'admin'
+  );
+$$;
 
 create table if not exists public.lesson_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -122,33 +65,6 @@ create table if not exists public.role_permissions (
   updated_at timestamptz not null default now()
 );
 
-alter table public.profiles enable row level security;
-alter table public.courses enable row level security;
-alter table public.chapters enable row level security;
-alter table public.lessons enable row level security;
-alter table public.progress enable row level security;
-alter table public.orders enable row level security;
-alter table public.quiz_attempts enable row level security;
-alter table public.lesson_assignments enable row level security;
-alter table public.lesson_assignment_recipients enable row level security;
-alter table public.lesson_assignment_attempts enable row level security;
-alter table public.role_permissions enable row level security;
-
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.profiles profile
-    where profile.id = auth.uid()
-      and profile.role = 'admin'
-  );
-$$;
-
 insert into public.role_permissions (role, label, permissions)
 values
   ('student', 'Học viên', '{"viewLearning": true, "manageOwnProgress": true, "manageUsers": false, "manageCourses": false, "manageLessons": false, "manageTeachers": false, "manageSystem": false}'::jsonb),
@@ -156,88 +72,75 @@ values
   ('admin', 'Quản trị', '{"viewLearning": true, "manageOwnProgress": true, "manageUsers": true, "manageCourses": true, "manageLessons": true, "manageTeachers": true, "manageSystem": true}'::jsonb)
 on conflict (role) do nothing;
 
-create policy "read published courses"
-on public.courses
-for select
-using (status = 'published');
+alter table public.lesson_assignments enable row level security;
+alter table public.lesson_assignment_recipients enable row level security;
+alter table public.lesson_assignment_attempts enable row level security;
+alter table public.role_permissions enable row level security;
 
-create policy "teachers manage own courses"
-on public.courses
-for all
-using (auth.uid() = teacher_id)
-with check (auth.uid() = teacher_id);
-
-create policy "users read own profile"
-on public.profiles
-for select
-using (auth.uid() = id);
-
+drop policy if exists "admins manage all profiles" on public.profiles;
 create policy "admins manage all profiles"
 on public.profiles
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
-create policy "users manage own progress"
-on public.progress
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-
+drop policy if exists "admins manage all courses" on public.courses;
 create policy "admins manage all courses"
 on public.courses
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "admins manage all chapters" on public.chapters;
 create policy "admins manage all chapters"
 on public.chapters
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "admins manage all lessons" on public.lessons;
 create policy "admins manage all lessons"
 on public.lessons
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "admins manage all progress" on public.progress;
 create policy "admins manage all progress"
 on public.progress
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
-create policy "users manage own orders"
-on public.orders
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-
+drop policy if exists "admins manage all orders" on public.orders;
 create policy "admins manage all orders"
 on public.orders
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "admins manage all quiz attempts" on public.quiz_attempts;
 create policy "admins manage all quiz attempts"
 on public.quiz_attempts
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "teachers manage own lesson assignments" on public.lesson_assignments;
 create policy "teachers manage own lesson assignments"
 on public.lesson_assignments
 for all
 using (auth.uid() = teacher_id)
 with check (auth.uid() = teacher_id);
 
+drop policy if exists "admins manage all lesson assignments" on public.lesson_assignments;
 create policy "admins manage all lesson assignments"
 on public.lesson_assignments
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "teachers and assigned students can read lesson assignments" on public.lesson_assignments;
 create policy "teachers and assigned students can read lesson assignments"
 on public.lesson_assignments
 for select
@@ -265,6 +168,7 @@ using (
   )
 );
 
+drop policy if exists "teachers manage lesson assignment recipients" on public.lesson_assignment_recipients;
 create policy "teachers manage lesson assignment recipients"
 on public.lesson_assignment_recipients
 for all
@@ -285,12 +189,14 @@ with check (
   )
 );
 
+drop policy if exists "admins manage lesson assignment recipients" on public.lesson_assignment_recipients;
 create policy "admins manage lesson assignment recipients"
 on public.lesson_assignment_recipients
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "assigned students can read their recipients" on public.lesson_assignment_recipients;
 create policy "assigned students can read their recipients"
 on public.lesson_assignment_recipients
 for select
@@ -304,18 +210,14 @@ using (
   )
 );
 
+drop policy if exists "students manage own lesson assignment attempts" on public.lesson_assignment_attempts;
 create policy "students manage own lesson assignment attempts"
 on public.lesson_assignment_attempts
 for all
 using (auth.uid() = student_id)
 with check (auth.uid() = student_id);
 
-create policy "admins manage all lesson assignment attempts"
-on public.lesson_assignment_attempts
-for all
-using (public.is_admin())
-with check (public.is_admin());
-
+drop policy if exists "teachers read attempts for own lesson assignments" on public.lesson_assignment_attempts;
 create policy "teachers read attempts for own lesson assignments"
 on public.lesson_assignment_attempts
 for select
@@ -328,39 +230,22 @@ using (
   )
 );
 
+drop policy if exists "admins manage all lesson assignment attempts" on public.lesson_assignment_attempts;
+create policy "admins manage all lesson assignment attempts"
+on public.lesson_assignment_attempts
+for all
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "authenticated users read role permissions" on public.role_permissions;
 create policy "authenticated users read role permissions"
 on public.role_permissions
 for select
 using (auth.role() = 'authenticated');
 
+drop policy if exists "admins manage role permissions" on public.role_permissions;
 create policy "admins manage role permissions"
 on public.role_permissions
 for all
 using (public.is_admin())
 with check (public.is_admin());
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-as $$
-begin
-  insert into public.profiles (id, full_name, email, role, avatar_url)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', new.email),
-    new.email,
-    coalesce(new.raw_user_meta_data->>'role', 'student'),
-    new.raw_user_meta_data->>'avatar_url'
-  )
-  on conflict (id) do nothing;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-
-create trigger on_auth_user_created
-after insert on auth.users
-for each row execute procedure public.handle_new_user();

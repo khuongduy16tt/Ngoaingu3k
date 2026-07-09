@@ -110,8 +110,8 @@ export default function CourseDetailPage() {
           </p>
 
           {isOwned ? (
-            <Link className="button" to={course.id === 'english-foundation' ? '/learn' : `/courses/${course.id}`}>
-              {course.id === 'english-foundation' ? 'Vào học' : 'Xem khóa học'}
+            <Link className="button" to={`/learn/${course.id}`}>
+              Vào học
             </Link>
           ) : auth.session ? (
             <button

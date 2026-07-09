@@ -260,13 +260,37 @@ export async function getCourseBySlug(courseSlug) {
     .eq('course_id', course.id)
     .order('position', { ascending: true });
 
-  const normalizedChapters =
-    !chaptersError && chapters?.length
-      ? chapters.map((chapter) => ({
-          title: chapter.title,
-          lessons: []
-        }))
-      : createFallbackSections();
+  let normalizedChapters = createFallbackSections();
+
+  if (!chaptersError && chapters?.length) {
+    const chapterIds = chapters.map((chapter) => chapter.id);
+    const { data: lessonRows, error: lessonsError } = await supabase
+      .from('lessons')
+      .select('id, chapter_id, title, position, is_preview')
+      .in('chapter_id', chapterIds)
+      .order('position', { ascending: true });
+
+    const lessonsByChapter = new Map();
+
+    if (!lessonsError && lessonRows?.length) {
+      lessonRows.forEach((lesson) => {
+        const chapterLessons = lessonsByChapter.get(lesson.chapter_id) || [];
+        chapterLessons.push({
+          id: lesson.id,
+          databaseId: lesson.id,
+          title: lesson.title,
+          position: lesson.position,
+          status: lesson.is_preview ? 'active' : undefined
+        });
+        lessonsByChapter.set(lesson.chapter_id, chapterLessons);
+      });
+    }
+
+    normalizedChapters = chapters.map((chapter) => ({
+      title: chapter.title,
+      lessons: lessonsByChapter.get(chapter.id) || []
+    }));
+  }
 
   return {
     ...normalizedCourse,

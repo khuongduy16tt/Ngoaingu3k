@@ -92,6 +92,22 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/learn/:courseId"
+        element={
+          <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+            <LearningPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/learn/:courseId/:lessonId"
+        element={
+          <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+            <LearningPage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/dashboard" element={<DashboardRedirect />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route

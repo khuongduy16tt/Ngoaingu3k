@@ -375,7 +375,7 @@ export default function CoursesPage() {
 
               <div className="marketplace-owned-strip__list">
                 {ownedCourses.slice(0, 3).map((course) => (
-                  <Link key={course.id} className="marketplace-owned-tile" to={course.id === 'english-foundation' ? '/learn' : `/courses/${course.id}`}>
+                  <Link key={course.id} className="marketplace-owned-tile" to={`/learn/${course.id}`}>
                     <strong>{course.title}</strong>
                     <span>
                       {course.category} · {course.level}
@@ -460,8 +460,8 @@ export default function CoursesPage() {
                           </Link>
 
                           {isOwned ? (
-                            <Link className="button" to={course.id === 'english-foundation' ? '/learn' : `/courses/${course.id}`}>
-                              {course.id === 'english-foundation' ? 'Vào học' : 'Xem khóa học'}
+                            <Link className="button" to={`/learn/${course.id}`}>
+                              Vào học
                             </Link>
                           ) : auth.session ? (
                             <button

@@ -1,3 +1,4 @@
+import { getStoredPurchasedCourseIds } from './courseService';
 import { isSupabaseReady, supabase } from './supabase';
 
 export const assignmentFallbackCourses = [
@@ -30,6 +31,44 @@ function normalizeExerciseConfig(config) {
 
 function isMissingExerciseConfigColumn(error) {
   return /exercise_config/i.test(error?.message || '');
+}
+
+function isMissingAssignmentAttemptsTable(error) {
+  return /lesson_assignment_attempts/i.test(error?.message || '');
+}
+
+function normalizeCourseIds(courseIds = []) {
+  return new Set((courseIds || []).map((courseId) => String(courseId).toLowerCase()).filter(Boolean));
+}
+
+function isVisibleToStudent(assignment, normalizedEmail, ownedCourseIds) {
+  if (assignment.assignmentScope === 'course_buyers') {
+    return ownedCourseIds.has(String(assignment.courseKey || '').toLowerCase());
+  }
+
+  return assignment.recipients.some(
+    (recipient) => recipient.studentEmail.toLowerCase() === normalizedEmail
+  );
+}
+
+function readStoredAttempts(studentKey) {
+  try {
+    const rawValue = localStorage.getItem(`learning-assignment-attempts:${studentKey || 'local'}`);
+    return rawValue ? JSON.parse(rawValue) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredAttempts(studentKey, attemptsByAssignment) {
+  try {
+    localStorage.setItem(
+      `learning-assignment-attempts:${studentKey || 'local'}`,
+      JSON.stringify(attemptsByAssignment)
+    );
+  } catch {
+    // ignore storage failures
+  }
 }
 
 const assignmentSelectBase = `
@@ -87,6 +126,19 @@ function normalizeAssignment(item) {
   };
 }
 
+function normalizeAssignmentAttempt(item) {
+  return {
+    id: item.id || item.assignmentId,
+    assignmentId: item.assignment_id || item.assignmentId,
+    studentId: item.student_id || item.studentId || '',
+    studentEmail: item.student_email || item.studentEmail || '',
+    answers: item.answers || {},
+    score: Number(item.score || 0),
+    maxScore: Number(item.max_score || item.maxScore || 0),
+    submittedAt: item.submitted_at || item.submittedAt || ''
+  };
+}
+
 async function selectAssignments(createQuery, includeExerciseConfig = true) {
   const query = createQuery(includeExerciseConfig ? assignmentSelectWithExercise : assignmentSelectBase);
   const { data, error } = await query.order('created_at', { ascending: false });
@@ -114,7 +166,7 @@ export async function getAssignmentsForTeacher(teacherId) {
   return data.map(normalizeAssignment);
 }
 
-export async function getAssignmentsForStudent(studentEmail) {
+export async function getAssignmentsForStudent(studentEmail, ownedCourseIds = getStoredPurchasedCourseIds()) {
   if (!isSupabaseReady() || !studentEmail) {
     return [];
   }
@@ -126,14 +178,11 @@ export async function getAssignmentsForStudent(studentEmail) {
   }
 
   const normalizedEmail = studentEmail.toLowerCase();
+  const ownedCourseIdSet = normalizeCourseIds(ownedCourseIds);
 
   return data
     .map(normalizeAssignment)
-    .filter(
-      (assignment) =>
-        assignment.assignmentScope === 'course_buyers' ||
-        assignment.recipients.some((recipient) => recipient.studentEmail.toLowerCase() === normalizedEmail)
-    );
+    .filter((assignment) => isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet));
 }
 
 export async function createAssignment({ teacherId, assignment, recipients }) {
@@ -203,4 +252,86 @@ export async function createAssignment({ teacherId, assignment, recipients }) {
 
 export function getCourseOptions() {
   return assignmentFallbackCourses;
+}
+
+export async function getAssignmentAttemptsForStudent(studentId, studentEmail) {
+  const studentKey = studentId || studentEmail || 'local';
+  const storedAttempts = readStoredAttempts(studentKey);
+
+  if (!isSupabaseReady() || !studentId) {
+    return Object.values(storedAttempts).map(normalizeAssignmentAttempt);
+  }
+
+  const { data, error } = await supabase
+    .from('lesson_assignment_attempts')
+    .select('id, assignment_id, student_id, student_email, answers, score, max_score, submitted_at')
+    .eq('student_id', studentId)
+    .order('submitted_at', { ascending: false });
+
+  if (error) {
+    if (!isMissingAssignmentAttemptsTable(error)) {
+      console.warn('Unable to load assignment attempts.', error);
+    }
+    return Object.values(storedAttempts).map(normalizeAssignmentAttempt);
+  }
+
+  return (data || []).map(normalizeAssignmentAttempt);
+}
+
+export async function saveAssignmentAttempt({
+  assignmentId,
+  studentId,
+  studentEmail,
+  answers,
+  score,
+  maxScore
+}) {
+  const submittedAt = new Date().toISOString();
+  const studentKey = studentId || studentEmail || 'local';
+  const localAttempt = {
+    id: assignmentId,
+    assignmentId,
+    studentId: studentId || '',
+    studentEmail: studentEmail || '',
+    answers,
+    score,
+    maxScore,
+    submittedAt
+  };
+
+  const storedAttempts = readStoredAttempts(studentKey);
+  writeStoredAttempts(studentKey, {
+    ...storedAttempts,
+    [assignmentId]: localAttempt
+  });
+
+  if (!isSupabaseReady() || !studentId) {
+    return localAttempt;
+  }
+
+  const { data, error } = await supabase
+    .from('lesson_assignment_attempts')
+    .upsert(
+      {
+        assignment_id: assignmentId,
+        student_id: studentId,
+        student_email: studentEmail || '',
+        answers,
+        score,
+        max_score: maxScore,
+        submitted_at: submittedAt
+      },
+      { onConflict: 'assignment_id,student_id' }
+    )
+    .select('id, assignment_id, student_id, student_email, answers, score, max_score, submitted_at')
+    .single();
+
+  if (error) {
+    if (!isMissingAssignmentAttemptsTable(error)) {
+      console.warn('Unable to save assignment attempt.', error);
+    }
+    return localAttempt;
+  }
+
+  return normalizeAssignmentAttempt(data);
 }
