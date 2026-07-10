@@ -58,7 +58,7 @@ router.get('/users', async (_req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email, role, avatar_url, created_at')
+      .select('id, full_name, email, phone, role, avatar_url, created_at')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ message: 'Lỗi truy vấn.' });
@@ -75,7 +75,7 @@ router.get('/users', async (_req, res) => {
  */
 router.patch('/users/:userId', async (req, res) => {
   const { userId } = req.params;
-  const { role, full_name } = req.body;
+  const { role, full_name, phone } = req.body;
 
   if (!isSupabaseAdminReady()) {
     return res.json({ message: 'Cập nhật thành công (mock mode).', mode: 'mock' });
@@ -85,6 +85,7 @@ router.patch('/users/:userId', async (req, res) => {
     const updates = {};
     if (role) updates.role = role;
     if (full_name) updates.full_name = full_name;
+    if (phone !== undefined) updates.phone = phone;
     updates.updated_at = new Date().toISOString();
 
     const { error } = await supabaseAdmin

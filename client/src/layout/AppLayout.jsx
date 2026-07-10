@@ -175,7 +175,7 @@ function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
   const signedIn = Boolean(auth.session);
-  const currentRole = auth.role || auth.profile?.role || 'student';
+  const currentRole = auth.profile?.role || auth.role || 'student';
   const visibleLinks = navLinks.filter((link) => !link.role || (signedIn && link.role === currentRole));
 
   return (

@@ -17,6 +17,22 @@ router.post(
   async (req, res) => {
     const { courseId, amount, provider = 'demo-checkout' } = req.body;
     const userId = req.user.id;
+    const submittedAmount = Number(amount);
+
+    if (!Number.isFinite(submittedAmount) || submittedAmount < 0) {
+      return res.status(400).json({ message: 'Số tiền thanh toán không hợp lệ.' });
+    }
+
+    const configuredProvider = process.env.PAYMENT_PROVIDER || 'demo-checkout';
+    const isDemoCheckout = provider === 'demo-checkout';
+    const demoCheckoutAllowed =
+      configuredProvider === 'demo-checkout' || process.env.NODE_ENV !== 'production';
+
+    if (isDemoCheckout && !demoCheckoutAllowed) {
+      return res.status(400).json({
+        message: 'Demo checkout đã bị tắt trong môi trường hiện tại.'
+      });
+    }
 
     if (!isSupabaseAdminReady()) {
       // Scaffolded mock response
@@ -30,6 +46,18 @@ router.post(
     }
 
     try {
+      const { data: course, error: courseError } = await supabaseAdmin
+        .from('courses')
+        .select('id, price, status')
+        .eq('id', courseId)
+        .maybeSingle();
+
+      if (courseError || !course || course.status !== 'published') {
+        return res.status(404).json({ message: 'Khóa học không khả dụng để thanh toán.' });
+      }
+
+      const trustedAmount = Number(course.price || 0);
+
       // Check if already purchased
       const { data: existing } = await supabaseAdmin
         .from('orders')
@@ -54,8 +82,8 @@ router.post(
           user_id: userId,
           course_id: courseId,
           provider,
-          status: provider === 'demo-checkout' ? 'paid' : 'pending',
-          amount: Number(amount),
+          status: isDemoCheckout ? 'paid' : 'pending',
+          amount: trustedAmount,
         })
         .select('id, status')
         .single();

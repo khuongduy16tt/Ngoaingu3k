@@ -44,18 +44,21 @@ const testAccounts = [
     email: 'student.test@ngoaingu3k.local',
     password: 'Test@123456',
     full_name: 'Test Student',
+    phone: '0909000001',
     role: 'student'
   },
   {
     email: 'teacher.test@ngoaingu3k.local',
     password: 'Test@123456',
     full_name: 'Test Teacher',
+    phone: '0909000002',
     role: 'teacher'
   },
   {
     email: 'admin.test@ngoaingu3k.local',
     password: 'Test@123456',
     full_name: 'Test Admin',
+    phone: '0909000003',
     role: 'admin'
   }
 ];
@@ -130,6 +133,7 @@ async function createOrReuseUser(account) {
       email_confirm: true,
       user_metadata: {
         full_name: account.full_name,
+        phone: account.phone,
         role: account.role
       }
     })
@@ -148,6 +152,8 @@ async function upsertProfile(user, account) {
       {
         id: user.id,
         full_name: account.full_name,
+        email: account.email,
+        phone: account.phone,
         role: account.role,
         avatar_url: null
       }

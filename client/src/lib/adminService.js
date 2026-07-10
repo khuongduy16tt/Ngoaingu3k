@@ -50,6 +50,7 @@ const fallbackProfiles = [
     id: 'local-student-1',
     fullName: 'Minh Anh',
     email: 'minh.anh@ngoaingu3k.com',
+    phone: '0901000001',
     role: 'student',
     avatarUrl: '',
     createdAt: '2026-07-01T08:00:00.000Z',
@@ -59,6 +60,7 @@ const fallbackProfiles = [
     id: 'local-student-2',
     fullName: 'Gia Huy',
     email: 'gia.huy@ngoaingu3k.com',
+    phone: '0901000002',
     role: 'student',
     avatarUrl: '',
     createdAt: '2026-07-02T08:00:00.000Z',
@@ -68,6 +70,7 @@ const fallbackProfiles = [
     id: 'local-teacher-1',
     fullName: 'Cô Linh',
     email: 'linh.teacher@ngoaingu3k.com',
+    phone: '0901000101',
     role: 'teacher',
     avatarUrl: '',
     createdAt: '2026-07-01T07:00:00.000Z',
@@ -77,6 +80,7 @@ const fallbackProfiles = [
     id: 'local-admin-1',
     fullName: 'Admin Ngoaingu3k',
     email: 'admin@ngoaingu3k.com',
+    phone: '0901000999',
     role: 'admin',
     avatarUrl: '',
     createdAt: '2026-07-01T06:00:00.000Z',
@@ -190,6 +194,7 @@ function normalizeProfile(profile) {
     id: profile.id,
     fullName: profile.full_name || profile.fullName || profile.email || 'Chưa đặt tên',
     email: profile.email || '',
+    phone: profile.phone || '',
     role: profile.role || 'student',
     avatarUrl: profile.avatar_url || profile.avatarUrl || '',
     createdAt: profile.created_at || profile.createdAt || '',
@@ -284,7 +289,7 @@ export async function getAdminDashboardData() {
 
   const [profiles, courses, chapters, lessons, orders, progress, assignments, rolePermissions] = await Promise.all([
     maybeSelect('profiles', (query) =>
-      query.select('id, full_name, email, role, avatar_url, created_at, updated_at').order('created_at', { ascending: false })
+      query.select('id, full_name, email, phone, role, avatar_url, created_at, updated_at').order('created_at', { ascending: false })
     ),
     maybeSelect('courses', (query) =>
       query.select('id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at').order('updated_at', { ascending: false })
@@ -320,18 +325,28 @@ export async function getAdminDashboardData() {
       }
     ])
   );
+  const hasRemoteError = [
+    profiles,
+    courses,
+    chapters,
+    lessons,
+    orders,
+    progress,
+    assignments,
+    rolePermissions
+  ].some((result) => result === null);
 
   return {
-    profiles: profiles ? profiles.map(normalizeProfile) : localState.profiles,
-    courses: courses ? courses.map(normalizeCourse) : localState.courses,
-    lessons: lessons ? lessons.map((lesson) => normalizeLesson(lesson, chapterLookup)) : localState.lessons,
-    orders: orders ? orders.map(normalizeOrder) : localState.orders,
-    progress: progress ? progress.map(normalizeProgress) : localState.progress,
-    assignments: assignments || localState.assignments,
+    profiles: profiles ? profiles.map(normalizeProfile) : [],
+    courses: courses ? courses.map(normalizeCourse) : [],
+    lessons: lessons ? lessons.map((lesson) => normalizeLesson(lesson, chapterLookup)) : [],
+    orders: orders ? orders.map(normalizeOrder) : [],
+    progress: progress ? progress.map(normalizeProgress) : [],
+    assignments: assignments || [],
     rolePermissions: rolePermissions?.length
       ? rolePermissions.map(normalizeRolePermission)
       : localState.rolePermissions,
-    mode: 'supabase'
+    mode: hasRemoteError ? 'supabase-partial' : 'supabase'
   };
 }
 
@@ -351,6 +366,7 @@ export async function saveAdminProfile(profile) {
       .update({
         full_name: nextProfile.fullName,
         email: nextProfile.email,
+        phone: nextProfile.phone,
         role: nextProfile.role,
         avatar_url: nextProfile.avatarUrl,
         updated_at: new Date().toISOString()

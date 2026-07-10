@@ -16,6 +16,7 @@ export interface Profile {
   id: string;
   fullName: string;
   email: string;
+  phone: string;
   role: Role;
   avatarUrl: string;
   createdAt: string;

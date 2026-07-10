@@ -749,6 +749,7 @@ const emptyProfileDraft = {
   id: '',
   fullName: '',
   email: '',
+  phone: '',
   role: 'student',
   avatarUrl: '',
   source: 'local'
@@ -1105,7 +1106,15 @@ export function AdminDashboardPage() {
             <span className="eyebrow">Trung tâm quản trị</span>
             <h2>Tổng quan vận hành</h2>
           </div>
-          <span className="pill">{loading ? 'Đang tải' : adminData.mode === 'supabase' ? 'Supabase' : 'Local fallback'}</span>
+          <span className="pill">
+            {loading
+              ? 'Đang tải'
+              : adminData.mode === 'supabase'
+                ? 'Supabase'
+                : adminData.mode === 'supabase-partial'
+                  ? 'Supabase partial'
+                  : 'Local fallback'}
+          </span>
         </div>
 
         {message.text ? (
@@ -1156,6 +1165,10 @@ export function AdminDashboardPage() {
               <input type="email" value={profileDraft.email} onChange={(event) => updateProfileDraft('email', event.target.value)} />
             </label>
             <label className="auth-field">
+              <span>Số điện thoại</span>
+              <input type="tel" value={profileDraft.phone} onChange={(event) => updateProfileDraft('phone', event.target.value)} />
+            </label>
+            <label className="auth-field">
               <span>Vai trò</span>
               <select value={profileDraft.role} onChange={(event) => updateProfileDraft('role', event.target.value)}>
                 <option value="student">Học viên</option>
@@ -1188,13 +1201,14 @@ export function AdminDashboardPage() {
           </div>
 
           <AdminDataTable
-            columns={['Tên', 'Email', 'Vai trò', 'Nguồn', 'Thao tác']}
+            columns={['Tên', 'Email', 'SĐT', 'Vai trò', 'Nguồn', 'Thao tác']}
             rows={profiles}
             emptyText="Chưa có hồ sơ người dùng."
             renderRow={(profile) => (
               <tr key={profile.id}>
                 <td>{profile.fullName}</td>
                 <td>{profile.email || 'Chưa có email'}</td>
+                <td>{profile.phone || 'Chưa có SĐT'}</td>
                 <td>{adminRoleLabels[profile.role] || profile.role}</td>
                 <td>{profile.source || 'supabase'}</td>
                 <td>

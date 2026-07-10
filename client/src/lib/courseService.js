@@ -1,4 +1,5 @@
 import { supabase, isSupabaseReady } from './supabase';
+import { apiFetch } from './api';
 import { featuredCourses as mockCourses, courseDetail as mockCourseDetail } from '../data/mock';
 
 export const PURCHASED_COURSES_STORAGE_KEY = 'learning-purchased-courses';
@@ -22,6 +23,12 @@ function defaultCategory(index) {
 
 function defaultBadge(index) {
   return ['Phổ biến', 'Đề xuất', 'Sẵn sàng công việc', 'Tăng tốc'][index % 4];
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || '')
+  );
 }
 
 function defaultWhatYouGet(course) {
@@ -180,7 +187,7 @@ export async function getOwnedCourseIds(userId, courses = []) {
   return mergedIds;
 }
 
-export async function purchaseCourse({ course, userId }) {
+export async function purchaseCourse({ course, userId, accessToken }) {
   if (!course?.id) {
     throw new Error('Thiếu dữ liệu khóa học.');
   }
@@ -194,35 +201,26 @@ export async function purchaseCourse({ course, userId }) {
     return { ownedCourseIds: addStoredPurchasedCourseId(course.id), mode: 'local' };
   }
 
-  try {
-    const { data: existingOrders, error: existingError } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('course_id', course.databaseId || course.id)
-      .eq('status', 'paid')
-      .limit(1);
-
-    if (!existingError && existingOrders?.length) {
-      return { ownedCourseIds: addStoredPurchasedCourseId(course.id), mode: 'existing' };
-    }
-
-    const { error } = await supabase.from('orders').insert({
-      user_id: userId,
-      course_id: course.databaseId || course.id,
-      provider: 'demo-checkout',
-      status: 'paid',
-      amount: course.priceValue ?? 0
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return { ownedCourseIds: addStoredPurchasedCourseId(course.id), mode: 'supabase' };
-  } catch {
-    return { ownedCourseIds: addStoredPurchasedCourseId(course.id), mode: 'local-fallback' };
+  if (!accessToken) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại trước khi mua khóa học.');
   }
+
+  const response = await apiFetch('/api/payments/checkout', {
+    method: 'POST',
+    token: accessToken,
+    body: {
+      courseId: course.databaseId || course.id,
+      amount: course.priceValue ?? 0,
+      provider: 'demo-checkout'
+    }
+  });
+
+  return {
+    ownedCourseIds: addStoredPurchasedCourseId(course.id),
+    mode: response.mode || 'api',
+    orderId: response.orderId,
+    status: response.status
+  };
 }
 
 export async function getCourseBySlug(courseSlug) {
@@ -238,11 +236,15 @@ export async function getCourseBySlug(courseSlug) {
     };
   }
 
-  const { data: course, error } = await supabase
+  let courseQuery = supabase
     .from('courses')
-    .select('id, slug, title, description, price, status, banner_url, updated_at')
-    .or(`slug.eq.${courseSlug},id.eq.${courseSlug}`)
-    .maybeSingle();
+    .select('id, slug, title, description, price, status, banner_url, updated_at');
+
+  courseQuery = isUuid(courseSlug)
+    ? courseQuery.or(`id.eq.${courseSlug},slug.eq.${courseSlug}`)
+    : courseQuery.eq('slug', courseSlug);
+
+  const { data: course, error } = await courseQuery.maybeSingle();
 
   if (error || !course) {
     return {

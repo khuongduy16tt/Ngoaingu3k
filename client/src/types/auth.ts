@@ -13,6 +13,7 @@ export interface AuthSession {
 export interface AuthProfile {
   id: string;
   full_name: string;
+  phone?: string;
   role: Role;
   avatar_url?: string;
 }
@@ -25,6 +26,7 @@ export interface AuthContextValue {
   role: Role;
   setRole: (role: Role) => void;
   supabase: unknown;
+  isMockMode: boolean;
   user: AuthUser | null;
   isAuthenticated: boolean;
   signOut: () => Promise<unknown> | undefined;

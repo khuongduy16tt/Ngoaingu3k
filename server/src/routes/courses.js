@@ -5,6 +5,12 @@ import { validate } from '../middleware/validate.js';
 
 const router = Router();
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || '')
+  );
+}
+
 /**
  * GET /api/courses
  * Returns all published courses. Falls back to mock data if Supabase is unavailable.
@@ -47,11 +53,15 @@ router.get('/:courseId', async (req, res) => {
   }
 
   try {
-    const { data: course, error } = await supabaseAdmin
+    let courseQuery = supabaseAdmin
       .from('courses')
-      .select('id, slug, title, description, price, status, banner_url, teacher_id, updated_at')
-      .or(`slug.eq.${courseId},id.eq.${courseId}`)
-      .maybeSingle();
+      .select('id, slug, title, description, price, status, banner_url, teacher_id, updated_at');
+
+    courseQuery = isUuid(courseId)
+      ? courseQuery.or(`id.eq.${courseId},slug.eq.${courseId}`)
+      : courseQuery.eq('slug', courseId);
+
+    const { data: course, error } = await courseQuery.maybeSingle();
 
     if (error || !course) {
       return res.status(404).json({ message: 'Không tìm thấy khóa học.' });

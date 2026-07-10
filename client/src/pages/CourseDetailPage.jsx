@@ -74,7 +74,8 @@ export default function CourseDetailPage() {
     try {
       const result = await purchaseCourse({
         course,
-        userId: auth.user?.id
+        userId: auth.user?.id,
+        accessToken: auth.session?.access_token
       });
 
       setOwnedCourseIds(result.ownedCourseIds);

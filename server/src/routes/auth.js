@@ -9,14 +9,14 @@ const router = Router();
  * POST /api/auth/register
  * Creates a new user account via Supabase.
  */
-router.post('/register', validate(['email', 'password']), async (req, res) => {
-  const { email, password, full_name, role = 'student' } = req.body;
+router.post('/register', validate(['email', 'password', 'full_name', 'phone']), async (req, res) => {
+  const { email, password, full_name, phone, role = 'student' } = req.body;
 
   if (!isSupabaseAdminReady()) {
     // Scaffolded response in mock mode
     return res.status(201).json({
       message: 'Đăng ký thành công (mock mode).',
-      user: { id: `mock-${Date.now()}`, email, role },
+      user: { id: `mock-${Date.now()}`, email, phone, role },
       mode: 'mock',
     });
   }
@@ -26,7 +26,7 @@ router.post('/register', validate(['email', 'password']), async (req, res) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name, role },
+      user_metadata: { full_name, phone, role },
     });
 
     if (error) {

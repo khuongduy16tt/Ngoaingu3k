@@ -22,8 +22,24 @@ const gallery = [
   }
 ];
 
+const demoRoleOptions = [
+  { value: 'student', label: 'Học viên demo' },
+  { value: 'teacher', label: 'Giảng viên demo' },
+  { value: 'admin', label: 'Quản trị demo' }
+];
+
 function getAuthModeFromSearch(search) {
   return new URLSearchParams(search).get('mode') === 'sign-up' ? 'sign-up' : 'sign-in';
+}
+
+function normalizePhone(value) {
+  return String(value || '').replace(/[^\d+]/g, '');
+}
+
+function isValidPhone(value) {
+  const normalizedPhone = normalizePhone(value);
+  const digitCount = normalizedPhone.replace(/\D/g, '').length;
+  return digitCount >= 9 && digitCount <= 15;
 }
 
 export default function AuthPage() {
@@ -35,12 +51,20 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [mode, setMode] = useState(() => getAuthModeFromSearch(location.search));
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const redirectTo = location.state?.from || '/dashboard';
 
   const isSignUp = mode === 'sign-up';
+  const isMockAuth = auth.isMockMode;
+  const requiresProfileCompletion = Boolean(
+    auth.session &&
+      !auth.isMockMode &&
+      auth.ready &&
+      (!auth.profile?.full_name || !auth.profile?.phone)
+  );
   const cardTitle = useMemo(() => (isSignUp ? 'Tạo tài khoản' : 'Chào mừng bạn trở lại'), [isSignUp]);
   const cardSubtitle = useMemo(
     () =>
@@ -51,22 +75,31 @@ export default function AuthPage() {
   );
 
   useEffect(() => {
-    if (auth.session) {
+    if (auth.session && !requiresProfileCompletion) {
       navigate(redirectTo, { replace: true });
     }
-  }, [auth.session, navigate, redirectTo]);
+  }, [auth.session, navigate, redirectTo, requiresProfileCompletion]);
 
   useEffect(() => {
     setMode(getAuthModeFromSearch(location.search));
   }, [location.search]);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    if (!auth.supabase) {
-      setMessage('Hệ thống đăng nhập chưa sẵn sàng. Vui lòng thử lại sau.');
+  useEffect(() => {
+    if (!auth.session) {
       return;
     }
+
+    if (!fullName && auth.profile?.full_name) {
+      setFullName(auth.profile.full_name);
+    }
+
+    if (!phone && auth.profile?.phone) {
+      setPhone(auth.profile.phone);
+    }
+  }, [auth.session, auth.profile?.full_name, auth.profile?.phone, fullName, phone]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
 
     if (!email || !password) {
       setMessage('Vui lòng nhập email và mật khẩu.');
@@ -78,6 +111,11 @@ export default function AuthPage() {
       return;
     }
 
+    if (isSignUp && !isValidPhone(phone)) {
+      setMessage('Vui lòng nhập số điện thoại hợp lệ từ 9 đến 15 chữ số.');
+      return;
+    }
+
     setBusy(true);
     setMessage('');
 
@@ -85,7 +123,8 @@ export default function AuthPage() {
       if (isSignUp) {
         const result = await auth.signUpWithEmail(email, password, {
           full_name: fullName,
-          role: 'student'
+          phone: normalizePhone(phone),
+          role: isMockAuth ? auth.role : 'student'
         });
 
         if (result?.error) {
@@ -117,8 +156,8 @@ export default function AuthPage() {
   }
 
   async function handleGoogleLogin() {
-    if (!auth.supabase) {
-      setMessage('Đăng nhập bằng Google chưa sẵn sàng. Vui lòng thử lại sau.');
+    if (isSignUp) {
+      setMessage('Vui lòng dùng form đăng ký để nhập đủ họ tên, email và số điện thoại.');
       return;
     }
 
@@ -135,12 +174,53 @@ export default function AuthPage() {
     setMessage('Đang chuyển đến Google...');
   }
 
-  async function handleResetPassword() {
-    if (!auth.supabase) {
-      setMessage('Chưa thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.');
+  async function handleCompleteProfile(event) {
+    event.preventDefault();
+
+    if (!fullName.trim()) {
+      setMessage('Vui lòng nhập họ tên để hoàn thiện hồ sơ.');
       return;
     }
 
+    if (!isValidPhone(phone)) {
+      setMessage('Vui lòng nhập số điện thoại hợp lệ từ 9 đến 15 chữ số.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('');
+
+    try {
+      const normalizedPhone = normalizePhone(phone);
+      const { error: profileError } = await auth.supabase.rpc('update_own_contact_profile', {
+        profile_full_name: fullName.trim(),
+        profile_phone: normalizedPhone
+      });
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const result = await auth.supabase.auth.updateUser({
+        data: {
+          full_name: fullName.trim(),
+          phone: normalizedPhone
+        }
+      });
+
+      if (result?.error) {
+        throw result.error;
+      }
+
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      setMessage(error.message || 'Chưa thể cập nhật hồ sơ. Vui lòng thử lại.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResetPassword() {
     if (!email) {
       setMessage('Vui lòng nhập email trước khi yêu cầu đặt lại mật khẩu.');
       return;
@@ -157,6 +237,56 @@ export default function AuthPage() {
     }
 
     setBusy(false);
+  }
+
+  if (requiresProfileCompletion) {
+    return (
+      <div className="page auth-page auth-page--enterprise">
+        <section className="auth-shell">
+          <form className="auth-card auth-card--enterprise" onSubmit={handleCompleteProfile}>
+            <div className="auth-card__head">
+              <span className="eyebrow">Hoàn thiện hồ sơ</span>
+              <h2>Bổ sung thông tin liên hệ</h2>
+              <p>Tài khoản cần có họ tên, email và số điện thoại trước khi vào khu học tập.</p>
+            </div>
+
+            {message ? <div className="auth-message">{message}</div> : null}
+
+            <div className="auth-fields">
+              <label className="auth-field">
+                <span>Họ và tên</span>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  autoComplete="name"
+                />
+              </label>
+
+              <label className="auth-field">
+                <span>Email</span>
+                <input type="email" value={auth.user?.email || ''} readOnly />
+              </label>
+
+              <label className="auth-field">
+                <span>Số điện thoại</span>
+                <input
+                  type="tel"
+                  placeholder="0912345678"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  autoComplete="tel"
+                />
+              </label>
+            </div>
+
+            <button type="submit" className="button auth-submit" disabled={busy}>
+              {busy ? 'Đang lưu...' : 'Lưu hồ sơ'}
+            </button>
+          </form>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -251,6 +381,32 @@ export default function AuthPage() {
               </label>
             ) : null}
 
+            {isSignUp ? (
+              <label className="auth-field">
+                <span>Số điện thoại</span>
+                <input
+                  type="tel"
+                  placeholder="0912345678"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  autoComplete="tel"
+                />
+              </label>
+            ) : null}
+
+            {isMockAuth ? (
+              <label className="auth-field">
+                <span>Vai trò demo</span>
+                <select value={auth.role} onChange={(event) => auth.setRole(event.target.value)}>
+                  {demoRoleOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="auth-field">
               <span>Email</span>
               <input
@@ -277,7 +433,7 @@ export default function AuthPage() {
             </label>
           </div>
 
-          <button type="submit" className="button auth-submit" disabled={busy || !auth.supabase}>
+          <button type="submit" className="button auth-submit" disabled={busy}>
             {busy ? 'Vui lòng chờ...' : isSignUp ? 'Tạo tài khoản' : 'Đăng nhập'}
           </button>
 
@@ -287,8 +443,8 @@ export default function AuthPage() {
             <span />
           </div>
 
-          <button type="button" className="button button-ghost auth-google" onClick={handleGoogleLogin} disabled={busy || !auth.supabase}>
-            Tiếp tục với Google
+          <button type="button" className="button button-ghost auth-google" onClick={handleGoogleLogin} disabled={busy}>
+            {isSignUp ? 'Google dùng sau khi có hồ sơ' : 'Tiếp tục với Google'}
           </button>
 
           <p className="auth-footnote">

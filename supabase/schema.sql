@@ -4,6 +4,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   email text,
+  phone text,
   role text not null default 'student' check (role in ('student', 'teacher', 'admin')),
   avatar_url text,
   created_at timestamptz not null default now(),
@@ -12,6 +13,9 @@ create table if not exists public.profiles (
 
 alter table public.profiles
 add column if not exists email text;
+
+alter table public.profiles
+add column if not exists phone text;
 
 create table if not exists public.courses (
   id uuid primary key default gen_random_uuid(),
@@ -156,88 +160,203 @@ values
   ('admin', 'Quản trị', '{"viewLearning": true, "manageOwnProgress": true, "manageUsers": true, "manageCourses": true, "manageLessons": true, "manageTeachers": true, "manageSystem": true}'::jsonb)
 on conflict (role) do nothing;
 
+drop policy if exists "read published courses" on public.courses;
 create policy "read published courses"
 on public.courses
 for select
 using (status = 'published');
 
+drop policy if exists "teachers manage own courses" on public.courses;
 create policy "teachers manage own courses"
 on public.courses
 for all
 using (auth.uid() = teacher_id)
 with check (auth.uid() = teacher_id);
 
+drop policy if exists "users read own profile" on public.profiles;
 create policy "users read own profile"
 on public.profiles
 for select
 using (auth.uid() = id);
 
+drop policy if exists "users update own profile" on public.profiles;
+
+drop policy if exists "admins manage all profiles" on public.profiles;
 create policy "admins manage all profiles"
 on public.profiles
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+create or replace function public.update_own_contact_profile(
+  profile_full_name text,
+  profile_phone text
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_profile public.profiles;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  update public.profiles
+  set
+    full_name = nullif(trim(profile_full_name), ''),
+    phone = nullif(trim(profile_phone), ''),
+    updated_at = now()
+  where id = auth.uid()
+  returning * into updated_profile;
+
+  if updated_profile.id is null then
+    raise exception 'Profile not found';
+  end if;
+
+  return updated_profile;
+end;
+$$;
+
+drop policy if exists "users manage own progress" on public.progress;
 create policy "users manage own progress"
 on public.progress
 for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "admins manage all courses" on public.courses;
 create policy "admins manage all courses"
 on public.courses
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "read chapters for published courses" on public.chapters;
+create policy "read chapters for published courses"
+on public.chapters
+for select
+using (
+  exists (
+    select 1
+    from public.courses course
+    where course.id = chapters.course_id
+      and course.status = 'published'
+  )
+);
+
+drop policy if exists "admins manage all chapters" on public.chapters;
 create policy "admins manage all chapters"
 on public.chapters
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "read preview lessons for published courses" on public.lessons;
+create policy "read preview lessons for published courses"
+on public.lessons
+for select
+using (
+  is_preview
+  and exists (
+    select 1
+    from public.chapters chapter
+    join public.courses course on course.id = chapter.course_id
+    where chapter.id = lessons.chapter_id
+      and course.status = 'published'
+  )
+);
+
+drop policy if exists "students read purchased course lessons" on public.lessons;
+create policy "students read purchased course lessons"
+on public.lessons
+for select
+using (
+  exists (
+    select 1
+    from public.chapters chapter
+    join public.orders paid_order on paid_order.course_id = chapter.course_id
+    where chapter.id = lessons.chapter_id
+      and paid_order.user_id = auth.uid()
+      and paid_order.status = 'paid'
+  )
+);
+
+drop policy if exists "teachers read own course lessons" on public.lessons;
+create policy "teachers read own course lessons"
+on public.lessons
+for select
+using (
+  exists (
+    select 1
+    from public.chapters chapter
+    join public.courses course on course.id = chapter.course_id
+    where chapter.id = lessons.chapter_id
+      and course.teacher_id = auth.uid()
+  )
+);
+
+drop policy if exists "admins manage all lessons" on public.lessons;
 create policy "admins manage all lessons"
 on public.lessons
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "admins manage all progress" on public.progress;
 create policy "admins manage all progress"
 on public.progress
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
-create policy "users manage own orders"
+drop policy if exists "users manage own orders" on public.orders;
+drop policy if exists "users read own orders" on public.orders;
+create policy "users read own orders"
 on public.orders
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+for select
+using (auth.uid() = user_id);
 
+drop policy if exists "users create pending orders" on public.orders;
+create policy "users create pending orders"
+on public.orders
+for insert
+with check (
+  auth.uid() = user_id
+  and status = 'pending'
+);
+
+drop policy if exists "admins manage all orders" on public.orders;
 create policy "admins manage all orders"
 on public.orders
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "admins manage all quiz attempts" on public.quiz_attempts;
 create policy "admins manage all quiz attempts"
 on public.quiz_attempts
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "teachers manage own lesson assignments" on public.lesson_assignments;
 create policy "teachers manage own lesson assignments"
 on public.lesson_assignments
 for all
 using (auth.uid() = teacher_id)
 with check (auth.uid() = teacher_id);
 
+drop policy if exists "admins manage all lesson assignments" on public.lesson_assignments;
 create policy "admins manage all lesson assignments"
 on public.lesson_assignments
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "teachers and assigned students can read lesson assignments" on public.lesson_assignments;
 create policy "teachers and assigned students can read lesson assignments"
 on public.lesson_assignments
 for select
@@ -265,6 +384,7 @@ using (
   )
 );
 
+drop policy if exists "teachers manage lesson assignment recipients" on public.lesson_assignment_recipients;
 create policy "teachers manage lesson assignment recipients"
 on public.lesson_assignment_recipients
 for all
@@ -285,12 +405,14 @@ with check (
   )
 );
 
+drop policy if exists "admins manage lesson assignment recipients" on public.lesson_assignment_recipients;
 create policy "admins manage lesson assignment recipients"
 on public.lesson_assignment_recipients
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "assigned students can read their recipients" on public.lesson_assignment_recipients;
 create policy "assigned students can read their recipients"
 on public.lesson_assignment_recipients
 for select
@@ -304,18 +426,21 @@ using (
   )
 );
 
+drop policy if exists "students manage own lesson assignment attempts" on public.lesson_assignment_attempts;
 create policy "students manage own lesson assignment attempts"
 on public.lesson_assignment_attempts
 for all
 using (auth.uid() = student_id)
 with check (auth.uid() = student_id);
 
+drop policy if exists "admins manage all lesson assignment attempts" on public.lesson_assignment_attempts;
 create policy "admins manage all lesson assignment attempts"
 on public.lesson_assignment_attempts
 for all
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "teachers read attempts for own lesson assignments" on public.lesson_assignment_attempts;
 create policy "teachers read attempts for own lesson assignments"
 on public.lesson_assignment_attempts
 for select
@@ -328,11 +453,13 @@ using (
   )
 );
 
+drop policy if exists "authenticated users read role permissions" on public.role_permissions;
 create policy "authenticated users read role permissions"
 on public.role_permissions
 for select
 using (auth.role() = 'authenticated');
 
+drop policy if exists "admins manage role permissions" on public.role_permissions;
 create policy "admins manage role permissions"
 on public.role_permissions
 for all
@@ -345,15 +472,22 @@ language plpgsql
 security definer
 as $$
 begin
-  insert into public.profiles (id, full_name, email, role, avatar_url)
+  insert into public.profiles (id, full_name, email, phone, role, avatar_url)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', new.email),
     new.email,
+    nullif(new.raw_user_meta_data->>'phone', ''),
     coalesce(new.raw_user_meta_data->>'role', 'student'),
     new.raw_user_meta_data->>'avatar_url'
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+  set
+    full_name = coalesce(public.profiles.full_name, excluded.full_name),
+    email = coalesce(public.profiles.email, excluded.email),
+    phone = coalesce(public.profiles.phone, excluded.phone),
+    role = coalesce(public.profiles.role, excluded.role),
+    avatar_url = coalesce(public.profiles.avatar_url, excluded.avatar_url);
 
   return new;
 end;

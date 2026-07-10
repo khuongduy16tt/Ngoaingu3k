@@ -3,10 +3,16 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
+const MOCK_AUTH_STORAGE_KEY = 'ngoaingu3k-mock-auth';
+const validRoles = ['student', 'teacher', 'admin'];
+
+function normalizeRole(role) {
+  return validRoles.includes(role) ? role : 'student';
+}
 
 function readStoredRole() {
   try {
-    return localStorage.getItem('role') || 'student';
+    return normalizeRole(localStorage.getItem('role') || 'student');
   } catch {
     return 'student';
   }
@@ -20,37 +26,232 @@ function writeStoredRole(role) {
   }
 }
 
+function readStoredMockAuth(fallbackRole) {
+  try {
+    const rawValue = localStorage.getItem(MOCK_AUTH_STORAGE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue);
+    if (!parsed?.session?.user?.email) {
+      return null;
+    }
+
+    return {
+      session: parsed.session,
+      profile: {
+        ...parsed.profile,
+        role: normalizeRole(parsed.profile?.role || fallbackRole)
+      }
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredMockAuth(authState) {
+  try {
+    localStorage.setItem(MOCK_AUTH_STORAGE_KEY, JSON.stringify(authState));
+  } catch {
+    // Ignore storage errors in restricted browser contexts.
+  }
+}
+
+function clearStoredMockAuth() {
+  try {
+    localStorage.removeItem(MOCK_AUTH_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors in restricted browser contexts.
+  }
+}
+
+function createMockAuthState({ email, fullName, phone, role }) {
+  const normalizedRole = normalizeRole(role);
+  const normalizedEmail = email || `${normalizedRole}.demo@ngoaingu3k.local`;
+  const normalizedName = fullName || normalizedEmail;
+  const normalizedPhone = phone || '';
+  const user = {
+    id: `local-${normalizedRole}`,
+    email: normalizedEmail,
+    app_metadata: { provider: 'mock' },
+    user_metadata: {
+      full_name: normalizedName,
+      phone: normalizedPhone,
+      role: normalizedRole
+    }
+  };
+  const profile = {
+    id: user.id,
+    full_name: normalizedName,
+    phone: normalizedPhone,
+    role: normalizedRole,
+    avatar_url: '',
+    source: 'local'
+  };
+
+  return {
+    session: {
+      access_token: 'dev-token',
+      token_type: 'bearer',
+      user
+    },
+    profile
+  };
+}
+
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [role, setRole] = useState(() => readStoredRole());
+  const initialRole = supabase ? 'student' : readStoredRole();
+  const initialMockAuth = supabase ? null : readStoredMockAuth(initialRole);
+  const [session, setSession] = useState(initialMockAuth?.session ?? null);
+  const [profile, setProfile] = useState(initialMockAuth?.profile ?? null);
+  const [role, setRoleState] = useState(() =>
+    normalizeRole(initialMockAuth?.profile?.role || initialRole)
+  );
   const [ready, setReady] = useState(!supabase);
   const [loading, setLoading] = useState(Boolean(supabase));
 
   useEffect(() => {
-    writeStoredRole(role);
+    if (!supabase) {
+      writeStoredRole(role);
+    }
   }, [role]);
 
   async function loadProfile(userId) {
     if (!supabase || !userId) {
       setProfile(null);
-      return;
+      setRoleState('student');
+      return null;
     }
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, role, avatar_url')
+      .select('id, full_name, phone, role, avatar_url')
       .eq('id', userId)
       .maybeSingle();
 
     if (!error && data) {
       setProfile(data);
       if (data.role) {
-        setRole(data.role);
+        setRoleState(normalizeRole(data.role));
       }
+      return data;
     } else {
       setProfile(null);
+      setRoleState('student');
+      return null;
     }
+  }
+
+  function setRole(nextRole) {
+    const normalizedRole = normalizeRole(nextRole);
+    setRoleState(normalizedRole);
+
+    if (!supabase) {
+      setProfile((previousProfile) =>
+        previousProfile ? { ...previousProfile, role: normalizedRole } : previousProfile
+      );
+      setSession((previousSession) => {
+        if (!previousSession?.user) {
+          return previousSession;
+        }
+
+        const nextAuthState = createMockAuthState({
+          email: previousSession.user.email,
+          fullName: previousSession.user.user_metadata?.full_name,
+          phone: previousSession.user.user_metadata?.phone,
+          role: normalizedRole
+        });
+        writeStoredMockAuth(nextAuthState);
+        return nextAuthState.session;
+      });
+    }
+  }
+
+  async function signInMock(email, options = {}) {
+    const nextAuthState = createMockAuthState({
+      email,
+      fullName: options.full_name || options.fullName,
+      phone: options.phone,
+      role: options.role || role
+    });
+
+    setSession(nextAuthState.session);
+    setProfile(nextAuthState.profile);
+    setRoleState(nextAuthState.profile.role);
+    writeStoredRole(nextAuthState.profile.role);
+    writeStoredMockAuth(nextAuthState);
+
+    return {
+      data: {
+        session: nextAuthState.session,
+        user: nextAuthState.session.user
+      },
+      error: null
+    };
+  }
+
+  async function signOut() {
+    if (!supabase) {
+      clearStoredMockAuth();
+      setSession(null);
+      setProfile(null);
+      return { error: null };
+    }
+
+    return supabase.auth.signOut();
+  }
+
+  async function signInWithEmail(email, password) {
+    if (!supabase) {
+      return signInMock(email);
+    }
+
+    return supabase.auth.signInWithPassword({ email, password });
+  }
+
+  async function signUpWithEmail(email, password, options = {}) {
+    if (!supabase) {
+      return signInMock(email, options);
+    }
+
+    const result = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: options
+      }
+    });
+    if (result?.data?.user?.id) {
+      await loadProfile(result.data.user.id);
+    }
+    return result;
+  }
+
+  function signInWithGoogle() {
+    if (!supabase) {
+      return signInMock('google.demo@ngoaingu3k.local', {
+        full_name: 'Google Demo User',
+        phone: ''
+      });
+    }
+
+    return supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth`
+      }
+    });
+  }
+
+  function sendPasswordReset(email) {
+    if (!supabase) {
+      return Promise.resolve({ data: { email }, error: null });
+    }
+
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth`
+    });
   }
 
   useEffect(() => {
@@ -63,12 +264,21 @@ export function AuthProvider({ children }) {
 
     supabase.auth
       .getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
+        if (!active) {
+          return;
+        }
+
+        const nextSession = data.session ?? null;
+        setSession(nextSession);
+        if (nextSession?.user?.id) {
+          await loadProfile(nextSession.user.id);
+        } else {
+          setProfile(null);
+          setRoleState('student');
+        }
+
         if (active) {
-          setSession(data.session ?? null);
-          if (data.session?.user?.id) {
-            void loadProfile(data.session.user.id);
-          }
           setReady(true);
           setLoading(false);
         }
@@ -84,12 +294,22 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!active) {
+        return;
+      }
+
+      setLoading(true);
+      setReady(false);
       setSession(nextSession);
       if (nextSession?.user?.id) {
-        void loadProfile(nextSession.user.id);
+        await loadProfile(nextSession.user.id);
       } else {
         setProfile(null);
+        setRoleState('student');
+      }
+      if (!active) {
+        return;
       }
       setReady(true);
       setLoading(false);
@@ -110,35 +330,14 @@ export function AuthProvider({ children }) {
       role,
       setRole,
       supabase,
+      isMockMode: !supabase,
       user: session?.user ?? null,
       isAuthenticated: Boolean(session),
-      signOut: () => supabase?.auth.signOut(),
-      signInWithEmail: (email, password) =>
-        supabase?.auth.signInWithPassword({ email, password }),
-      signUpWithEmail: async (email, password, options = {}) => {
-        const result = await supabase?.auth.signUp({
-          email,
-          password,
-          options: {
-            data: options
-          }
-        });
-        if (result?.data?.user?.id) {
-          await loadProfile(result.data.user.id);
-        }
-        return result;
-      },
-      signInWithGoogle: () =>
-        supabase?.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth`
-          }
-        }),
-      sendPasswordReset: (email) =>
-        supabase?.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth`
-        })
+      signOut,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
+      sendPasswordReset
     }),
     [loading, profile, ready, role, session]
   );
