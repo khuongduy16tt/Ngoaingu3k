@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getDashboardPathForRole, getEffectiveRole } from '../lib/permissions';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const gallery = [
   {
@@ -26,6 +27,7 @@ function getAuthModeFromSearch(search) {
 }
 
 export default function AuthPage() {
+  usePageTitle('Đăng nhập');
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

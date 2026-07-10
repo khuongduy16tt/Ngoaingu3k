@@ -12,11 +12,13 @@ import {
 } from './pages/DashboardPage';
 import { useAuth } from './providers/AuthProvider';
 import { getDashboardPathForRole, getEffectiveRole } from './lib/permissions';
+import { ui } from './config/i18n';
+import { usePageTitle } from './hooks/usePageTitle';
 
 function LoadingScreen() {
   return (
     <div className="page centered">
-      <p>Loading session...</p>
+      <p>{ui.loadingSession}</p>
     </div>
   );
 }
@@ -57,21 +59,23 @@ function DashboardRedirect() {
 }
 
 function NotFoundPage() {
+  usePageTitle(ui.pageNotFound);
   return (
     <div className="page centered">
-      <h1>Page not found</h1>
+      <h1>{ui.pageNotFound}</h1>
       <a className="button" href="/home">
-        Go home
+        {ui.goHome}
       </a>
     </div>
   );
 }
 
 function TestPage() {
+  usePageTitle(ui.testPageTitle);
   return (
     <div className="page centered">
-      <h1>Bài test</h1>
-      <p>Trang bài test đang được chuẩn bị.</p>
+      <h1>{ui.testPageTitle}</h1>
+      <p>{ui.testPageMessage}</p>
     </div>
   );
 }

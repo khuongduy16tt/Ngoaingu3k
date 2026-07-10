@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { featuredCourses as mockCourses } from '../data/mock';
 import { getFeaturedCourses } from '../lib/courseService';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 function StatPill({ value, label, accent = false }) {
   return (
@@ -39,6 +40,7 @@ function PhotoCard({ src, title, subtitle, className = '' }) {
 }
 
 export default function HomePage() {
+  usePageTitle('Trang chủ');
   const [featuredCourses, setFeaturedCourses] = useState(mockCourses);
 
   useEffect(() => {

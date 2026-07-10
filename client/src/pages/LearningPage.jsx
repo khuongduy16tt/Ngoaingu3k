@@ -12,6 +12,7 @@ import {
 } from '../lib/assignmentService';
 import { getCourseBySlug, getOwnedCourseIds, PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const fallbackLessons = [
   { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
@@ -339,6 +340,7 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
 }
 
 export default function LearningPage() {
+  usePageTitle('Phòng học');
   const { courseId, lessonId } = useParams();
   const navigate = useNavigate();
   const auth = useAuth();

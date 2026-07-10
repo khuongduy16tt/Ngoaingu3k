@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getCourseCatalog, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const initialFilters = {
   search: '',
@@ -84,6 +85,7 @@ function sortCourses(courses, sortKey) {
 }
 
 export default function CoursesPage() {
+  usePageTitle('Khóa học');
   const auth = useAuth();
   const currentRole = getEffectiveRole(auth);
   const [courses, setCourses] = useState([]);

@@ -14,6 +14,7 @@ import {
   saveRolePermissions
 } from '../lib/adminService';
 import { getCourseCatalog, getOwnedCourseIds } from '../lib/courseService';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -226,6 +227,7 @@ function AssignmentCard({ assignment }) {
 }
 
 export function StudentDashboardPage() {
+  usePageTitle('Bảng điều khiển học viên');
   const auth = useAuth();
   const email = auth.user?.email || '';
   const [assignments, setAssignments] = useState([]);
@@ -369,6 +371,7 @@ function getScoreLabel(score) {
 }
 
 export function TeacherDashboardPage() {
+  usePageTitle('Bảng điều khiển giảng viên');
   const auth = useAuth();
   const teacherId = auth.user?.id || 'local';
   const [teacherCourses, setTeacherCourses] = useState([]);
@@ -833,6 +836,7 @@ function AdminDataTable({ columns, rows, emptyText, renderRow }) {
 }
 
 export function AdminDashboardPage() {
+  usePageTitle('Quản trị hệ thống');
   const auth = useAuth();
   const [adminData, setAdminData] = useState({
     profiles: [],

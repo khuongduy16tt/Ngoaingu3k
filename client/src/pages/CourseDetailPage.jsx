@@ -4,6 +4,7 @@ import { courseDetail as mockCourseDetail } from '../data/mock';
 import { getCourseBySlug, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const lessonStatusLabels = {
   done: 'hoàn thành',
@@ -18,6 +19,7 @@ function formatLessonStatus(status) {
 export default function CourseDetailPage() {
   const { courseId } = useParams();
   const auth = useAuth();
+  usePageTitle(courseId ? `Khóa học ${courseId}` : 'Chi tiết khóa học');
   const currentRole = getEffectiveRole(auth);
   const [course, setCourse] = useState({
     ...mockCourseDetail,

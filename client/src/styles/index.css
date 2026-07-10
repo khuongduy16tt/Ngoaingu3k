@@ -1,0 +1,16 @@
+/* Ngoaingu3k Design System — Modular CSS Index */
+
+/* 1. Variables, resets, body defaults */
+@import './base.css';
+
+/* 2. App shell, topbar, footer, nav, buttons, theme */
+@import './layout.css';
+
+/* 3. Shared page components, cards, forms, course/learning/auth/dashboard base */
+@import './components.css';
+
+/* 4. Enterprise UI refresh overrides */
+@import './pages/enterprise.css';
+
+/* 5. HSK campaign hero section */
+@import './pages/hsk-campaign.css';

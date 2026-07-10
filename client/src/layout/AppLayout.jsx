@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { navLinks } from '../data/mock';
 import { useAuth } from '../providers/AuthProvider';
+import { contact } from '../config/contact';
+import { ui } from '../config/i18n';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
@@ -15,7 +17,7 @@ export function AppLayout({ children }) {
     }
   }, [theme]);
 
-  const themeLabel = useMemo(() => (theme === 'dark' ? 'Dark mode' : 'Light mode'), [theme]);
+  const themeLabel = useMemo(() => (theme === 'dark' ? ui.darkMode : ui.lightMode), [theme]);
 
   return (
     <div className="app-shell">
@@ -32,7 +34,7 @@ export function AppLayout({ children }) {
 
 function FloatingTestButton() {
   return (
-    <Link className="floating-test-button" to="/test" aria-label="Vào trang làm bài test">
+    <Link className="floating-test-button" to="/test" aria-label={ui.testButtonAria}>
       <span className="floating-test-button__badge">1</span>
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="m3 8.5 9-4 9 4-9 4-9-4Z" />
@@ -45,9 +47,9 @@ function FloatingTestButton() {
 
 const floatingContactActions = [
   {
-    label: 'Zalo',
-    description: 'Nhắn tin tư vấn',
-    href: 'https://zalo.me/84900000000',
+    label: ui.zaloLabel,
+    description: ui.zaloDesc,
+    href: contact.zaloUrl,
     className: 'floating-contact__item--zalo',
     external: true,
     icon: (
@@ -57,9 +59,9 @@ const floatingContactActions = [
     )
   },
   {
-    label: 'Messenger',
-    description: 'Chat qua Facebook',
-    href: 'https://m.me/ngoaingu3k',
+    label: ui.messengerLabel,
+    description: ui.messengerDesc,
+    href: contact.messengerUrl,
     className: 'floating-contact__item--messenger',
     external: true,
     icon: (
@@ -69,9 +71,9 @@ const floatingContactActions = [
     )
   },
   {
-    label: 'Gọi điện',
-    description: 'Liên hệ tư vấn ngay',
-    href: 'tel:+84900000000',
+    label: ui.phoneLabel,
+    description: ui.phoneDesc,
+    href: `tel:${contact.phone}`,
     className: 'floating-contact__item--phone',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -85,7 +87,7 @@ function FloatingContactButtons() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className={`floating-contact ${isOpen ? 'is-open' : ''}`} aria-label="Kenh lien he nhanh">
+    <div className={`floating-contact ${isOpen ? 'is-open' : ''}`} aria-label={ui.contactChannelsAria}>
       <div id="floating-contact-list" className="floating-contact__list" aria-hidden={!isOpen}>
         {floatingContactActions.map((action) => (
           <a
@@ -108,7 +110,7 @@ function FloatingContactButtons() {
       <button
         className="floating-contact__toggle"
         type="button"
-        aria-label={isOpen ? 'An kenh lien he nhanh' : 'Mo kenh lien he nhanh'}
+        aria-label={isOpen ? ui.closeContactChannels : ui.openContactChannels}
         aria-expanded={isOpen}
         aria-controls="floating-contact-list"
         onClick={() => setIsOpen((current) => !current)}
@@ -184,7 +186,7 @@ function TopBar({ theme, setTheme, themeLabel }) {
             <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
           </div>
           <div className="brand-copy">
-            <div className="brand">Ngoaingu3k Academy</div>
+            <div className="brand">{contact.companyName}</div>
             <div className="brand-subtitle">
               {signedIn ? auth.profile?.full_name || auth.user?.email || 'Member' : 'Enterprise English learning platform'}
             </div>
@@ -207,7 +209,7 @@ function TopBar({ theme, setTheme, themeLabel }) {
             href="#contact"
             onClick={() => setActiveHeaderLink('contact')}
           >
-            Liên hệ
+            {ui.contact}
           </a>
         </nav>
 
@@ -216,22 +218,22 @@ function TopBar({ theme, setTheme, themeLabel }) {
             className="text-control theme-toggle"
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={theme === 'dark' ? ui.switchToLight : ui.switchToDark}
             title={themeLabel}
           >
             <ThemeIcon theme={theme} />
           </button>
           {signedIn ? (
             <button className="text-control" type="button" onClick={() => auth.signOut()}>
-              Sign out
+              {ui.signOut}
             </button>
           ) : (
             <>
               <Link className="text-control auth-nav-link" to="/auth">
-                Sign in
+                {ui.signIn}
               </Link>
               <Link className="text-control auth-nav-link" to="/auth?mode=sign-up">
-                Sign up
+                {ui.signUp}
               </Link>
             </>
           )}
@@ -243,10 +245,10 @@ function TopBar({ theme, setTheme, themeLabel }) {
 
 function Footer() {
   const quickLinks = [
-    { label: 'Home', to: '/home' },
-    { label: 'Courses', to: '/courses' },
-    { label: 'Learning', to: '/learn' },
-    { label: 'Sign in', to: '/auth' }
+    { label: ui.home, to: '/home' },
+    { label: ui.courses, to: '/courses' },
+    { label: ui.learningRoom, to: '/learn' },
+    { label: ui.signIn, to: '/auth' }
   ];
 
   return (
@@ -259,22 +261,22 @@ function Footer() {
                 <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
               </div>
               <div className="brand-copy">
-                <div className="footer-title">Ngoaingu3k Academy</div>
+                <div className="footer-title">{contact.companyName}</div>
                 <p className="footer-text">
-                  Nền tảng học ngoại ngữ trực tuyến cho tư vấn tuyển sinh, vận hành lớp học và theo dõi tiến độ.
+                  {contact.companyDescription}
                 </p>
               </div>
             </Link>
 
             <div className="footer-contact">
-              <a href="mailto:support@ngoaingu3k.com">support@ngoaingu3k.com</a>
-              <a href="tel:+84900000000">+84 900 000 000</a>
+              <a href={`mailto:${contact.email}`}>{contact.email}</a>
+              <a href={`tel:${contact.phone}`}>{contact.phoneDisplay}</a>
             </div>
           </div>
 
           <div className="footer-links">
             <div>
-              <h3>Quick links</h3>
+              <h3>{ui.quickLinks}</h3>
               {quickLinks.map((link) => (
                 <Link key={link.to} to={link.to}>
                   {link.label}
@@ -282,25 +284,25 @@ function Footer() {
               ))}
             </div>
             <div>
-              <h3>Platform</h3>
-              <span>Đăng nhập tài khoản</span>
-              <span>Thanh toán trực tuyến</span>
-              <span>Học liệu số</span>
-              <span>Theo dõi tiến độ</span>
+              <h3>{ui.platform}</h3>
+              <span>{ui.accountLogin}</span>
+              <span>{ui.onlinePayment}</span>
+              <span>{ui.digitalMaterials}</span>
+              <span>{ui.progressTracking}</span>
             </div>
             <div>
-              <h3>Support</h3>
-              <span>Exercises and quizzes</span>
-              <span>Dashboard workspace</span>
-              <span>Course management</span>
-              <span>Progress tracking</span>
+              <h3>{ui.support}</h3>
+              <span>{ui.exercisesAndQuizzes}</span>
+              <span>{ui.dashboardWorkspace}</span>
+              <span>{ui.courseManagement}</span>
+              <span>{ui.progressTracking}</span>
             </div>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <span>Copyright 2026 Ngoaingu3k Academy</span>
-          <span>Nền tảng học trực tuyến</span>
+          <span>{contact.copyright}</span>
+          <span>{ui.onlinePlatform}</span>
         </div>
       </div>
     </footer>

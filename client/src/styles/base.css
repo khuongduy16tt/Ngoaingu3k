@@ -1,0 +1,81 @@
+:root {
+  color-scheme: dark;
+  --bg: #08101d;
+  --bg-alt: #111a2b;
+  --surface: rgba(15, 23, 38, 0.9);
+  --surface-soft: rgba(20, 31, 49, 0.8);
+  --surface-strong: rgba(8, 12, 20, 0.95);
+  --border: rgba(151, 167, 193, 0.18);
+  --border-strong: rgba(186, 201, 223, 0.28);
+  --text: #edf4ff;
+  --muted: #a8b8cf;
+  --accent: #54e2d1;
+  --accent-2: #8b9dff;
+  --accent-warm: #f0b85f;
+  --success: #76e4b9;
+  --button-bg: linear-gradient(135deg, #5cf0dc, #8ec2ff);
+  --button-text: #08101d;
+  --button-border: transparent;
+  --ghost-bg: rgba(255, 255, 255, 0.04);
+  --ghost-text: #edf4ff;
+  --ghost-border: rgba(189, 203, 223, 0.22);
+  --nav-bg: rgba(255, 255, 255, 0.035);
+  --shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f8fc;
+  --bg-alt: #edf3fb;
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-soft: rgba(246, 249, 253, 0.9);
+  --surface-strong: rgba(255, 255, 255, 0.96);
+  --border: rgba(23, 36, 56, 0.11);
+  --border-strong: rgba(23, 36, 56, 0.18);
+  --text: #102033;
+  --muted: #5d6d84;
+  --accent: #087f76;
+  --accent-2: #295bd8;
+  --accent-warm: #b36a00;
+  --success: #0c8f64;
+  --button-bg: linear-gradient(135deg, #0d5df4, #08b39c);
+  --button-text: #ffffff;
+  --button-border: transparent;
+  --ghost-bg: rgba(13, 29, 52, 0.04);
+  --ghost-text: #102033;
+  --ghost-border: rgba(13, 29, 52, 0.16);
+  --nav-bg: rgba(13, 29, 52, 0.04);
+  --shadow: 0 22px 44px rgba(16, 32, 51, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background-color: var(--bg);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 18%, transparent), transparent 26%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 22%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 52%, var(--bg) 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
