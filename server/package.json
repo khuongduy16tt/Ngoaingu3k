@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
+    "build": "npm run build --prefix ../client",
     "start": "node src/index.js",
     "seed:test-users": "node scripts/seed-test-users.mjs"
   },
