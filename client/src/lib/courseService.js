@@ -1,5 +1,6 @@
 import { supabase, isSupabaseReady } from './supabase';
 import { apiFetch } from './api';
+import { logActivity } from './activityService';
 import { featuredCourses as mockCourses, courseDetail as mockCourseDetail } from '../data/mock';
 
 export const PURCHASED_COURSES_STORAGE_KEY = 'learning-purchased-courses';
@@ -198,7 +199,11 @@ export async function purchaseCourse({ course, userId, accessToken }) {
   }
 
   if (!isSupabaseReady() || !userId) {
-    return { ownedCourseIds: addStoredPurchasedCourseId(course.id), mode: 'local' };
+    const ownedCourseIds = addStoredPurchasedCourseId(course.id);
+    if (userId) {
+      void logActivity(userId, 'purchase', course.id, course.title);
+    }
+    return { ownedCourseIds, mode: 'local' };
   }
 
   if (!accessToken) {
@@ -213,6 +218,11 @@ export async function purchaseCourse({ course, userId, accessToken }) {
       amount: course.priceValue ?? 0,
       provider: 'demo-checkout'
     }
+  });
+
+  void logActivity(userId, 'purchase', course.databaseId || course.id, course.title, {
+    orderId: response.orderId,
+    mode: response.mode
   });
 
   return {

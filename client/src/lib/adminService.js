@@ -618,3 +618,56 @@ export async function saveRolePermissions(rolePermissions) {
 
   return normalizedPermissions;
 }
+
+// ─── Thông tin người dùng với trạng thái mua hàng ────────────────────────────
+
+const fallbackOrders = [];
+
+/**
+ * Lấy danh sách users kèm thông tin mua hàng (đã mua / chưa mua).
+ * @returns {{ profiles: Array, orders: Array }}
+ */
+export async function getUsersWithPurchaseInfo() {
+  const state = readStoredState();
+
+  if (!isSupabaseReady()) {
+    return { profiles: state.profiles || fallbackProfiles, orders: fallbackOrders };
+  }
+
+  try {
+    const [profilesRes, ordersRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, role, avatar_url, created_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('orders')
+        .select('id, user_id, course_id, status, amount, created_at'),
+    ]);
+
+    const profiles = (profilesRes.data || []).map((p) => ({
+      id: p.id,
+      fullName: p.full_name || '',
+      email: p.email || '',
+      phone: p.phone || '',
+      role: p.role || 'student',
+      avatarUrl: p.avatar_url || '',
+      createdAt: p.created_at,
+      source: 'supabase',
+    }));
+
+    const orders = (ordersRes.data || []).map((o) => ({
+      id: o.id,
+      userId: o.user_id,
+      courseId: o.course_id,
+      status: o.status,
+      amount: o.amount,
+      createdAt: o.created_at,
+    }));
+
+    return { profiles, orders };
+  } catch (err) {
+    console.warn('[getUsersWithPurchaseInfo]', err.message);
+    return { profiles: state.profiles || fallbackProfiles, orders: fallbackOrders };
+  }
+}

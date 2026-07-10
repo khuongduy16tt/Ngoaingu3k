@@ -1169,6 +1169,69 @@
   gap: 1rem;
 }
 
+.admin-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.admin-tab-btn {
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: calc(var(--radius) - 0.15rem);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-tab-btn.is-active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.admin-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.admin-upload-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-upload-field input[type='file'] {
+  width: 100%;
+}
+
+.admin-upload-progress {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-upload-progress .meter {
+  height: 0.45rem;
+}
+
+.pill--success {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+}
+
 .admin-summary-grid,
 .admin-management-grid,
 .admin-permission-grid {

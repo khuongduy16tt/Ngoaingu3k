@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getAssignmentsForStudent } from '../lib/assignmentService';
@@ -8,6 +8,7 @@ import {
   deleteAdminProfile,
   defaultRolePermissions,
   getAdminDashboardData,
+  getUsersWithPurchaseInfo,
   saveAdminCourse,
   saveAdminLesson,
   saveAdminProfile,
@@ -15,6 +16,13 @@ import {
 } from '../lib/adminService';
 import { getCourseCatalog, getOwnedCourseIds } from '../lib/courseService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { getActivityLogs } from '../lib/activityService';
+import {
+  exportUsersToExcel,
+  exportOrdersToExcel,
+  exportActivityToExcel
+} from '../lib/reportService';
+import { uploadLessonVideo, validateVideoFile } from '../lib/storageService';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -857,17 +865,43 @@ export function AdminDashboardPage() {
   const [lessonDraft, setLessonDraft] = useState(emptyLessonDraft);
   const [permissionDraft, setPermissionDraft] = useState(defaultRolePermissions);
 
+  // ── New feature state ──────────────────────────────────
+  const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'activity'
+  const [usersWithOrders, setUsersWithOrders] = useState({ profiles: [], orders: [] });
+  const [userFilter, setUserFilter] = useState('all'); // 'all' | 'purchased' | 'not_purchased'
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityFilter, setActivityFilter] = useState('');
+  const videoUploadRef = useRef(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoUploading, setVideoUploading] = useState(false);
+
   async function reloadAdminData() {
     setLoading(true);
-    const nextData = await getAdminDashboardData();
+    const [nextData, nextUsers] = await Promise.all([
+      getAdminDashboardData(),
+      getUsersWithPurchaseInfo(),
+    ]);
     setAdminData(nextData);
     setPermissionDraft(nextData.rolePermissions);
+    setUsersWithOrders(nextUsers);
     setLoading(false);
+  }
+
+  async function loadActivityLogs() {
+    setActivityLoading(true);
+    const logs = await getActivityLogs(null, { limit: 200 });
+    setActivityLogs(logs);
+    setActivityLoading(false);
   }
 
   useEffect(() => {
     void reloadAdminData();
   }, []);
+
+  useEffect(() => {
+    if (adminTab === 'activity') void loadActivityLogs();
+  }, [adminTab]);
 
   const profiles = adminData.profiles;
   const students = profiles.filter((profile) => profile.role === 'student');
@@ -1094,12 +1128,239 @@ export function AdminDashboardPage() {
     }
   }
 
+  async function handleLessonVideoUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validationError = validateVideoFile(file);
+    if (validationError) {
+      setMessage({ type: 'error', text: validationError });
+      event.target.value = '';
+      return;
+    }
+
+    const lessonKey = lessonDraft.databaseId || lessonDraft.id || `draft-${Date.now()}`;
+    setVideoUploading(true);
+    setVideoUploadProgress(0);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const result = await uploadLessonVideo(file, lessonKey, setVideoUploadProgress);
+      if (!result?.url) {
+        throw new Error('Không thể tải video lên. Kiểm tra bucket lesson-videos trên Supabase Storage.');
+      }
+
+      updateLessonDraft('videoUrl', result.url);
+      setMessage({ type: 'success', text: 'Video đã được tải lên. Nhớ lưu bài học để giữ URL.' });
+    } catch (uploadError) {
+      setMessage({ type: 'error', text: uploadError.message || 'Tải video thất bại.' });
+    } finally {
+      setVideoUploading(false);
+      setVideoUploadProgress(0);
+      event.target.value = '';
+    }
+  }
+
   return (
     <DashboardShell
       title="Bảng điều khiển quản trị"
       description="Tổng hợp dữ liệu giảng viên, học viên, khóa học, bài học và quyền hệ thống trong một nơi."
       metrics={metrics}
     >
+      {/* ── Tab Navigation ── */}
+      <section className="section">
+        <div className="admin-tabs-nav" role="tablist" aria-label="Điều hướng quản trị">
+          {[
+            { id: 'overview', label: '📊 Tổng quan' },
+            { id: 'users', label: '👥 Người dùng' },
+            { id: 'activity', label: '📋 Lịch sử hoạt động' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={adminTab === tab.id}
+              className={`admin-tab-btn ${adminTab === tab.id ? 'is-active' : ''}`}
+              onClick={() => setAdminTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Tab: Người dùng ── */}
+      {adminTab === 'users' ? (
+        <section className="content-card content-card--enterprise">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Quản lý người dùng</span>
+              <h2>Thông tin đăng ký &amp; mua hàng</h2>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                className="text-control"
+                value={userFilter}
+                onChange={(e) => setUserFilter(e.target.value)}
+                style={{ padding: '0.4rem 0.75rem', borderRadius: '0.4rem' }}
+              >
+                <option value="all">Tất cả</option>
+                <option value="purchased">Đã mua</option>
+                <option value="not_purchased">Chưa mua</option>
+                <option value="student">Học viên</option>
+                <option value="teacher">Giảng viên</option>
+                <option value="admin">Quản trị</option>
+              </select>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => exportUsersToExcel(usersWithOrders.profiles, usersWithOrders.orders)}
+                title="Xuất Excel danh sách người dùng"
+              >
+                ⬇ Xuất Excel
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Họ tên</th>
+                  <th>Email</th>
+                  <th>SĐT</th>
+                  <th>Vai trò</th>
+                  <th>Ngày đăng ký</th>
+                  <th>Đã mua</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersWithOrders.profiles
+                  .filter((u) => {
+                    const paid = usersWithOrders.orders.filter(
+                      (o) => (o.userId === u.id) && o.status === 'paid'
+                    ).length;
+                    if (userFilter === 'purchased') return paid > 0;
+                    if (userFilter === 'not_purchased') return paid === 0;
+                    if (userFilter === 'student' || userFilter === 'teacher' || userFilter === 'admin') return u.role === userFilter;
+                    return true;
+                  })
+                  .map((u) => {
+                    const paidCourses = usersWithOrders.orders.filter(
+                      (o) => o.userId === u.id && o.status === 'paid'
+                    );
+                    return (
+                      <tr key={u.id}>
+                        <td>{u.fullName || '—'}</td>
+                        <td>{u.email}</td>
+                        <td>{u.phone || '—'}</td>
+                        <td><span className="pill">{u.role}</span></td>
+                        <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
+                        <td>{paidCourses.length} khóa</td>
+                        <td>
+                          <span className={`pill ${paidCourses.length > 0 ? 'pill--success' : ''}`}>
+                            {paidCourses.length > 0 ? 'Đã mua' : 'Chưa mua'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                {usersWithOrders.profiles.length === 0 ? (
+                  <tr><td colSpan={7} className="empty-state">Không có dữ liệu người dùng.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── Tab: Lịch sử hoạt động ── */}
+      {adminTab === 'activity' ? (
+        <section className="content-card content-card--enterprise">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Theo dõi hành vi</span>
+              <h2>Lịch sử hoạt động người dùng</h2>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                className="text-control"
+                value={activityFilter}
+                onChange={(e) => setActivityFilter(e.target.value)}
+                style={{ padding: '0.4rem 0.75rem', borderRadius: '0.4rem' }}
+              >
+                <option value="">Tất cả hành động</option>
+                <option value="login">Đăng nhập</option>
+                <option value="signup">Đăng ký</option>
+                <option value="view_lesson">Xem bài học</option>
+                <option value="complete_lesson">Hoàn thành bài</option>
+                <option value="complete_exercise">Làm bài tập</option>
+                <option value="purchase">Mua khóa học</option>
+              </select>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => loadActivityLogs()}
+                disabled={activityLoading}
+              >
+                ↺ Làm mới
+              </button>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => exportActivityToExcel(activityLogs, usersWithOrders.profiles)}
+                title="Xuất Excel lịch sử hoạt động"
+              >
+                ⬇ Xuất Excel
+              </button>
+            </div>
+          </div>
+
+          {activityLoading ? <p>Đang tải lịch sử...</p> : null}
+
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Người dùng</th>
+                  <th>Hành động</th>
+                  <th>Nội dung</th>
+                  <th>Thời gian</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activityLogs
+                  .filter((l) => !activityFilter || l.action === activityFilter)
+                  .map((log) => {
+                    const user = usersWithOrders.profiles.find((u) => u.id === log.user_id);
+                    const actionLabel = {
+                      login: 'Đăng nhập', logout: 'Đăng xuất', signup: 'Đăng ký',
+                      view_lesson: 'Xem bài học', complete_lesson: 'Hoàn thành bài',
+                      complete_exercise: 'Làm bài tập', purchase: 'Mua khóa học',
+                      view_course: 'Xem khóa học',
+                    }[log.action] || log.action;
+                    return (
+                      <tr key={log.id}>
+                        <td>{user ? `${user.fullName} (${user.email})` : log.user_id?.slice(0, 8)}</td>
+                        <td><span className="exercise-chip">{actionLabel}</span></td>
+                        <td>{log.target_title || log.target_id || '—'}</td>
+                        <td>{log.created_at ? new Date(log.created_at).toLocaleString('vi-VN') : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                {activityLogs.filter((l) => !activityFilter || l.action === activityFilter).length === 0 && !activityLoading ? (
+                  <tr><td colSpan={4} className="empty-state">Chưa có lịch sử hoạt động.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── Tab: Tổng quan (original content) ── */}
+      {adminTab === 'overview' ? (
+      <>
       <section className="content-card content-card--enterprise admin-overview">
         <div className="section-head">
           <div>
@@ -1140,6 +1401,17 @@ export function AdminDashboardPage() {
             <span>Nhiệm vụ giảng viên</span>
             <strong>{adminData.assignments.length}</strong>
           </article>
+        </div>
+
+        <div className="admin-overview-actions">
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={() => exportOrdersToExcel(adminData.orders, profiles, adminData.courses)}
+            title="Xuất Excel danh sách đơn hàng"
+          >
+            ⬇ Xuất Excel đơn hàng
+          </button>
         </div>
       </section>
 
@@ -1366,6 +1638,28 @@ export function AdminDashboardPage() {
               <input value={lessonDraft.videoUrl} onChange={(event) => updateLessonDraft('videoUrl', event.target.value)} />
             </label>
             <label className="auth-field auth-field--full">
+              <span>Tải video lên Storage</span>
+              <div className="admin-upload-field">
+                <input
+                  ref={videoUploadRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/x-matroska"
+                  onChange={handleLessonVideoUpload}
+                  disabled={videoUploading || saving}
+                />
+                {videoUploading ? (
+                  <div className="admin-upload-progress">
+                    <span>Đang tải video... {videoUploadProgress}%</span>
+                    <div className="meter">
+                      <span style={{ width: `${videoUploadProgress}%` }} />
+                    </div>
+                  </div>
+                ) : (
+                  <small className="admin-note">MP4, WebM, MOV, MKV — tối đa 500MB. URL sẽ tự điền sau khi tải xong.</small>
+                )}
+              </div>
+            </label>
+            <label className="auth-field auth-field--full">
               <span>Nội dung bài</span>
               <textarea rows="4" value={lessonDraft.content} onChange={(event) => updateLessonDraft('content', event.target.value)} />
             </label>
@@ -1513,6 +1807,8 @@ export function AdminDashboardPage() {
           ))}
         </div>
       </section>
+      </>
+      ) : null}
     </DashboardShell>
   );
 }

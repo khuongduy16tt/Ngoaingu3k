@@ -12,6 +12,7 @@ import {
 } from '../lib/assignmentService';
 import { getCourseBySlug, getOwnedCourseIds, PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
+import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 const fallbackLessons = [
@@ -770,6 +771,11 @@ export default function LearningPage() {
         ...previous,
         [currentLesson.id]: savedProgress
       }));
+      if (auth.user?.id) {
+        void logActivity(auth.user.id, 'complete_lesson', currentLesson.id, currentLesson.title, {
+          courseKey: currentCourseId
+        });
+      }
     } finally {
       setProgressSaving(false);
     }
@@ -792,6 +798,14 @@ export default function LearningPage() {
         [assignment.id]: savedAttempt
       }));
 
+      if (auth.user?.id) {
+        void logActivity(auth.user.id, 'complete_exercise', assignment.id, assignment.title, {
+          score: result.score,
+          maxScore: result.maxScore,
+          courseKey: currentCourseId
+        });
+      }
+
       await handleMarkLessonComplete();
     } finally {
       setAssignmentSavingId('');
@@ -799,6 +813,12 @@ export default function LearningPage() {
   }
 
   function handleSelectLesson(nextLessonId) {
+    const nextLesson = lessons.find((lesson) => lesson.id === nextLessonId);
+    if (auth.user?.id && nextLesson) {
+      void logActivity(auth.user.id, 'view_lesson', nextLessonId, nextLesson.title, {
+        courseKey: currentCourseId
+      });
+    }
     setSelectedLessonId(nextLessonId);
     navigate(`/learn/${currentCourseId}/${nextLessonId}`);
   }

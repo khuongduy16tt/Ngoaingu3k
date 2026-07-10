@@ -1,6 +1,7 @@
 import React from 'react';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { logActivity } from '../lib/activityService';
 
 const AuthContext = createContext(null);
 const MOCK_AUTH_STORAGE_KEY = 'ngoaingu3k-mock-auth';
@@ -110,6 +111,7 @@ export function AuthProvider({ children }) {
   );
   const [ready, setReady] = useState(!supabase);
   const [loading, setLoading] = useState(Boolean(supabase));
+  const skipNextLoginLogRef = useRef(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -181,6 +183,7 @@ export function AuthProvider({ children }) {
     setRoleState(nextAuthState.profile.role);
     writeStoredRole(nextAuthState.profile.role);
     writeStoredMockAuth(nextAuthState);
+    void logActivity(nextAuthState.session.user.id, 'login');
 
     return {
       data: {
@@ -192,6 +195,11 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    const userId = session?.user?.id;
+    if (userId) {
+      void logActivity(userId, 'logout');
+    }
+
     if (!supabase) {
       clearStoredMockAuth();
       setSession(null);
@@ -212,9 +220,14 @@ export function AuthProvider({ children }) {
 
   async function signUpWithEmail(email, password, options = {}) {
     if (!supabase) {
-      return signInMock(email, options);
+      const result = await signInMock(email, options);
+      if (result?.data?.user?.id) {
+        void logActivity(result.data.user.id, 'signup');
+      }
+      return result;
     }
 
+    skipNextLoginLogRef.current = true;
     const result = await supabase.auth.signUp({
       email,
       password,
@@ -223,6 +236,7 @@ export function AuthProvider({ children }) {
       }
     });
     if (result?.data?.user?.id) {
+      void logActivity(result.data.user.id, 'signup');
       await loadProfile(result.data.user.id);
     }
     return result;
@@ -294,9 +308,17 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) {
         return;
+      }
+
+      if (event === 'SIGNED_IN' && nextSession?.user?.id) {
+        if (skipNextLoginLogRef.current) {
+          skipNextLoginLogRef.current = false;
+        } else {
+          void logActivity(nextSession.user.id, 'login');
+        }
       }
 
       setLoading(true);
