@@ -315,6 +315,14 @@ export function StudentDashboardPage() {
 }
 
 const teacherCourseStorageKey = 'teacher-managed-courses-v1';
+const legacyDemoCourseIds = new Set([
+  'english-foundation',
+  'business-communication',
+  'ielts-boost',
+  'speaking-confidence',
+  'workplace-writing',
+  'toeic-fast-track'
+]);
 
 const demoCourseStudents = [
   { name: 'Minh Anh', email: 'minh.anh@ngoaingu3k.com', courseId: 'english-foundation', progress: 82, score: 91, lastActive: 'Hôm nay' },
@@ -328,7 +336,10 @@ const demoCourseStudents = [
 function readStoredTeacherCourses(teacherId) {
   try {
     const rawValue = localStorage.getItem(`${teacherCourseStorageKey}:${teacherId || 'local'}`);
-    return rawValue ? JSON.parse(rawValue) : [];
+    const courses = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(courses)
+      ? courses.filter((course) => !legacyDemoCourseIds.has(course.id))
+      : [];
   } catch {
     return [];
   }
@@ -409,15 +420,11 @@ export function TeacherDashboardPage() {
     async function loadTeacherCourses() {
       setLoading(true);
       const storedCourses = readStoredTeacherCourses(teacherId);
-      const catalogCourses = await getCourseCatalog();
-      const fallbackCourses = catalogCourses.slice(0, 3).map((course, index) => normalizeManagedCourse(course, index));
-      const nextCourses = storedCourses.length ? storedCourses : fallbackCourses;
+      const nextCourses = storedCourses;
 
       if (active) {
         setTeacherCourses(nextCourses);
-        if (!storedCourses.length) {
-          writeStoredTeacherCourses(teacherId, nextCourses);
-        }
+        writeStoredTeacherCourses(teacherId, nextCourses);
         setLoading(false);
       }
     }

@@ -142,11 +142,12 @@ export async function getCourseCatalog() {
     .eq('status', 'published')
     .order('updated_at', { ascending: false });
 
-  if (error || !data?.length) {
-    return mockCourses.map((course, index) => normalizeCourse(course, index));
+  if (error) {
+    console.warn('[getCourseCatalog] Supabase error:', error.message);
+    return [];
   }
 
-  return data.map((course, index) => normalizeCourse(course, index));
+  return (data || []).map((course, index) => normalizeCourse(course, index));
 }
 
 export async function getFeaturedCourses() {
@@ -234,11 +235,15 @@ export async function purchaseCourse({ course, userId, accessToken }) {
 }
 
 export async function getCourseBySlug(courseSlug) {
-  const fallbackCourse =
-    mockCourses.find((course) => course.id === courseSlug || course.slug === courseSlug) || mockCourses[0];
-  const normalizedFallback = normalizeCourse(fallbackCourse);
+  if (!courseSlug) {
+    return null;
+  }
 
-  if (!isSupabaseReady() || !courseSlug) {
+  if (!isSupabaseReady()) {
+    const fallbackCourse =
+      mockCourses.find((course) => course.id === courseSlug || course.slug === courseSlug) || mockCourses[0];
+    const normalizedFallback = normalizeCourse(fallbackCourse);
+
     return {
       ...normalizedFallback,
       hero: normalizedFallback.hero || defaultHero(normalizedFallback),
@@ -257,11 +262,7 @@ export async function getCourseBySlug(courseSlug) {
   const { data: course, error } = await courseQuery.maybeSingle();
 
   if (error || !course) {
-    return {
-      ...normalizedFallback,
-      hero: normalizedFallback.hero || defaultHero(normalizedFallback),
-      sections: createFallbackSections()
-    };
+    return null;
   }
 
   const normalizedCourse = normalizeCourse(course);
@@ -272,7 +273,7 @@ export async function getCourseBySlug(courseSlug) {
     .eq('course_id', course.id)
     .order('position', { ascending: true });
 
-  let normalizedChapters = createFallbackSections();
+  let normalizedChapters = [];
 
   if (!chaptersError && chapters?.length) {
     const chapterIds = chapters.map((chapter) => chapter.id);

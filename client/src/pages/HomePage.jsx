@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { featuredCourses as mockCourses } from '../data/mock';
 import { getFeaturedCourses } from '../lib/courseService';
 import { usePageTitle } from '../hooks/usePageTitle';
 
@@ -41,7 +40,7 @@ function PhotoCard({ src, title, subtitle, className = '' }) {
 
 export default function HomePage() {
   usePageTitle('Trang chủ');
-  const [featuredCourses, setFeaturedCourses] = useState(mockCourses);
+  const [featuredCourses, setFeaturedCourses] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -217,24 +216,26 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="course-preview">
-        <div className="course-preview__head">
-          <span className="eyebrow">Khóa học nổi bật</span>
-          <h2>Nhìn phát hiểu ngay có gì để học</h2>
-        </div>
-        <div className="course-preview__grid">
-          {featuredCourses.slice(0, 3).map((course) => (
-            <article key={course.id} className="course-preview-card">
-              <img src="/images/imported/11.2_KH-TA-scaled.webp" alt={course.title} />
-              <div className="course-preview-card__copy">
-                <span>{course.category}</span>
-                <strong>{course.title}</strong>
-                <p>{course.summary}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      {featuredCourses.length ? (
+        <section className="course-preview">
+          <div className="course-preview__head">
+            <span className="eyebrow">Khóa học nổi bật</span>
+            <h2>Nhìn phát hiểu ngay có gì để học</h2>
+          </div>
+          <div className="course-preview__grid">
+            {featuredCourses.slice(0, 3).map((course) => (
+              <article key={course.id} className="course-preview-card">
+                <img src="/images/imported/11.2_KH-TA-scaled.webp" alt={course.title} />
+                <div className="course-preview-card__copy">
+                  <span>{course.category}</span>
+                  <strong>{course.title}</strong>
+                  <p>{course.summary}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -13,7 +13,7 @@ function isUuid(value) {
 
 /**
  * GET /api/courses
- * Returns all published courses. Falls back to mock data if Supabase is unavailable.
+ * Returns all published courses. Uses mock data only when Supabase is not configured.
  */
 router.get('/', async (_req, res) => {
   if (!isSupabaseAdminReady()) {
@@ -29,13 +29,13 @@ router.get('/', async (_req, res) => {
 
     if (error) {
       console.warn('[GET /api/courses] Supabase error:', error.message);
-      return res.json({ data: mockCourses, mode: 'mock-fallback' });
+      return res.status(500).json({ data: [], message: 'Lỗi truy vấn khóa học.', mode: 'supabase-error' });
     }
 
     return res.json({ data: data || [], mode: 'supabase' });
   } catch (err) {
     console.error('[GET /api/courses]', err.message);
-    return res.json({ data: mockCourses, mode: 'mock-fallback' });
+    return res.status(500).json({ data: [], message: 'Lỗi máy chủ.', mode: 'supabase-error' });
   }
 });
 

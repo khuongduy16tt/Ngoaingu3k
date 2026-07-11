@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { courseDetail as mockCourseDetail } from '../data/mock';
 import { getCourseBySlug, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
@@ -22,15 +21,7 @@ export default function CourseDetailPage() {
   const auth = useAuth();
   usePageTitle(courseId ? `Khóa học ${courseId}` : 'Chi tiết khóa học');
   const currentRole = getEffectiveRole(auth);
-  const [course, setCourse] = useState({
-    ...mockCourseDetail,
-    price: '$0',
-    priceValue: 0,
-    instructor: 'Cô Linh',
-    level: 'Nền tảng',
-    category: 'Kỹ năng cốt lõi',
-    whatYouGet: []
-  });
+  const [course, setCourse] = useState(null);
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
@@ -46,7 +37,7 @@ export default function CourseDetailPage() {
     async function loadCourse() {
       setLoading(true);
       const nextCourse = await getCourseBySlug(courseId);
-      const nextOwnedIds = await getOwnedCourseIds(auth.user?.id, [nextCourse]);
+      const nextOwnedIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
 
       if (alive) {
         setCourse(nextCourse);
@@ -62,15 +53,15 @@ export default function CourseDetailPage() {
     };
   }, [auth.ready, auth.user?.id, courseId]);
 
-  const isOwned = ownedCourseIds.includes(course.id);
-  const courseSections = useMemo(() => course.sections || [], [course.sections]);
+  const isOwned = course ? ownedCourseIds.includes(course.id) : false;
+  const courseSections = useMemo(() => course?.sections || [], [course?.sections]);
   const sectionPagination = usePagination(courseSections, {
     pageSize: 3,
-    resetKey: course.id
+    resetKey: course?.id || courseId
   });
 
   async function handlePurchase() {
-    if (!auth.session || currentRole !== 'student' || isOwned) {
+    if (!course || !auth.session || currentRole !== 'student' || isOwned) {
       return;
     }
 
@@ -91,6 +82,32 @@ export default function CourseDetailPage() {
     } finally {
       setPurchasing(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="page">
+        <section className="content-card content-card--enterprise marketplace-empty">
+          <span className="eyebrow">Đang tải</span>
+          <h3>Đang tải thông tin khóa học...</h3>
+        </section>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="page">
+        <section className="content-card content-card--enterprise marketplace-empty">
+          <span className="eyebrow">Không tìm thấy</span>
+          <h3>Khóa học này không tồn tại hoặc chưa được xuất bản.</h3>
+          <p>Danh mục chỉ hiển thị các khóa học đang có trong Supabase.</p>
+          <Link className="button" to="/courses">
+            Quay lại danh mục
+          </Link>
+        </section>
+      </div>
+    );
   }
 
   return (
