@@ -481,6 +481,7 @@ textarea:focus-visible {
 .auth-card--enterprise,
 .learning-hero,
 .learning-hero__panel,
+.learning-empty-screen,
 .learning-media,
 .lesson-upload-box,
 .lesson-note-card,
@@ -491,6 +492,7 @@ textarea:focus-visible {
 .marketplace-empty,
 .learning-status,
 .learning-stat-grid article,
+.learning-empty-screen__panel article,
 .practice-badge,
 .teacher-recipient,
 .lesson-lock,
@@ -511,7 +513,8 @@ textarea:focus-visible {
 .auth-card,
 .price-box,
 .marketplace-owned-strip,
-.marketplace-empty {
+.marketplace-empty,
+.learning-empty-screen {
   padding: 20px;
 }
 
@@ -519,6 +522,7 @@ textarea:focus-visible {
 .marketplace-stat,
 .practice-badge,
 .learning-stat-grid article,
+.learning-empty-screen__panel article,
 .auth-stat {
   display: grid;
   gap: 6px;
@@ -529,6 +533,7 @@ textarea:focus-visible {
 .marketplace-stat span,
 .practice-badge span,
 .learning-stat-grid span,
+.learning-empty-screen__panel span,
 .auth-stat span {
   color: var(--muted);
   font-size: 13px;
@@ -538,6 +543,7 @@ textarea:focus-visible {
 .stat-card strong,
 .marketplace-stat strong,
 .learning-stat-grid strong,
+.learning-empty-screen__panel strong,
 .auth-stat strong,
 .home-stat strong {
   color: var(--text);
@@ -1121,6 +1127,50 @@ textarea:focus-visible {
   padding: 22px;
 }
 
+.learning-empty-screen {
+  min-height: min(560px, calc(100vh - 240px));
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.7fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.learning-empty-screen__copy {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.learning-empty-screen__copy h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(32px, 4vw, 56px);
+  line-height: 1.05;
+}
+
+.learning-empty-screen__copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.learning-empty-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.learning-empty-screen__panel {
+  display: grid;
+  gap: 12px;
+}
+
+.learning-empty-screen__panel article {
+  padding: 18px;
+}
+
 .learning-flow {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -1482,6 +1532,7 @@ textarea:focus-visible {
   .hero--new,
   .marketplace-hero,
   .learning-hero,
+  .learning-empty-screen,
   .auth-shell,
   .auth-hero,
   .course-hero,
@@ -1622,6 +1673,8 @@ textarea:focus-visible {
   .hero__search button,
   .hero__actions .button,
   .hero__actions .button-ghost,
+  .learning-empty-screen__actions .button,
+  .learning-empty-screen__actions .button-ghost,
   .auth-submit,
   .auth-google,
   .dashboard-submit {
@@ -1657,6 +1710,7 @@ textarea:focus-visible {
   .auth-hero,
   .auth-card--enterprise,
   .learning-hero,
+  .learning-empty-screen,
   .learning-hero__panel,
   .lesson-sidebar {
     padding: 16px;

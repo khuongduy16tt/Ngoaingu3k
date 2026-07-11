@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
 import {
@@ -10,7 +10,7 @@ import {
   getCourseOptions,
   saveAssignmentAttempt
 } from '../lib/assignmentService';
-import { getCourseBySlug, getOwnedCourseIds, PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
+import { getCourseBySlug, getCourseCatalog, getOwnedCourseIds, PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -196,6 +196,10 @@ function normalizeLessonStatus(status, index) {
 }
 
 function buildLessonsFromCourse(course) {
+  if (!course) {
+    return [];
+  }
+
   const flattenedLessons = (course?.sections || [])
     .flatMap((section) =>
       (section.lessons || []).map((lesson) => ({
@@ -204,10 +208,6 @@ function buildLessonsFromCourse(course) {
       }))
     )
     .filter((lesson) => lesson.title);
-
-  if (!flattenedLessons.length) {
-    return fallbackLessons;
-  }
 
   return flattenedLessons.map((lesson, index) => ({
     id: lesson.id || lesson.databaseId || `lesson-${index + 1}`,
@@ -341,6 +341,53 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
   );
 }
 
+function LearningEmptyState({ isTeacher, loading }) {
+  const dashboardPath = isTeacher ? '/dashboard/teacher' : '/dashboard/student';
+  const dashboardLabel = isTeacher ? 'Mở bảng giảng viên' : 'Mở bảng học viên';
+
+  return (
+    <div className="page learning-page">
+      <section className="learning-empty-screen">
+        <div className="learning-empty-screen__copy">
+          <span className="eyebrow">{loading ? 'Đang kiểm tra' : 'Phòng học trống'}</span>
+          <h1>{loading ? 'Đang tải dữ liệu phòng học' : 'Chưa có khóa học nào trong phòng học'}</h1>
+          <p>
+            {loading
+              ? 'Hệ thống đang đồng bộ khóa học, bài học và quyền truy cập từ Supabase.'
+              : 'Khi có khóa học được xuất bản hoặc bạn được cấp quyền học, nội dung bài học sẽ xuất hiện tại đây.'}
+          </p>
+
+          {!loading ? (
+            <div className="learning-empty-screen__actions">
+              <Link className="button" to="/courses">
+                Xem danh mục khóa học
+              </Link>
+              <Link className="button-ghost" to={dashboardPath}>
+                {dashboardLabel}
+              </Link>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="learning-empty-screen__panel">
+          <article>
+            <span>Khóa học</span>
+            <strong>{loading ? '...' : '0'}</strong>
+          </article>
+          <article>
+            <span>Bài học</span>
+            <strong>{loading ? '...' : '0'}</strong>
+          </article>
+          <article>
+            <span>Trạng thái</span>
+            <strong>{loading ? 'Đang tải' : 'Chờ dữ liệu'}</strong>
+          </article>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function LearningPage() {
   usePageTitle('Phòng học');
   const { courseId, lessonId } = useParams();
@@ -348,16 +395,13 @@ export default function LearningPage() {
   const auth = useAuth();
   const currentRole = getEffectiveRole(auth);
   const currentEmail = auth.user?.email || '';
-  const routeCourseKey = courseId || 'english-foundation';
+  const routeCourseKey = courseId || '';
   const courseOptions = useMemo(() => getCourseOptions(), []);
 
-  const [currentCourse, setCurrentCourse] = useState(() => ({
-    id: routeCourseKey,
-    title: courseOptions.find((course) => course.key === routeCourseKey)?.title || 'Tiếng Anh nền tảng A1-A2',
-    sections: [{ title: 'Lộ trình học', lessons: fallbackLessons }]
-  }));
-  const [lessons, setLessons] = useState(fallbackLessons);
-  const [selectedLessonId, setSelectedLessonId] = useState(lessonId || fallbackLessons[1].id);
+  const [currentCourse, setCurrentCourse] = useState(null);
+  const [lessons, setLessons] = useState([]);
+  const [selectedLessonId, setSelectedLessonId] = useState(lessonId || '');
+  const [loadingCourse, setLoadingCourse] = useState(true);
   const [activeTab, setActiveTab] = useState('mcq');
   const [mcqAnswer, setMcqAnswer] = useState('');
   const [tfAnswer, setTfAnswer] = useState('');
@@ -404,19 +448,49 @@ export default function LearningPage() {
     let active = true;
 
     async function loadCourse() {
-      const nextCourse = await getCourseBySlug(routeCourseKey);
-      const nextLessons = buildLessonsFromCourse(nextCourse);
-      const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, [nextCourse]);
+      setLoadingCourse(true);
 
-      if (active) {
-        setCurrentCourse(nextCourse);
-        setLessons(nextLessons);
-        setPurchasedCourses(nextOwnedCourseIds);
-        setTeacherDraft((previous) => ({
-          ...previous,
-          courseKey: nextCourse.id || routeCourseKey,
-          courseTitle: nextCourse.title || previous.courseTitle
-        }));
+      try {
+        const nextCourse = routeCourseKey
+          ? await getCourseBySlug(routeCourseKey)
+          : (await getCourseCatalog())[0] || null;
+        const nextLessons = nextCourse ? buildLessonsFromCourse(nextCourse) : [];
+        const nextOwnedCourseIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
+
+        if (active) {
+          setCurrentCourse(nextCourse);
+          setLessons(nextLessons);
+          setSelectedLessonId((previousLessonId) => {
+            if (lessonId && nextLessons.some((lesson) => lesson.id === lessonId)) {
+              return lessonId;
+            }
+
+            if (previousLessonId && nextLessons.some((lesson) => lesson.id === previousLessonId)) {
+              return previousLessonId;
+            }
+
+            return nextLessons.find((lesson) => lesson.status === 'active')?.id || nextLessons[0]?.id || '';
+          });
+          setPurchasedCourses(nextOwnedCourseIds);
+          if (nextCourse) {
+            setTeacherDraft((previous) => ({
+              ...previous,
+              courseKey: nextCourse.id || routeCourseKey,
+              courseTitle: nextCourse.title || previous.courseTitle
+            }));
+          }
+        }
+      } catch {
+        if (active) {
+          setCurrentCourse(null);
+          setLessons([]);
+          setSelectedLessonId('');
+          setPurchasedCourses([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingCourse(false);
+        }
       }
     }
 
@@ -429,6 +503,9 @@ export default function LearningPage() {
 
   useEffect(() => {
     if (!lessons.length) {
+      if (selectedLessonId) {
+        setSelectedLessonId('');
+      }
       return;
     }
 
@@ -493,10 +570,15 @@ export default function LearningPage() {
     let active = true;
 
     async function loadProgress() {
+      if (!currentCourse?.id || !lessons.length) {
+        setLessonProgressMap({});
+        return;
+      }
+
       const nextProgress = await getLessonProgress({
         studentId: auth.user?.id,
         studentEmail: auth.user?.email,
-        courseKey: currentCourse.id || routeCourseKey,
+        courseKey: currentCourse.id,
         lessons
       });
 
@@ -510,15 +592,16 @@ export default function LearningPage() {
     return () => {
       active = false;
     };
-  }, [auth.user?.id, auth.user?.email, currentCourse.id, routeCourseKey, lessons]);
+  }, [auth.user?.id, auth.user?.email, currentCourse?.id, lessons]);
 
-  const currentLesson = lessons.find((lesson) => lesson.id === selectedLessonId) || lessons[0] || fallbackLessons[0];
+  const currentLesson = lessons.find((lesson) => lesson.id === selectedLessonId) || lessons[0] || null;
   const lessonIndex = useMemo(() => lessons.findIndex((lesson) => lesson.id === selectedLessonId), [selectedLessonId]);
-  const currentCourseId = currentCourse.id || routeCourseKey;
-  const lessonStorageId = `${currentCourseId}:${selectedLessonId}`;
-  const teacherCourseOptions = courseOptions.some((course) => course.key === currentCourseId)
-    ? courseOptions
-    : [{ key: currentCourseId, title: currentCourse.title }, ...courseOptions];
+  const currentCourseId = currentCourse?.id || routeCourseKey || '';
+  const lessonStorageId = currentCourseId && selectedLessonId ? `${currentCourseId}:${selectedLessonId}` : '';
+  const teacherCourseOptions =
+    currentCourse && !courseOptions.some((course) => course.key === currentCourseId)
+      ? [{ key: currentCourseId, title: currentCourse.title }, ...courseOptions]
+      : courseOptions;
   const isTeacher = currentRole === 'teacher' || currentRole === 'admin';
   const purchasedCourseSet = new Set(purchasedCourses.map((courseKey) => String(courseKey).toLowerCase()));
   const hasPurchasedCourse =
@@ -530,14 +613,18 @@ export default function LearningPage() {
       String(assignment.courseKey).toLowerCase() === String(currentCourseId).toLowerCase() ||
       String(assignment.courseKey).toLowerCase() === String(routeCourseKey).toLowerCase()
   );
-  const currentLessonAssignments = visibleAssignments.filter((assignment) => assignment.lessonTitle === currentLesson.title);
+  const currentLessonAssignments = currentLesson
+    ? visibleAssignments.filter((assignment) => assignment.lessonTitle === currentLesson.title)
+    : [];
   const hasAssignedLesson = !isTeacher && currentLessonAssignments.length > 0;
   const hasLessonAccess = hasPurchasedCourse || hasAssignedLesson || isTeacher;
   const completedLessonCount = lessons.filter(
     (lesson) => lessonProgressMap[lesson.id]?.completed || lesson.status === 'done'
   ).length;
   const lessonProgress = lessons.length ? Math.round((completedLessonCount / lessons.length) * 100) : 0;
-  const isCurrentLessonCompleted = Boolean(lessonProgressMap[currentLesson.id]?.completed || currentLesson.status === 'done');
+  const isCurrentLessonCompleted = currentLesson
+    ? Boolean(lessonProgressMap[currentLesson.id]?.completed || currentLesson.status === 'done')
+    : false;
   const lessonPagination = usePagination(lessons, {
     pageSize: 8,
     resetKey: currentCourseId
@@ -688,6 +775,11 @@ export default function LearningPage() {
   }
 
   async function saveAssignmentToSupabase() {
+    if (!currentLesson) {
+      setTeacherSaveStatus({ type: 'error', text: 'Khóa học này chưa có bài học để giao.' });
+      return;
+    }
+
     const selectedQuestions = generatedExercises
       .filter((question) => question.enabled)
       .map((question) => ({
@@ -773,6 +865,10 @@ export default function LearningPage() {
   }
 
   async function handleMarkLessonComplete() {
+    if (!currentLesson) {
+      return;
+    }
+
     setProgressSaving(true);
     try {
       const savedProgress = await saveLessonProgress({
@@ -837,6 +933,51 @@ export default function LearningPage() {
     }
     setSelectedLessonId(nextLessonId);
     navigate(`/learn/${currentCourseId}/${nextLessonId}`);
+  }
+
+  if (!auth.ready || loadingCourse) {
+    return <LearningEmptyState isTeacher={isTeacher} loading />;
+  }
+
+  if (!currentCourse) {
+    return <LearningEmptyState isTeacher={isTeacher} loading={false} />;
+  }
+
+  if (!lessons.length || !currentLesson) {
+    return (
+      <div className="page learning-page">
+        <section className="learning-empty-screen">
+          <div className="learning-empty-screen__copy">
+            <span className="eyebrow">Phòng học đang chờ bài học</span>
+            <h1>{currentCourse.title}</h1>
+            <p>Khóa học này đã có trong hệ thống nhưng chưa có bài học nào được xuất bản.</p>
+            <div className="learning-empty-screen__actions">
+              <Link className="button" to="/courses">
+                Xem danh mục khóa học
+              </Link>
+              <Link className="button-ghost" to={isTeacher ? '/dashboard/teacher' : '/dashboard/student'}>
+                {isTeacher ? 'Mở bảng giảng viên' : 'Mở bảng học viên'}
+              </Link>
+            </div>
+          </div>
+
+          <div className="learning-empty-screen__panel">
+            <article>
+              <span>Khóa học</span>
+              <strong>1</strong>
+            </article>
+            <article>
+              <span>Bài học</span>
+              <strong>0</strong>
+            </article>
+            <article>
+              <span>Trạng thái</span>
+              <strong>Chờ bài học</strong>
+            </article>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   const lessonAudio = audioMap[lessonStorageId];
