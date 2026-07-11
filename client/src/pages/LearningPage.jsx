@@ -14,6 +14,7 @@ import { getCourseBySlug, getOwnedCourseIds, PURCHASED_COURSES_STORAGE_KEY } fro
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { PaginationControls, usePagination } from '../components/Pagination';
 
 const fallbackLessons = [
   { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
@@ -537,6 +538,21 @@ export default function LearningPage() {
   ).length;
   const lessonProgress = lessons.length ? Math.round((completedLessonCount / lessons.length) * 100) : 0;
   const isCurrentLessonCompleted = Boolean(lessonProgressMap[currentLesson.id]?.completed || currentLesson.status === 'done');
+  const lessonPagination = usePagination(lessons, {
+    pageSize: 8,
+    resetKey: currentCourseId
+  });
+  const assignmentPagination = usePagination(visibleAssignments, {
+    pageSize: 4,
+    resetKey: `${currentCourseId}|${currentRole}|${visibleAssignments.length}`
+  });
+
+  useEffect(() => {
+    const currentLessonIndex = lessons.findIndex((lesson) => lesson.id === selectedLessonId);
+    if (currentLessonIndex >= 0) {
+      lessonPagination.setPage(Math.floor(currentLessonIndex / lessonPagination.pageSize) + 1);
+    }
+  }, [lessonPagination.pageSize, lessonPagination.setPage, lessons, selectedLessonId]);
 
   function handleAudioUpload(event) {
     const file = event.target.files?.[0];
@@ -847,7 +863,7 @@ export default function LearningPage() {
             </div>
           </div>
 
-          {lessons.map((lesson) => (
+          {lessonPagination.pageItems.map((lesson) => (
             <button
               key={lesson.id}
               type="button"
@@ -863,6 +879,7 @@ export default function LearningPage() {
               </span>
             </button>
           ))}
+          <PaginationControls {...lessonPagination} label="bài học" />
         </aside>
 
         <div className="learning-stage">
@@ -1441,8 +1458,9 @@ export default function LearningPage() {
             </div>
 
             {visibleAssignments.length ? (
-              <div className="assignment-list">
-                {visibleAssignments.map((assignment) => (
+              <>
+                <div className="assignment-list">
+                  {assignmentPagination.pageItems.map((assignment) => (
                   <article key={assignment.id} className="content-card content-card--enterprise assignment-card">
                     <div className="assignment-card__head">
                       <div>
@@ -1473,8 +1491,10 @@ export default function LearningPage() {
                       />
                     ) : null}
                   </article>
-                ))}
-              </div>
+                  ))}
+                </div>
+                <PaginationControls {...assignmentPagination} label="nhiệm vụ" />
+              </>
             ) : (
               <p className="empty-state">
                 {isTeacher ? 'Chưa có nhiệm vụ nào được lưu.' : 'Tài khoản của bạn chưa được giao nhiệm vụ học tập.'}

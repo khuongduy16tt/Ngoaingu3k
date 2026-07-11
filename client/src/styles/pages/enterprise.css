@@ -1439,6 +1439,31 @@ textarea:focus-visible {
   border-radius: var(--radius);
 }
 
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.pagination-controls__summary,
+.pagination-controls__page {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.pagination-controls__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-controls .button-ghost {
+  min-width: 84px;
+}
+
 .meter {
   height: 8px;
   border-radius: 999px;
@@ -1657,8 +1682,24 @@ textarea:focus-visible {
 
   .marketplace-card__actions,
   .lesson-actions,
+  .pagination-controls,
   .teacher-recipient-actions {
     width: 100%;
+  }
+
+  .pagination-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pagination-controls__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pagination-controls__actions .button-ghost {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .marketplace-card__actions .button,

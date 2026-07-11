@@ -22,12 +22,6 @@ const gallery = [
   }
 ];
 
-const demoRoleOptions = [
-  { value: 'student', label: 'Học viên demo' },
-  { value: 'teacher', label: 'Giảng viên demo' },
-  { value: 'admin', label: 'Quản trị demo' }
-];
-
 function getAuthModeFromSearch(search) {
   return new URLSearchParams(search).get('mode') === 'sign-up' ? 'sign-up' : 'sign-in';
 }
@@ -58,7 +52,6 @@ export default function AuthPage() {
   const redirectTo = location.state?.from || '/dashboard';
 
   const isSignUp = mode === 'sign-up';
-  const isMockAuth = auth.isMockMode;
   const requiresProfileCompletion = Boolean(
     auth.session &&
       !auth.isMockMode &&
@@ -124,7 +117,7 @@ export default function AuthPage() {
         const result = await auth.signUpWithEmail(email, password, {
           full_name: fullName,
           phone: normalizePhone(phone),
-          role: isMockAuth ? auth.role : 'student'
+          role: 'student'
         });
 
         if (result?.error) {
@@ -391,19 +384,6 @@ export default function AuthPage() {
                   onChange={(event) => setPhone(event.target.value)}
                   autoComplete="tel"
                 />
-              </label>
-            ) : null}
-
-            {isMockAuth ? (
-              <label className="auth-field">
-                <span>Vai trò demo</span>
-                <select value={auth.role} onChange={(event) => auth.setRole(event.target.value)}>
-                  {demoRoleOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
               </label>
             ) : null}
 

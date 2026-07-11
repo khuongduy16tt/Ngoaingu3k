@@ -5,18 +5,11 @@ import { logActivity } from '../lib/activityService';
 
 const AuthContext = createContext(null);
 const MOCK_AUTH_STORAGE_KEY = 'ngoaingu3k-mock-auth';
+const MOCK_DEFAULT_ROLE = 'student';
 const validRoles = ['student', 'teacher', 'admin'];
 
 function normalizeRole(role) {
   return validRoles.includes(role) ? role : 'student';
-}
-
-function readStoredRole() {
-  try {
-    return normalizeRole(localStorage.getItem('role') || 'student');
-  } catch {
-    return 'student';
-  }
 }
 
 function writeStoredRole(role) {
@@ -39,13 +32,12 @@ function readStoredMockAuth(fallbackRole) {
       return null;
     }
 
-    return {
-      session: parsed.session,
-      profile: {
-        ...parsed.profile,
-        role: normalizeRole(parsed.profile?.role || fallbackRole)
-      }
-    };
+    return createMockAuthState({
+      email: parsed.session.user.email,
+      fullName: parsed.profile?.full_name || parsed.session.user.user_metadata?.full_name,
+      phone: parsed.profile?.phone || parsed.session.user.user_metadata?.phone,
+      role: fallbackRole
+    });
   } catch {
     return null;
   }
@@ -102,7 +94,7 @@ function createMockAuthState({ email, fullName, phone, role }) {
 }
 
 export function AuthProvider({ children }) {
-  const initialRole = supabase ? 'student' : readStoredRole();
+  const initialRole = supabase ? 'student' : MOCK_DEFAULT_ROLE;
   const initialMockAuth = supabase ? null : readStoredMockAuth(initialRole);
   const [session, setSession] = useState(initialMockAuth?.session ?? null);
   const [profile, setProfile] = useState(initialMockAuth?.profile ?? null);

@@ -23,6 +23,7 @@ import {
   exportActivityToExcel
 } from '../lib/reportService';
 import { uploadLessonVideo, validateVideoFile } from '../lib/storageService';
+import { PaginationControls, usePagination } from '../components/Pagination';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -274,6 +275,10 @@ export function StudentDashboardPage() {
     ],
     [assignments.length, ownedCount]
   );
+  const assignmentPagination = usePagination(assignments, {
+    pageSize: 4,
+    resetKey: `${email}|${assignments.length}`
+  });
 
   return (
     <DashboardShell
@@ -289,10 +294,11 @@ export function StudentDashboardPage() {
             <p className="empty-state">Chưa có nhiệm vụ học tập. Vui lòng liên hệ giảng viên để được cấp quyền.</p>
           ) : null}
           <div className="assignment-list">
-            {assignments.map((assignment) => (
+            {assignmentPagination.pageItems.map((assignment) => (
               <AssignmentCard key={assignment.id} assignment={assignment} />
             ))}
           </div>
+          <PaginationControls {...assignmentPagination} label="nhiệm vụ" />
         </div>
 
         <div className="content-card content-card--enterprise">
@@ -473,6 +479,14 @@ export function TeacherDashboardPage() {
     ],
     [averageScore, publishedCount, studentRows.length, teacherCourses.length]
   );
+  const courseStatsPagination = usePagination(courseStats, {
+    pageSize: 4,
+    resetKey: `${teacherId}|${courseStats.length}`
+  });
+  const studentRowsPagination = usePagination(visibleStudentRows, {
+    pageSize: 8,
+    resetKey: `${selectedCourseId}|${visibleStudentRows.length}`
+  });
 
   function updateDraft(field, value) {
     setCourseDraft((previous) => ({ ...previous, [field]: value }));
@@ -633,7 +647,7 @@ export function TeacherDashboardPage() {
           </div>
 
           <div className="teacher-course-list">
-            {courseStats.map((course) => (
+            {courseStatsPagination.pageItems.map((course) => (
               <article key={course.id} className="teacher-course-card">
                 <div>
                   <span className="eyebrow">{course.category}</span>
@@ -674,6 +688,7 @@ export function TeacherDashboardPage() {
               </article>
             ))}
           </div>
+          <PaginationControls {...courseStatsPagination} label="khóa học" />
         </div>
       </section>
 
@@ -723,7 +738,7 @@ export function TeacherDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleStudentRows.map((student) => (
+              {studentRowsPagination.pageItems.map((student) => (
                 <tr key={`${student.email}-${student.courseId}`}>
                   <td>
                     <strong>{student.name}</strong>
@@ -748,6 +763,7 @@ export function TeacherDashboardPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls {...studentRowsPagination} label="học sinh" />
       </section>
     </DashboardShell>
   );
@@ -821,26 +837,34 @@ function getCourseTitle(courseLookup, courseId) {
   return courseLookup.get(courseId)?.title || courseLookup.get(String(courseId || '').toLowerCase())?.title || 'Chưa gắn khóa';
 }
 
-function AdminDataTable({ columns, rows, emptyText, renderRow }) {
+function AdminDataTable({ columns, rows, emptyText, renderRow, pageSize = 8, paginationLabel = 'mục' }) {
+  const pagination = usePagination(rows, {
+    pageSize,
+    resetKey: rows.length
+  });
+
   return (
-    <div className="admin-table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column}>{column}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length ? rows.map(renderRow) : (
+    <>
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
             <tr>
-              <td colSpan={columns.length}>{emptyText}</td>
+              {columns.map((column) => (
+                <th key={column}>{column}</th>
+              ))}
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.length ? pagination.pageItems.map(renderRow) : (
+              <tr>
+                <td colSpan={columns.length}>{emptyText}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <PaginationControls {...pagination} label={paginationLabel} />
+    </>
   );
 }
 
@@ -966,6 +990,32 @@ export function AdminDashboardPage() {
       }),
     [adminData.orders, adminData.progress, students]
   );
+  const filteredUsers = useMemo(
+    () =>
+      usersWithOrders.profiles.filter((user) => {
+        const paidCount = usersWithOrders.orders.filter(
+          (order) => order.userId === user.id && order.status === 'paid'
+        ).length;
+
+        if (userFilter === 'purchased') return paidCount > 0;
+        if (userFilter === 'not_purchased') return paidCount === 0;
+        if (['student', 'teacher', 'admin'].includes(userFilter)) return user.role === userFilter;
+        return true;
+      }),
+    [userFilter, usersWithOrders.orders, usersWithOrders.profiles]
+  );
+  const usersPagination = usePagination(filteredUsers, {
+    pageSize: 10,
+    resetKey: `${userFilter}|${filteredUsers.length}`
+  });
+  const filteredActivityLogs = useMemo(
+    () => activityLogs.filter((log) => !activityFilter || log.action === activityFilter),
+    [activityFilter, activityLogs]
+  );
+  const activityPagination = usePagination(filteredActivityLogs, {
+    pageSize: 10,
+    resetKey: `${activityFilter}|${filteredActivityLogs.length}`
+  });
 
   function updateProfileDraft(field, value) {
     setProfileDraft((previous) => ({ ...previous, [field]: value }));
@@ -1236,16 +1286,7 @@ export function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {usersWithOrders.profiles
-                  .filter((u) => {
-                    const paid = usersWithOrders.orders.filter(
-                      (o) => (o.userId === u.id) && o.status === 'paid'
-                    ).length;
-                    if (userFilter === 'purchased') return paid > 0;
-                    if (userFilter === 'not_purchased') return paid === 0;
-                    if (userFilter === 'student' || userFilter === 'teacher' || userFilter === 'admin') return u.role === userFilter;
-                    return true;
-                  })
+                {usersPagination.pageItems
                   .map((u) => {
                     const paidCourses = usersWithOrders.orders.filter(
                       (o) => o.userId === u.id && o.status === 'paid'
@@ -1266,12 +1307,13 @@ export function AdminDashboardPage() {
                       </tr>
                     );
                   })}
-                {usersWithOrders.profiles.length === 0 ? (
+                {filteredUsers.length === 0 ? (
                   <tr><td colSpan={7} className="empty-state">Không có dữ liệu người dùng.</td></tr>
                 ) : null}
               </tbody>
             </table>
           </div>
+          <PaginationControls {...usersPagination} label="người dùng" />
         </section>
       ) : null}
 
@@ -1330,8 +1372,7 @@ export function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {activityLogs
-                  .filter((l) => !activityFilter || l.action === activityFilter)
+                {activityPagination.pageItems
                   .map((log) => {
                     const user = usersWithOrders.profiles.find((u) => u.id === log.user_id);
                     const actionLabel = {
@@ -1349,12 +1390,13 @@ export function AdminDashboardPage() {
                       </tr>
                     );
                   })}
-                {activityLogs.filter((l) => !activityFilter || l.action === activityFilter).length === 0 && !activityLoading ? (
+                {filteredActivityLogs.length === 0 && !activityLoading ? (
                   <tr><td colSpan={4} className="empty-state">Chưa có lịch sử hoạt động.</td></tr>
                 ) : null}
               </tbody>
             </table>
           </div>
+          <PaginationControls {...activityPagination} label="hoạt động" />
         </section>
       ) : null}
 

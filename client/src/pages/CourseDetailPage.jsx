@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { courseDetail as mockCourseDetail } from '../data/mock';
 import { getCourseBySlug, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { PaginationControls, usePagination } from '../components/Pagination';
 
 const lessonStatusLabels = {
   done: 'hoàn thành',
@@ -62,6 +63,11 @@ export default function CourseDetailPage() {
   }, [auth.ready, auth.user?.id, courseId]);
 
   const isOwned = ownedCourseIds.includes(course.id);
+  const courseSections = useMemo(() => course.sections || [], [course.sections]);
+  const sectionPagination = usePagination(courseSections, {
+    pageSize: 3,
+    resetKey: course.id
+  });
 
   async function handlePurchase() {
     if (!auth.session || currentRole !== 'student' || isOwned) {
@@ -147,7 +153,7 @@ export default function CourseDetailPage() {
       <section className="section split-layout">
         <div className="content-card content-card--enterprise">
           <h2>Nội dung khóa học</h2>
-          {course.sections?.map((section) => (
+          {sectionPagination.pageItems.map((section) => (
             <div key={section.title}>
               <h3>{section.title}</h3>
               {section.lessons?.length ? (
@@ -165,6 +171,7 @@ export default function CourseDetailPage() {
               )}
             </div>
           ))}
+          <PaginationControls {...sectionPagination} label="chương" />
         </div>
 
         <div className="content-card content-card--enterprise">

@@ -4,6 +4,7 @@ import { getCourseCatalog, getOwnedCourseIds, purchaseCourse } from '../lib/cour
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { PaginationControls, usePagination } from '../components/Pagination';
 
 const initialFilters = {
   search: '',
@@ -173,6 +174,10 @@ export default function CoursesPage() {
       filters.status !== 'all'
     ].filter(Boolean).length;
   }, [filters]);
+  const coursePagination = usePagination(filteredCourses, {
+    pageSize: 6,
+    resetKey: `${filters.search}|${filters.level}|${filters.category}|${filters.price}|${filters.status}|${filters.sort}|${courses.length}`
+  });
 
   async function handlePurchase(course) {
     if (!auth.session || currentRole !== 'student') {
@@ -398,8 +403,9 @@ export default function CoursesPage() {
           {loading ? (
             <p className="empty-state">Đang tải danh mục khóa học...</p>
           ) : filteredCourses.length ? (
-            <div id="course-market-grid" className="card-grid marketplace-grid">
-              {filteredCourses.map((course) => {
+            <>
+              <div id="course-market-grid" className="card-grid marketplace-grid">
+                {coursePagination.pageItems.map((course) => {
                 const isOwned = ownedCourseIdSet.has(course.id);
                 const canBuy = auth.session && currentRole === 'student' && !isOwned;
                 const buyLabel =
@@ -485,8 +491,10 @@ export default function CoursesPage() {
                     </div>
                   </article>
                 );
-              })}
-            </div>
+                })}
+              </div>
+              <PaginationControls {...coursePagination} label="khóa học" />
+            </>
           ) : (
             <section className="content-card content-card--enterprise marketplace-empty">
               <span className="eyebrow">Không có kết quả</span>
