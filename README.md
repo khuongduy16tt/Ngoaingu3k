@@ -7,7 +7,7 @@ Base code for an e-learning platform built with Node.js and React.
 - `client`: React app powered by Vite and Supabase
 - `server`: Express API skeleton for local/mock development
 - `supabase/schema.sql`: initial database and RLS starter
-- `client/vercel.json`: Vercel SPA routing config
+- `vercel.json`: Vercel config for one deployment with React static files and `/api/*` serverless routes
 
 ## Features in this base
 
@@ -36,14 +36,20 @@ npm run dev:client
 ```
 
 When the client runs separately, set `VITE_API_URL=http://localhost:4000` in
-`client/.env` so checkout and other API calls reach the server.
+`client/.env` so checkout and other API calls reach the server. When the app is
+served from the Express dev server or deployed as a single Vercel project, leave
+`VITE_API_URL` empty so API calls use the same domain.
 
 ## Notes
 
 - Google OAuth, payments, and realtime progress are scaffolded, not wired to production providers yet.
 - The current UI can use local mock auth/data so you can review protected pages before connecting a database.
-- On Vercel, deploy the `client` folder as the app root.
-- Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_API_URL` in Vercel project settings and local `client/.env`.
+- On Vercel, deploy the repository root. The root config builds `client/dist`,
+  serves the React app, and sends `/api/*` requests to the Express serverless
+  handler in `api/[...path].js`.
+- Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel project
+  settings and local `client/.env`. Only set `VITE_API_URL` when the API is
+  deployed on a different domain.
 
 ## Supabase setup
 

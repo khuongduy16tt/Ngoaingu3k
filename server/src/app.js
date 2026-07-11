@@ -4,7 +4,6 @@ import morgan from 'morgan';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer as createViteServer } from 'vite';
 
 import coursesRouter from './routes/courses.js';
 import authRouter from './routes/auth.js';
@@ -74,6 +73,7 @@ export async function createApp() {
     return app;
   }
 
+  const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
     root: clientRoot,
     appType: 'spa',
