@@ -247,6 +247,27 @@ using (
   )
 );
 
+drop policy if exists "teachers manage own chapters" on public.chapters;
+create policy "teachers manage own chapters"
+on public.chapters
+for all
+using (
+  exists (
+    select 1
+    from public.courses course
+    where course.id = chapters.course_id
+      and course.teacher_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.courses course
+    where course.id = chapters.course_id
+      and course.teacher_id = auth.uid()
+  )
+);
+
 drop policy if exists "admins manage all chapters" on public.chapters;
 create policy "admins manage all chapters"
 on public.chapters
@@ -284,11 +305,56 @@ using (
   )
 );
 
+drop policy if exists "assigned students read assigned lessons" on public.lessons;
+create policy "assigned students read assigned lessons"
+on public.lessons
+for select
+using (
+  exists (
+    select 1
+    from public.chapters chapter
+    join public.courses course on course.id = chapter.course_id
+    join public.lesson_assignments assignment on (
+      assignment.lesson_title = lessons.title
+      and (
+        assignment.course_key = course.slug
+        or assignment.course_key = course.id::text
+      )
+    )
+    join public.lesson_assignment_recipients recipient on recipient.assignment_id = assignment.id
+    where chapter.id = lessons.chapter_id
+      and lower(recipient.student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  )
+);
+
 drop policy if exists "teachers read own course lessons" on public.lessons;
 create policy "teachers read own course lessons"
 on public.lessons
 for select
 using (
+  exists (
+    select 1
+    from public.chapters chapter
+    join public.courses course on course.id = chapter.course_id
+    where chapter.id = lessons.chapter_id
+      and course.teacher_id = auth.uid()
+  )
+);
+
+drop policy if exists "teachers manage own course lessons" on public.lessons;
+create policy "teachers manage own course lessons"
+on public.lessons
+for all
+using (
+  exists (
+    select 1
+    from public.chapters chapter
+    join public.courses course on course.id = chapter.course_id
+    where chapter.id = lessons.chapter_id
+      and course.teacher_id = auth.uid()
+  )
+)
+with check (
   exists (
     select 1
     from public.chapters chapter

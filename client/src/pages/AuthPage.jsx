@@ -22,6 +22,17 @@ const gallery = [
   }
 ];
 
+function GoogleLogo() {
+  return (
+    <svg className="google-logo" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M21.6 12.23c0-.78-.07-1.53-.2-2.23H12v4.22h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.52Z" />
+      <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.25l-3.24-2.51c-.9.6-2.04.96-3.38.96-2.6 0-4.81-1.76-5.6-4.12H3.05v2.59A9.99 9.99 0 0 0 12 22Z" />
+      <path fill="#FBBC05" d="M6.4 14.08A6 6 0 0 1 6.08 12c0-.72.12-1.42.32-2.08V7.33H3.05A9.99 9.99 0 0 0 2 12c0 1.61.38 3.13 1.05 4.67l3.35-2.59Z" />
+      <path fill="#EA4335" d="M12 5.8c1.47 0 2.8.51 3.84 1.5l2.86-2.86C16.96 2.82 14.7 2 12 2a9.99 9.99 0 0 0-8.95 5.33L6.4 9.92C7.19 7.56 9.4 5.8 12 5.8Z" />
+    </svg>
+  );
+}
+
 function getAuthModeFromSearch(search) {
   return new URLSearchParams(search).get('mode') === 'sign-up' ? 'sign-up' : 'sign-in';
 }
@@ -424,7 +435,8 @@ export default function AuthPage() {
           </div>
 
           <button type="button" className="button button-ghost auth-google" onClick={handleGoogleLogin} disabled={busy}>
-            {isSignUp ? 'Google dùng sau khi có hồ sơ' : 'Tiếp tục với Google'}
+            <GoogleLogo />
+            <span>{isSignUp ? 'Google dùng sau khi có hồ sơ' : 'Tiếp tục với Google'}</span>
           </button>
 
           <p className="auth-footnote">

@@ -575,6 +575,9 @@ export function TeacherDashboardPage() {
   const [selectedDraftLessonId, setSelectedDraftLessonId] = useState('');
   const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
   const [draftHydratedTeacherId, setDraftHydratedTeacherId] = useState('');
+  const [coursePublisherOpen, setCoursePublisherOpen] = useState(false);
+  const [activeCoursesOpen, setActiveCoursesOpen] = useState(false);
+  const [expandedCourseId, setExpandedCourseId] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -699,6 +702,10 @@ export function TeacherDashboardPage() {
     pageSize: 4,
     resetKey: `${teacherId}|${courseStats.length}`
   });
+  const expandedCourse = useMemo(
+    () => courseStats.find((course) => course.id === expandedCourseId) || null,
+    [courseStats, expandedCourseId]
+  );
   const draftLessons = useMemo(() => flattenDraftLessons(courseDraft.sections), [courseDraft.sections]);
   const selectedDraftLesson =
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === selectedDraftLessonId) || draftLessons[0] || null;
@@ -727,6 +734,12 @@ export function TeacherDashboardPage() {
       setStudentPreviewLessonId(firstLessonKey);
     }
   }, [draftLessons, selectedDraftLessonId]);
+
+  useEffect(() => {
+    if (expandedCourseId && !courseStatsPagination.pageItems.some((course) => course.id === expandedCourseId)) {
+      setExpandedCourseId('');
+    }
+  }, [courseStatsPagination.pageItems, expandedCourseId]);
 
   function updateDraft(field, value) {
     setCourseDraft((previous) => ({ ...previous, [field]: value }));
@@ -762,9 +775,19 @@ export function TeacherDashboardPage() {
     setStudentPreviewLessonId('');
   }
 
+  function openCoursePublisherForNew() {
+    if (editingCourseId) {
+      resetCourseDraft();
+    }
+    setCoursePublisherOpen(true);
+    setActiveCoursesOpen(false);
+  }
+
   function loadCourseForEditing(courseId) {
     if (!courseId) {
       resetCourseDraft();
+      setCoursePublisherOpen(true);
+      setActiveCoursesOpen(false);
       return;
     }
 
@@ -772,6 +795,7 @@ export function TeacherDashboardPage() {
     if (!course) return;
 
     setEditingCourseId(course.id);
+    setActiveCoursesOpen(false);
     setCourseDraft({
       title: course.title || '',
       category: course.category || 'Kỹ năng cốt lõi',
@@ -787,6 +811,7 @@ export function TeacherDashboardPage() {
     setSelectedDraftLessonId(firstLesson ? getDraftLessonKey(firstLesson) : '');
     setStudentPreviewLessonId(firstLesson ? getDraftLessonKey(firstLesson) : '');
     setImportMessage({ type: 'info', text: `Đang chỉnh sửa "${course.title}".` });
+    setCoursePublisherOpen(true);
   }
 
   function updateDraftLesson(sectionIndex, lessonIndex, patch) {
@@ -1032,7 +1057,17 @@ export function TeacherDashboardPage() {
         publishedAt: existingCourse ? 'Vừa cập nhật' : 'Vừa đăng'
       });
 
-      const savedCourseRecord = await saveCourseToSupabase(nextCourse, { teacherId: auth.user?.id || null });
+      const savedCourseRecord = await saveCourseToSupabase(nextCourse, {
+        teacherId: auth.user?.id || null,
+        accessToken: auth.session?.access_token
+      });
+      const persistedSections = Array.isArray(savedCourseRecord?.sections)
+        ? savedCourseRecord.sections
+        : nextCourse.sections;
+      const persistedLessonsCount = persistedSections.reduce(
+        (count, section) => count + ((section.lessons || []).length),
+        0
+      );
       const persistedCourse = {
         ...nextCourse,
         databaseId: savedCourseRecord?.id || nextCourse.databaseId || nextCourse.id,
@@ -1043,7 +1078,9 @@ export function TeacherDashboardPage() {
         priceValue: Number(savedCourseRecord?.price ?? nextCourse.priceValue ?? 0),
         price: formatVnd(Number(savedCourseRecord?.price ?? nextCourse.priceValue ?? 0)),
         status: savedCourseRecord?.status || nextCourse.status,
-        instructor: auth.user?.user_metadata?.full_name || nextCourse.instructor
+        instructor: auth.user?.user_metadata?.full_name || nextCourse.instructor,
+        lessonsCount: persistedLessonsCount || nextCourse.lessonsCount,
+        sections: persistedSections
       };
 
       const nextCourses = existingCourse
@@ -1065,6 +1102,7 @@ export function TeacherDashboardPage() {
         setStudentPreviewLessonId('');
         setMessage({ type: 'success', text: `Đã đăng khóa học "${persistedCourse.title}" thành công.` });
       }
+      setCoursePublisherOpen(false);
     } catch (error) {
       console.error('[handlePublishCourse]', error);
       setMessage({ type: 'error', text: error?.message || 'Không thể lưu khóa học vào Supabase.' });
@@ -1094,6 +1132,9 @@ export function TeacherDashboardPage() {
     if (editingCourseId === courseId) {
       resetCourseDraft();
     }
+    if (expandedCourseId === courseId) {
+      setExpandedCourseId('');
+    }
     setMessage({ type: 'success', text: `Đã xóa khóa học "${course.title}".` });
   }
 
@@ -1104,20 +1145,137 @@ export function TeacherDashboardPage() {
       metrics={metrics}
     >
       <section className="section teacher-course-dashboard">
-        <form className="content-card content-card--enterprise dashboard-form teacher-course-publisher" onSubmit={handlePublishCourse}>
+        <div className="teacher-console-layout">
+          <aside className="content-card content-card--enterprise teacher-console-rail">
+            <div className="teacher-console-identity">
+              <strong>Admin Hub</strong>
+              <span>Giảng viên khóa học</span>
+            </div>
+
+            <button type="button" className="button teacher-console-primary" onClick={openCoursePublisherForNew}>
+              Đăng khóa học mới
+            </button>
+
+            {coursePublisherOpen ? (
+              <button type="button" className="button-ghost teacher-console-secondary" onClick={() => setCoursePublisherOpen(false)}>
+                Ẩn form
+              </button>
+            ) : null}
+
+            <nav className="teacher-console-nav" aria-label="Teacher dashboard">
+              <button type="button" className="is-active">
+                Dashboard
+              </button>
+              <button
+                type="button"
+                className={activeCoursesOpen ? 'is-active' : ''}
+                onClick={() => setActiveCoursesOpen((isOpen) => !isOpen)}
+                aria-expanded={activeCoursesOpen}
+              >
+                Active Courses
+              </button>
+              <button type="button">Curriculum</button>
+              <button type="button">Analytics</button>
+              <button type="button">Settings</button>
+            </nav>
+          </aside>
+
+          <div className="teacher-console-main">
+          {activeCoursesOpen ? (
+          <div className="content-card content-card--enterprise teacher-course-overview teacher-course-overview--compact">
+            <div className="section-head teacher-course-overview__head">
+              <div>
+                <span className="eyebrow">Khóa đã đăng</span>
+                <h2>Khóa đang vận hành</h2>
+              </div>
+              <span className="pill">{publishedCount} công khai</span>
+            </div>
+
+            <div className="teacher-course-list">
+              {courseStatsPagination.pageItems.length ? courseStatsPagination.pageItems.map((course) => {
+                const isExpanded = expandedCourseId === course.id;
+
+                return (
+                  <button
+                    key={course.id}
+                    type="button"
+                    className={`teacher-course-chip ${isExpanded ? 'is-active' : ''}`}
+                    onClick={() => setExpandedCourseId((currentId) => (currentId === course.id ? '' : course.id))}
+                    aria-expanded={isExpanded}
+                  >
+                    <span>{course.category}</span>
+                    <strong>{course.title}</strong>
+                    <small>
+                      {course.status === 'published' ? 'Công khai' : 'Đang ẩn'} · {course.lessonsCount} bài
+                    </small>
+                  </button>
+                );
+              }) : (
+                <p className="empty-state">Chưa có khóa học nào. Bấm “Đăng khóa học mới” để tạo khóa đầu tiên.</p>
+              )}
+            </div>
+
+            {expandedCourse ? (
+              <article className="teacher-course-detail-row">
+                <div className="teacher-course-detail-row__main">
+                  <span className="eyebrow">{expandedCourse.category}</span>
+                  <h3>{expandedCourse.title}</h3>
+                  <p>{expandedCourse.summary || 'Khóa học chưa có mô tả.'}</p>
+                </div>
+
+                <div className="teacher-course-detail-row__meta">
+                  <span>{expandedCourse.level}</span>
+                  <span>{expandedCourse.duration}</span>
+                  <span>{expandedCourse.price}</span>
+                  <span>{expandedCourse.studentsCount} học sinh</span>
+                  <span>{expandedCourse.averageProgress}% tiến độ</span>
+                  <span>{expandedCourse.averageScore}% hiệu quả</span>
+                </div>
+
+                <div className="teacher-course-detail-row__actions">
+                  <button type="button" className="button-ghost" onClick={() => loadCourseForEditing(expandedCourse.id)}>
+                    Sửa khóa
+                  </button>
+                  <Link className="button-ghost" to={`/student-progress?course=${encodeURIComponent(expandedCourse.id)}`}>
+                    Xem tiến độ
+                  </Link>
+                  <button type="button" className="button-ghost" onClick={() => toggleCourseStatus(expandedCourse.id)}>
+                    {expandedCourse.status === 'published' ? 'Ẩn khóa' : 'Mở lại'}
+                  </button>
+                  <button type="button" className="button-ghost danger" onClick={() => deleteTeacherCourse(expandedCourse.id)}>
+                  Xóa khóa
+                </button>
+              </div>
+            </article>
+            ) : null}
+
+            <PaginationControls {...courseStatsPagination} label="khóa học" />
+          </div>
+          ) : null}
+
+        {message.text ? (
+          <div className={`auth-message ${message.type === 'success' ? 'auth-message--success' : ''}`}>
+            {message.text}
+          </div>
+        ) : null}
+
+        {coursePublisherOpen ? (
+        <form
+          className={`content-card content-card--enterprise dashboard-form teacher-course-publisher ${activeCoursesOpen ? 'teacher-course-publisher--with-course-panel' : ''}`}
+          onSubmit={handlePublishCourse}
+        >
           <div className="section-head">
             <div>
               <span className="eyebrow">Quản lý khóa học</span>
               <h2>{editingCourseId ? 'Chỉnh sửa khóa học' : 'Đăng khóa học mới'}</h2>
             </div>
-            <span className="pill">{loading ? 'Đang tải' : `${teacherCourses.length} khóa`}</span>
-          </div>
-
-          {message.text ? (
-            <div className={`auth-message ${message.type === 'success' ? 'auth-message--success' : ''}`}>
-              {message.text}
+            <div className="teacher-course-form-actions">
+              <span className="pill">{loading ? 'Đang tải' : `${teacherCourses.length} khóa`}</span>
+              <button type="button" className="button-ghost" onClick={() => setCoursePublisherOpen(false)}>
+                Ẩn form
+              </button>
             </div>
-          ) : null}
+          </div>
 
           {teacherCourses.length ? (
             <div className="teacher-edit-bar">
@@ -1557,65 +1715,9 @@ export function TeacherDashboardPage() {
             {saving ? 'Đang lưu...' : editingCourseId ? 'Cập nhật khóa học' : 'Confirm và đăng bài'}
           </button>
         </form>
+        ) : null}
 
-        <div className="content-card content-card--enterprise teacher-course-overview">
-          <div className="section-head">
-            <div>
-              <span className="eyebrow">Khóa đã đăng</span>
-              <h2>Kiểm soát khóa học đang vận hành</h2>
-            </div>
-            <span className="pill">{publishedCount} công khai</span>
           </div>
-
-          <div className="teacher-course-list">
-            {courseStatsPagination.pageItems.map((course) => (
-              <article key={course.id} className="teacher-course-card">
-                <div>
-                  <span className="eyebrow">{course.category}</span>
-                  <h3>{course.title}</h3>
-                  <p>{course.summary}</p>
-                </div>
-
-                <div className="teacher-course-card__meta">
-                  <span>{course.level}</span>
-                  <span>{course.lessonsCount} bài</span>
-                  <span>{course.duration}</span>
-                  <span>{course.price}</span>
-                </div>
-
-                <div className="teacher-course-card__stats">
-                  <span>
-                    <strong>{course.studentsCount}</strong>
-                    học sinh
-                  </span>
-                  <span>
-                    <strong>{course.averageProgress}%</strong>
-                    tiến độ
-                  </span>
-                  <span>
-                    <strong>{course.averageScore}%</strong>
-                    hiệu quả
-                  </span>
-                </div>
-
-                <div className="teacher-course-card__actions">
-                  <button type="button" className="button-ghost" onClick={() => loadCourseForEditing(course.id)}>
-                    Sửa khóa
-                  </button>
-                  <Link className="button-ghost" to={`/student-progress?course=${encodeURIComponent(course.id)}`}>
-                    Xem tiến độ
-                  </Link>
-                  <button type="button" className="button-ghost" onClick={() => toggleCourseStatus(course.id)}>
-                    {course.status === 'published' ? 'Ẩn khóa' : 'Mở lại'}
-                  </button>
-                  <button type="button" className="button-ghost danger" onClick={() => deleteTeacherCourse(course.id)}>
-                    Xóa khóa
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-          <PaginationControls {...courseStatsPagination} label="khóa học" />
         </div>
       </section>
     </DashboardShell>

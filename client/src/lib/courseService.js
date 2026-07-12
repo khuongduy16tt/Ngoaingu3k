@@ -17,6 +17,7 @@ import {
 } from './purchaseStorage';
 
 const TEACHER_MANAGED_COURSES_KEY = 'teacher-managed-courses-v1';
+const LESSON_CONTENT_VERSION = 'ngoaingu3k.lesson.v1';
 
 export { PURCHASED_COURSES_STORAGE_KEY };
 
@@ -131,6 +132,53 @@ function isUuid(value) {
   );
 }
 
+function getLessonExercises(lesson) {
+  return Array.isArray(lesson?.exercises)
+    ? lesson.exercises
+    : Array.isArray(lesson?.questions)
+      ? lesson.questions
+      : [];
+}
+
+function parseLessonContent(content) {
+  if (!content) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(content);
+    return parsed?.version === LESSON_CONTENT_VERSION ? parsed : { content };
+  } catch {
+    return { content };
+  }
+}
+
+function normalizeRemoteLesson(lesson) {
+  const metadata = parseLessonContent(lesson.content);
+  const exercises = getLessonExercises(metadata);
+  const questionCount = Number(metadata.questionCount ?? exercises.length ?? 0);
+
+  return {
+    id: lesson.id,
+    databaseId: lesson.id,
+    title: lesson.title,
+    position: lesson.position,
+    status: lesson.is_preview ? 'active' : undefined,
+    videoUrl: lesson.video_url || metadata.videoUrl || '',
+    videoTitle: metadata.videoTitle || lesson.title,
+    lessonNumber: metadata.lessonNumber || String(lesson.position || ''),
+    exerciseType: metadata.exerciseType || metadata.type || 'Bài học',
+    questionCount: Number.isFinite(questionCount) ? questionCount : 0,
+    note: metadata.note || metadata.content || '',
+    sourceSheet: metadata.sourceSheet || '',
+    audioName: metadata.audioName || '',
+    audioUrl: metadata.audioUrl || '',
+    imageName: metadata.imageName || '',
+    imageUrl: metadata.imageUrl || '',
+    exercises
+  };
+}
+
 function getTeacherIdForCourseStorage(teacherId) {
   return isUuid(teacherId) ? teacherId : null;
 }
@@ -219,16 +267,24 @@ export async function saveCourseToSupabase(course, options = {}) {
     return null;
   }
 
+  if (options.accessToken) {
+    const response = await apiFetch('/api/courses/publish', {
+      method: 'POST',
+      token: options.accessToken,
+      body: { course }
+    });
+
+    return response?.data || null;
+  }
+
   const payload = buildCourseRecordPayload(course, options);
+  const existingCourseId = isUuid(course?.databaseId) ? course.databaseId : '';
+  const upsertPayload = existingCourseId ? { id: existingCourseId, ...payload } : payload;
+  const onConflict = existingCourseId ? 'id' : 'slug';
+
   const { data, error } = await supabase
     .from('courses')
-    .upsert(
-      {
-        ...(course?.databaseId ? { id: course.databaseId } : {}),
-        ...payload
-      },
-      { onConflict: 'id' }
-    )
+    .upsert(upsertPayload, { onConflict })
     .select('id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at')
     .single();
 
@@ -237,6 +293,30 @@ export async function saveCourseToSupabase(course, options = {}) {
   }
 
   return data;
+}
+
+export async function saveLessonQuestionsToSupabase({ lessonId, questions = [], accessToken } = {}) {
+  if (!isSupabaseReady()) {
+    throw new Error('Supabase chưa được cấu hình nên chưa thể lưu câu hỏi video.');
+  }
+
+  if (!isUuid(lessonId)) {
+    throw new Error('Bài học cần được đồng bộ Supabase trước khi lưu câu hỏi video.');
+  }
+
+  if (!accessToken) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để lưu câu hỏi video.');
+  }
+
+  const response = await apiFetch(`/api/courses/lessons/${lessonId}/questions`, {
+    method: 'PATCH',
+    token: accessToken,
+    body: {
+      questions: Array.isArray(questions) ? questions : []
+    }
+  });
+
+  return response?.data || { lessonId, questions, questionCount: questions.length };
 }
 
 export function getStoredPurchasedCourseIds(userId = 'local') {
@@ -483,7 +563,7 @@ export async function getCourseBySlug(courseSlug) {
     const chapterIds = chapters.map((chapter) => chapter.id);
     const { data: lessonRows, error: lessonsError } = await supabase
       .from('lessons')
-      .select('id, chapter_id, title, position, is_preview')
+      .select('id, chapter_id, title, video_url, content, position, is_preview')
       .in('chapter_id', chapterIds)
       .order('position', { ascending: true });
 
@@ -492,13 +572,7 @@ export async function getCourseBySlug(courseSlug) {
     if (!lessonsError && lessonRows?.length) {
       lessonRows.forEach((lesson) => {
         const chapterLessons = lessonsByChapter.get(lesson.chapter_id) || [];
-        chapterLessons.push({
-          id: lesson.id,
-          databaseId: lesson.id,
-          title: lesson.title,
-          position: lesson.position,
-          status: lesson.is_preview ? 'active' : undefined
-        });
+        chapterLessons.push(normalizeRemoteLesson(lesson));
         lessonsByChapter.set(lesson.chapter_id, chapterLessons);
       });
     }

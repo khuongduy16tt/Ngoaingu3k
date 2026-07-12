@@ -10,7 +10,13 @@ import {
   getCourseOptions,
   saveAssignmentAttempt
 } from '../lib/assignmentService';
-import { getCourseBySlug, getCourseCatalog, getOwnedCourseIds, PURCHASED_COURSES_STORAGE_KEY } from '../lib/courseService';
+import {
+  getCourseBySlug,
+  getCourseCatalog,
+  getOwnedCourseIds,
+  PURCHASED_COURSES_STORAGE_KEY,
+  saveLessonQuestionsToSupabase
+} from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -22,20 +28,6 @@ const fallbackLessons = [
   { id: 'lesson-2', title: 'Bài 2. Phát âm trọng tâm', status: 'active', note: 'Bài học chính kèm luyện nghe và nhại âm' },
   { id: 'lesson-3', title: 'Bài 3. Hội thoại ngắn', status: 'locked', note: 'Mở khóa sau khi được cấp quyền học' },
   { id: 'lesson-4', title: 'Bài 4. Kiểm tra nhanh', status: 'locked', note: 'Bài đánh giá cuối chương' }
-];
-
-const exerciseTabs = [
-  { id: 'mcq', label: 'Trắc nghiệm' },
-  { id: 'tf', label: 'Đúng / Sai' },
-  { id: 'match', label: 'Nối cặp' },
-  { id: 'blank', label: 'Điền khuyết' },
-  { id: 'flash', label: 'Thẻ ghi nhớ' }
-];
-
-const matchingPairs = [
-  { word: 'Apple', answer: 'Quả táo' },
-  { word: 'Teacher', answer: 'Giảng viên' },
-  { word: 'Practice', answer: 'Luyện tập' }
 ];
 
 const defaultOcrText = `Hello = Xin chào
@@ -282,20 +274,199 @@ function normalizeExerciseAnswer(value) {
     .replace(/[^A-Z0-9]/g, '');
 }
 
-function getExerciseCorrectLabel(exercise) {
-  const options = Array.isArray(exercise?.options) ? exercise.options : [];
-  const rawAnswer = exercise?.correctAnswer || exercise?.answer || '';
-  const normalizedAnswer = normalizeExerciseAnswer(rawAnswer);
+const OPTION_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-  if (['A', 'B', 'C', 'D'].includes(normalizedAnswer)) {
-    return normalizedAnswer;
+function normalizeExerciseOption(option, index) {
+  if (option && typeof option === 'object') {
+    return {
+      label: String(option.label || OPTION_LABELS[index] || index + 1).trim().toUpperCase(),
+      text: String(option.text || option.value || option.label || '').trim()
+    };
   }
 
-  const answerByText = options.find(
-    (option) => String(option.text || '').trim().toLowerCase() === String(rawAnswer || '').trim().toLowerCase()
+  return {
+    label: OPTION_LABELS[index] || String(index + 1),
+    text: String(option || '').trim()
+  };
+}
+
+function getExerciseOptions(exercise) {
+  return (Array.isArray(exercise?.options) ? exercise.options : [])
+    .map(normalizeExerciseOption)
+    .filter((option) => option.text);
+}
+
+function getCorrectLabelFromAnswer(rawAnswer, options) {
+  const normalizedAnswer = normalizeExerciseAnswer(rawAnswer);
+
+  if (normalizedAnswer) {
+    const byLabel = options.find((option) => normalizeExerciseAnswer(option.label) === normalizedAnswer);
+    if (byLabel) {
+      return byLabel.label;
+    }
+  }
+
+  const byText = options.find(
+    (option) => option.text.trim().toLowerCase() === String(rawAnswer || '').trim().toLowerCase()
   );
 
-  return answerByText?.label || normalizedAnswer;
+  return byText?.label || normalizedAnswer;
+}
+
+function getExerciseCorrectLabel(exercise) {
+  const options = getExerciseOptions(exercise);
+  const rawAnswer = exercise?.correctAnswer || exercise?.answer || '';
+  return getCorrectLabelFromAnswer(rawAnswer, options);
+}
+
+function createVideoQuestionOption(index, text = '') {
+  return {
+    label: OPTION_LABELS[index] || String(index + 1),
+    text
+  };
+}
+
+function createVideoQuestion(index = 0) {
+  return {
+    id: `video-question-${Date.now()}-${index}`,
+    prompt: '',
+    options: [0, 1, 2, 3].map((optionIndex) => createVideoQuestionOption(optionIndex)),
+    correctAnswer: 'A',
+    explanation: ''
+  };
+}
+
+function normalizeVideoQuestionDraft(question, index = 0) {
+  const options = Array.isArray(question?.options) && question.options.length
+    ? question.options.map(normalizeExerciseOption)
+    : [0, 1, 2, 3].map((optionIndex) => createVideoQuestionOption(optionIndex));
+  const firstOptionLabel = options[0]?.label || 'A';
+  const correctAnswer = getCorrectLabelFromAnswer(question?.correctAnswer || question?.answer || firstOptionLabel, options);
+  const hasCorrectAnswer = options.some((option) => option.label === correctAnswer);
+
+  return {
+    id: String(question?.id || `video-question-${Date.now()}-${index}`).trim(),
+    prompt: String(question?.prompt || question?.question || '').trim(),
+    options: options.map((option, optionIndex) => ({
+      label: OPTION_LABELS[optionIndex] || option.label || String(optionIndex + 1),
+      text: option.text
+    })),
+    correctAnswer: hasCorrectAnswer ? correctAnswer : firstOptionLabel,
+    explanation: String(question?.explanation || question?.note || '').trim()
+  };
+}
+
+function prepareVideoQuestionsForSave(questions) {
+  return (Array.isArray(questions) ? questions : [])
+    .map((question, index) => {
+      const options = (Array.isArray(question.options) ? question.options : [])
+        .map(normalizeExerciseOption)
+        .filter((option) => option.text)
+        .map((option, optionIndex) => ({
+          label: OPTION_LABELS[optionIndex] || option.label || String(optionIndex + 1),
+          text: option.text
+        }));
+      const correctAnswer = getCorrectLabelFromAnswer(question.correctAnswer, options);
+      const safeCorrectAnswer = options.some((option) => option.label === correctAnswer)
+        ? correctAnswer
+        : options[0]?.label || '';
+
+      return {
+        id: question.id || `video-question-${index + 1}`,
+        prompt: String(question.prompt || '').trim(),
+        options,
+        correctAnswer: safeCorrectAnswer,
+        explanation: String(question.explanation || '').trim()
+      };
+    })
+    .filter((question) => question.prompt);
+}
+
+function parsePastedVideoQuestions(text) {
+  const blocks = [];
+  let currentBlock = [];
+
+  String(text || '')
+    .split(/\r?\n/)
+    .forEach((rawLine) => {
+      const line = rawLine.trim();
+      const startsNewQuestion = /^(?:câu|cau|question)?\s*\d+[\).:\-]\s+/i.test(line);
+
+      if (!line) {
+        if (currentBlock.length) {
+          blocks.push(currentBlock);
+          currentBlock = [];
+        }
+        return;
+      }
+
+      if (startsNewQuestion && currentBlock.length) {
+        blocks.push(currentBlock);
+        currentBlock = [line];
+        return;
+      }
+
+      currentBlock.push(line);
+    });
+
+  if (currentBlock.length) {
+    blocks.push(currentBlock);
+  }
+
+  return blocks
+    .filter((lines) => lines.length)
+    .map((lines, blockIndex) => {
+      const promptLines = [];
+      const options = [];
+      let correctAnswer = '';
+      let explanation = '';
+
+      lines.forEach((line) => {
+        const answerMatch = line.match(/^(?:đáp\s*án|dap\s*an|answer|correct)\s*[:：-]\s*(.+)$/i);
+        const explanationMatch = line.match(/^(?:giải\s*thích|giai\s*thich|explanation)\s*[:：-]\s*(.+)$/i);
+        const optionMatch = line.match(/^([A-Z])[\).:\-]\s*(.+)$/i);
+
+        if (answerMatch) {
+          correctAnswer = answerMatch[1].trim();
+          return;
+        }
+
+        if (explanationMatch) {
+          explanation = explanationMatch[1].trim();
+          return;
+        }
+
+        if (optionMatch) {
+          options.push({
+            label: optionMatch[1].trim().toUpperCase(),
+            text: optionMatch[2].trim()
+          });
+          return;
+        }
+
+        promptLines.push(line.replace(/^(?:câu|cau|question)?\s*\d+[\).:\-]?\s*/i, '').trim());
+      });
+
+      const normalizedOptions = options.length
+        ? options.map((option, optionIndex) => ({
+            label: OPTION_LABELS[optionIndex] || option.label || String(optionIndex + 1),
+            text: option.text
+          }))
+        : [0, 1, 2, 3].map((optionIndex) => createVideoQuestionOption(optionIndex));
+      const normalizedCorrectAnswer = getCorrectLabelFromAnswer(
+        correctAnswer || normalizedOptions[0]?.label,
+        normalizedOptions
+      );
+
+      return normalizeVideoQuestionDraft({
+        id: `video-question-paste-${Date.now()}-${blockIndex}`,
+        prompt: promptLines.join(' '),
+        options: normalizedOptions,
+        correctAnswer: normalizedCorrectAnswer,
+        explanation
+      }, blockIndex);
+    })
+    .filter((question) => question.prompt);
 }
 
 function LessonVideoPlayer({ lesson, isTeacher }) {
@@ -375,17 +546,22 @@ function LessonExercisePreview({ lesson, isTeacher }) {
     return null;
   }
 
-  const answerableExercises = exercises.filter((exercise) => exercise.options?.length);
-  const answeredCount = answerableExercises.filter((exercise) => selectedAnswers[exercise.id]).length;
+  const answerableExercises = exercises
+    .map((exercise, index) => ({
+      exercise,
+      id: exercise.id || `${lesson.id}-exercise-${index}`
+    }))
+    .filter(({ exercise }) => getExerciseOptions(exercise).length);
+  const answeredCount = answerableExercises.filter(({ id }) => selectedAnswers[id]).length;
   const correctCount = answerableExercises.filter(
-    (exercise) => selectedAnswers[exercise.id] === getExerciseCorrectLabel(exercise)
+    ({ exercise, id }) => selectedAnswers[id] === getExerciseCorrectLabel(exercise)
   ).length;
   const canSubmit = answerableExercises.length > 0 && answeredCount === answerableExercises.length;
 
-  function selectAnswer(exercise, optionLabel) {
+  function selectAnswer(exerciseId, optionLabel) {
     setSelectedAnswers((previous) => ({
       ...previous,
-      [exercise.id]: optionLabel
+      [exerciseId]: optionLabel
     }));
   }
 
@@ -393,11 +569,11 @@ function LessonExercisePreview({ lesson, isTeacher }) {
     <section className="content-card content-card--enterprise excel-lesson-panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">Bài tập từ Excel</span>
-          <h2>{lesson.exerciseType || 'Nội dung bài học'}</h2>
-          <p>{exercises.length} mục được đọc trực tiếp từ file Excel.</p>
+          <span className="eyebrow">Câu hỏi của video</span>
+          <h2>{lesson.exerciseType || 'Bài luyện sau video'}</h2>
+          <p>{exercises.length} câu hỏi được giáo viên giao riêng cho bài học này.</p>
         </div>
-        <span className="pill">{lesson.sourceSheet || 'Excel'}</span>
+        <span className="pill">{lesson.sourceSheet || 'Video'}</span>
       </div>
 
       {lesson.audioUrl || lesson.imageUrl ? (
@@ -419,20 +595,22 @@ function LessonExercisePreview({ lesson, isTeacher }) {
 
       <div className="excel-exercise-list">
         {exercises.map((exercise, index) => {
+          const exerciseId = exercise.id || `${lesson.id}-exercise-${index}`;
           const correctLabel = getExerciseCorrectLabel(exercise);
-          const selectedLabel = selectedAnswers[exercise.id];
+          const options = getExerciseOptions(exercise);
+          const selectedLabel = selectedAnswers[exerciseId];
           const isCorrect = selectedLabel && selectedLabel === correctLabel;
 
           return (
-            <article key={exercise.id || `${lesson.id}-exercise-${index}`} className="excel-exercise-row">
+            <article key={exerciseId} className="excel-exercise-row">
               <div className="excel-exercise-row__head">
                 <span>Câu {exercise.number || index + 1}</span>
                 <strong>{exercise.prompt || lesson.exerciseType || `Mục ${index + 1}`}</strong>
               </div>
 
-              {exercise.options?.length ? (
+              {options.length ? (
                 <div className="excel-option-grid">
-                  {exercise.options.map((option) => {
+                  {options.map((option) => {
                     const optionLabel = option.label || '';
                     const showCorrect = (isTeacher || submitted) && optionLabel === correctLabel;
                     const showWrong = submitted && selectedLabel === optionLabel && optionLabel !== correctLabel;
@@ -440,7 +618,7 @@ function LessonExercisePreview({ lesson, isTeacher }) {
 
                     return (
                       <button
-                        key={`${exercise.id}-${optionLabel}-${option.text}`}
+                        key={`${exerciseId}-${optionLabel}-${option.text}`}
                         type="button"
                         className={[
                           'answer-pill',
@@ -448,7 +626,7 @@ function LessonExercisePreview({ lesson, isTeacher }) {
                           showCorrect ? 'is-correct' : '',
                           showWrong ? 'is-wrong' : ''
                         ].filter(Boolean).join(' ')}
-                        onClick={() => selectAnswer(exercise, optionLabel)}
+                        onClick={() => selectAnswer(exerciseId, optionLabel)}
                         disabled={isTeacher}
                       >
                         {optionLabel}. {option.text}
@@ -485,6 +663,244 @@ function LessonExercisePreview({ lesson, isTeacher }) {
           <button type="button" className="button" onClick={() => setSubmitted(true)} disabled={!canSubmit}>
             Kiểm tra đáp án
           </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function VideoQuestionEditor({ lesson, saving, status, onSave }) {
+  const lessonQuestionsKey = useMemo(() => JSON.stringify(lesson?.exercises || []), [lesson?.exercises]);
+  const [draftQuestions, setDraftQuestions] = useState(() =>
+    (lesson?.exercises || []).map(normalizeVideoQuestionDraft)
+  );
+  const [pasteText, setPasteText] = useState('');
+  const [pasteStatus, setPasteStatus] = useState('');
+
+  useEffect(() => {
+    setDraftQuestions((lesson?.exercises || []).map(normalizeVideoQuestionDraft));
+    setPasteText('');
+    setPasteStatus('');
+  }, [lesson?.id, lessonQuestionsKey]);
+
+  function updateQuestion(questionId, patch) {
+    setDraftQuestions((previous) =>
+      previous.map((question) => (question.id === questionId ? { ...question, ...patch } : question))
+    );
+  }
+
+  function updateOption(questionId, optionIndex, value) {
+    setDraftQuestions((previous) =>
+      previous.map((question) => {
+        if (question.id !== questionId) {
+          return question;
+        }
+
+        const nextOptions = question.options.map((option, index) =>
+          index === optionIndex ? { ...option, text: value } : option
+        );
+
+        return {
+          ...question,
+          options: nextOptions
+        };
+      })
+    );
+  }
+
+  function addQuestion() {
+    setDraftQuestions((previous) => [...previous, createVideoQuestion(previous.length + 1)]);
+    setPasteStatus('');
+  }
+
+  function deleteQuestion(questionId) {
+    setDraftQuestions((previous) => previous.filter((question) => question.id !== questionId));
+    setPasteStatus('');
+  }
+
+  function addOption(questionId) {
+    setDraftQuestions((previous) =>
+      previous.map((question) => {
+        if (question.id !== questionId) {
+          return question;
+        }
+
+        return {
+          ...question,
+          options: [...question.options, createVideoQuestionOption(question.options.length)]
+        };
+      })
+    );
+  }
+
+  function removeOption(questionId, optionIndex) {
+    setDraftQuestions((previous) =>
+      previous.map((question) => {
+        if (question.id !== questionId) {
+          return question;
+        }
+
+        const nextOptions = question.options
+          .filter((_, index) => index !== optionIndex)
+          .map((option, index) => ({
+            label: OPTION_LABELS[index] || String(index + 1),
+            text: option.text
+          }));
+        const hasCorrectAnswer = nextOptions.some((option) => option.label === question.correctAnswer);
+
+        return {
+          ...question,
+          options: nextOptions,
+          correctAnswer: hasCorrectAnswer ? question.correctAnswer : nextOptions[0]?.label || ''
+        };
+      })
+    );
+  }
+
+  function handlePasteQuestions() {
+    const parsedQuestions = parsePastedVideoQuestions(pasteText);
+
+    if (!parsedQuestions.length) {
+      setPasteStatus('Chưa đọc được câu hỏi nào từ nội dung dán.');
+      return;
+    }
+
+    setDraftQuestions((previous) => [...previous, ...parsedQuestions]);
+    setPasteText('');
+    setPasteStatus(`Đã thêm ${parsedQuestions.length} câu hỏi từ nội dung dán.`);
+  }
+
+  function handleSave() {
+    const nextQuestions = prepareVideoQuestionsForSave(draftQuestions);
+    setDraftQuestions(nextQuestions.map(normalizeVideoQuestionDraft));
+    onSave(nextQuestions);
+  }
+
+  return (
+    <section className="content-card content-card--enterprise video-question-panel">
+      <div className="video-question-panel__head">
+        <div>
+          <span className="eyebrow">Giao bài cho video</span>
+          <h2>Câu hỏi dưới video này</h2>
+          <p>Giảng viên có thể thêm, dán, sửa hoặc xóa toàn bộ câu hỏi. Khi lưu, dữ liệu được cập nhật vào Supabase cho riêng bài học hiện tại.</p>
+        </div>
+        <div className="video-question-panel__toolbar">
+          <button type="button" className="button-ghost" onClick={addQuestion}>
+            Thêm câu hỏi
+          </button>
+          <button type="button" className="button" onClick={handleSave} disabled={saving}>
+            {saving ? 'Đang lưu...' : 'Lưu vào Supabase'}
+          </button>
+        </div>
+      </div>
+
+      <div className="video-question-panel__paste">
+        <label className="auth-field">
+          <span>Dán nhiều câu hỏi</span>
+          <textarea
+            rows={5}
+            className="lesson-input"
+            value={pasteText}
+            onChange={(event) => setPasteText(event.target.value)}
+            placeholder={`Câu 1: Từ nào phù hợp với "hello"?
+A. xin chào
+B. tạm biệt
+C. cảm ơn
+Đáp án: A
+Giải thích: Hello nghĩa là xin chào.`}
+          />
+        </label>
+        <button type="button" className="button-ghost" onClick={handlePasteQuestions} disabled={!pasteText.trim()}>
+          Tách câu hỏi từ nội dung dán
+        </button>
+        {pasteStatus ? <div className="exercise-feedback">{pasteStatus}</div> : null}
+      </div>
+
+      {draftQuestions.length ? (
+        <div className="video-question-list">
+          {draftQuestions.map((question, questionIndex) => (
+            <article key={question.id} className="video-question-card">
+              <div className="video-question-card__head">
+                <span>Câu {questionIndex + 1}</span>
+                <button type="button" className="button-ghost video-question-card__delete" onClick={() => deleteQuestion(question.id)}>
+                  Xóa câu này
+                </button>
+              </div>
+
+              <label className="auth-field">
+                <span>Nội dung câu hỏi</span>
+                <textarea
+                  rows={3}
+                  className="lesson-input"
+                  value={question.prompt}
+                  onChange={(event) => updateQuestion(question.id, { prompt: event.target.value })}
+                  placeholder="Nhập câu hỏi học viên sẽ thấy ngay dưới video"
+                />
+              </label>
+
+              <div className="video-question-options">
+                <div className="video-question-options__head">
+                  <span>Lựa chọn đáp án</span>
+                  <button type="button" className="button-ghost" onClick={() => addOption(question.id)}>
+                    Thêm lựa chọn
+                  </button>
+                </div>
+
+                {question.options.length ? (
+                  question.options.map((option, optionIndex) => (
+                    <div key={`${question.id}-${option.label}-${optionIndex}`} className="video-question-option">
+                      <label className="video-question-option__correct">
+                        <input
+                          type="radio"
+                          name={`correct-${question.id}`}
+                          checked={question.correctAnswer === option.label}
+                          onChange={() => updateQuestion(question.id, { correctAnswer: option.label })}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="lesson-input"
+                        value={option.text}
+                        onChange={(event) => updateOption(question.id, optionIndex, event.target.value)}
+                        placeholder={`Đáp án ${option.label}`}
+                      />
+                      <button
+                        type="button"
+                        className="button-ghost video-question-option__delete"
+                        onClick={() => removeOption(question.id, optionIndex)}
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-state">Câu hỏi này chưa có lựa chọn. Có thể lưu dạng tự luận hoặc thêm lựa chọn để chấm trắc nghiệm.</div>
+                )}
+              </div>
+
+              <label className="auth-field">
+                <span>Giải thích sau khi làm bài</span>
+                <textarea
+                  rows={2}
+                  className="lesson-input"
+                  value={question.explanation}
+                  onChange={(event) => updateQuestion(question.id, { explanation: event.target.value })}
+                  placeholder="Giải thích ngắn gọn để học viên hiểu đáp án"
+                />
+              </label>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          Chưa có câu hỏi nào dưới video này. Bấm thêm câu hỏi hoặc dán nhiều câu ở trên để bắt đầu.
+        </div>
+      )}
+
+      {status?.text ? (
+        <div className={status.type === 'success' ? 'exercise-feedback success' : 'exercise-feedback'}>
+          {status.text}
         </div>
       ) : null}
     </section>
@@ -629,12 +1045,6 @@ export default function LearningPage() {
   const [lessons, setLessons] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState(lessonId || '');
   const [loadingCourse, setLoadingCourse] = useState(true);
-  const [activeTab, setActiveTab] = useState('mcq');
-  const [mcqAnswer, setMcqAnswer] = useState('');
-  const [tfAnswer, setTfAnswer] = useState('');
-  const [matchAnswers, setMatchAnswers] = useState(['', '', '']);
-  const [blankAnswer, setBlankAnswer] = useState('');
-  const [flashFlip, setFlashFlip] = useState(false);
   const [audioMap, setAudioMap] = useState(() => readStoredJson(storageKeys.audioByLesson, {}));
   const [fileMap, setFileMap] = useState(() => readStoredJson(storageKeys.filesByLesson, {}));
   const [purchasedCourses, setPurchasedCourses] = useState(() => readStoredJson(storageKeys.purchasedCourses, []));
@@ -655,6 +1065,8 @@ export default function LearningPage() {
   const [lessonProgressMap, setLessonProgressMap] = useState({});
   const [progressSaving, setProgressSaving] = useState(false);
   const [assignmentSavingId, setAssignmentSavingId] = useState('');
+  const [lessonQuestionSaving, setLessonQuestionSaving] = useState(false);
+  const [lessonQuestionStatus, setLessonQuestionStatus] = useState({ type: '', text: '' });
 
   useEffect(() => {
     writeStoredJson(storageKeys.audioByLesson, audioMap);
@@ -895,6 +1307,7 @@ export default function LearningPage() {
     : currentLesson?.status === 'locked'
       ? 'Đang khóa'
       : 'Đang học';
+  const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : lessons[1];
   const lessonPagination = usePagination(lessons, {
     pageSize: 8,
     resetKey: currentCourseId
@@ -903,6 +1316,10 @@ export default function LearningPage() {
     pageSize: 4,
     resetKey: `${currentCourseId}|${currentRole}|${visibleAssignments.length}`
   });
+
+  useEffect(() => {
+    setLessonQuestionStatus({ type: '', text: '' });
+  }, [currentLesson?.id]);
 
   useEffect(() => {
     const currentLessonIndex = lessons.findIndex((lesson) => lesson.id === selectedLessonId);
@@ -1134,6 +1551,70 @@ export default function LearningPage() {
     }
   }
 
+  async function handleSaveVideoQuestions(nextQuestions) {
+    if (!currentLesson) {
+      setLessonQuestionStatus({ type: 'error', text: 'Chưa chọn bài học để lưu câu hỏi video.' });
+      return;
+    }
+
+    setLessonQuestionSaving(true);
+    setLessonQuestionStatus({ type: '', text: '' });
+
+    try {
+      const saved = await saveLessonQuestionsToSupabase({
+        lessonId: currentLesson.databaseId || currentLesson.id,
+        questions: nextQuestions,
+        accessToken: auth.session?.access_token
+      });
+      const savedQuestions = prepareVideoQuestionsForSave(saved?.questions || nextQuestions);
+      const updateLessonQuestions = (lesson) => {
+        const isCurrentLesson =
+          lesson.id === currentLesson.id ||
+          lesson.databaseId === currentLesson.databaseId ||
+          lesson.id === currentLesson.databaseId;
+
+        if (!isCurrentLesson) {
+          return lesson;
+        }
+
+        return {
+          ...lesson,
+          exercises: savedQuestions,
+          questionCount: savedQuestions.length,
+          exerciseType: lesson.exerciseType || 'Bài luyện video'
+        };
+      };
+
+      setLessons((previous) => previous.map(updateLessonQuestions));
+      setCurrentCourse((previous) => {
+        if (!previous?.sections?.length) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          sections: previous.sections.map((section) => ({
+            ...section,
+            lessons: (section.lessons || []).map(updateLessonQuestions)
+          }))
+        };
+      });
+      setLessonQuestionStatus({
+        type: 'success',
+        text: savedQuestions.length
+          ? `Đã lưu ${savedQuestions.length} câu hỏi video vào Supabase.`
+          : 'Đã xóa toàn bộ câu hỏi video trên Supabase.'
+      });
+    } catch (error) {
+      setLessonQuestionStatus({
+        type: 'error',
+        text: error.message || 'Chưa thể lưu câu hỏi video lên Supabase.'
+      });
+    } finally {
+      setLessonQuestionSaving(false);
+    }
+  }
+
   async function handleMarkLessonComplete() {
     if (!currentLesson) {
       return;
@@ -1214,6 +1695,12 @@ export default function LearningPage() {
     navigate(`/learn/${currentCourseId}/${nextLessonId}`);
   }
 
+  function handleGoToNextLesson() {
+    if (nextLesson) {
+      handleSelectLesson(nextLesson.id);
+    }
+  }
+
   if (!auth.ready || loadingCourse) {
     return <LearningEmptyState isTeacher={isTeacher} loading />;
   }
@@ -1270,7 +1757,7 @@ export default function LearningPage() {
           <div className="sidebar-head">
             <span className="eyebrow">Phòng học</span>
             <h2>{currentCourse.title}</h2>
-            <p>Quy trình học liền mạch: giảng viên tải học liệu, học viên nhận quyền truy cập và học trong cùng một không gian.</p>
+            <p>{completedLessonCount}/{lessons.length} bài đã hoàn thành</p>
           </div>
 
           <div className="lesson-sidebar__progress">
@@ -1283,22 +1770,32 @@ export default function LearningPage() {
             </div>
           </div>
 
-          {lessonPagination.pageItems.map((lesson) => (
-            <button
-              key={lesson.id}
-              type="button"
-              className={`lesson-item ${lessonProgressMap[lesson.id]?.completed ? 'done' : lesson.status} ${selectedLessonId === lesson.id ? 'is-selected' : ''}`}
-              onClick={() => handleSelectLesson(lesson.id)}
-            >
-              <span className="lesson-item__icon" aria-hidden="true">
-                {lesson.lessonNumber || lessonPagination.startItem + lessonPagination.pageItems.indexOf(lesson)}
-              </span>
-              <span className="lesson-item__copy">
-                <strong>{lesson.title}</strong>
-                <span>{[lesson.exerciseType, lesson.questionCount ? `${lesson.questionCount} câu` : '', lessonProgressMap[lesson.id]?.completed || lesson.status === 'done' ? 'Đã xong' : lesson.status === 'locked' ? 'Đang khóa' : 'Đang học'].filter(Boolean).join(' · ')}</span>
-              </span>
-            </button>
-          ))}
+          <div className="lesson-sidebar__module">
+            <span>Trang {lessonPagination.page}/{lessonPagination.pageCount}</span>
+            <strong>{currentLesson.sectionTitle || 'Nội dung khóa học'}</strong>
+          </div>
+
+          {lessonPagination.pageItems.map((lesson) => {
+            const isLessonDone = lessonProgressMap[lesson.id]?.completed || lesson.status === 'done';
+            const lessonNumber = lesson.lessonNumber || lessonPagination.startItem + lessonPagination.pageItems.indexOf(lesson);
+
+            return (
+              <button
+                key={lesson.id}
+                type="button"
+                className={`lesson-item ${isLessonDone ? 'done' : lesson.status} ${selectedLessonId === lesson.id ? 'is-selected' : ''}`}
+                onClick={() => handleSelectLesson(lesson.id)}
+              >
+                <span className="lesson-item__icon" aria-hidden="true">
+                  {isLessonDone ? '✓' : lessonNumber}
+                </span>
+                <span className="lesson-item__copy">
+                  <strong>{lesson.title}</strong>
+                  <span>{[lesson.exerciseType || 'Video', lesson.questionCount ? `${lesson.questionCount} câu` : '', isLessonDone ? 'Đã học' : lesson.status === 'locked' ? 'Đang khóa' : 'Đang học'].filter(Boolean).join(' · ')}</span>
+                </span>
+              </button>
+            );
+          })}
           <PaginationControls {...lessonPagination} label="bài học" />
         </aside>
 
@@ -1347,8 +1844,8 @@ export default function LearningPage() {
                   Tài liệu
                 </span>
                 <span>
-                  <b>{currentLessonExercises.length || generatedExercises.length}</b>
-                  Câu bài
+                  <b>{currentLessonExercises.length}</b>
+                  Câu video
                 </span>
                 <span>
                   <b>{visibleAssignments.length}</b>
@@ -1644,138 +2141,26 @@ export default function LearningPage() {
 
               <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} />
 
-              {currentLessonExercises.length ? (
+              <div className="learning-lesson-title-row">
+                <h1>{currentLesson.title}</h1>
+                {currentLesson.note ? <p>{currentLesson.note}</p> : null}
+              </div>
+
+              {isTeacher ? (
+                <VideoQuestionEditor
+                  lesson={currentLesson}
+                  saving={lessonQuestionSaving}
+                  status={lessonQuestionStatus}
+                  onSave={handleSaveVideoQuestions}
+                />
+              ) : currentLessonExercises.length ? (
                 <LessonExercisePreview lesson={currentLesson} isTeacher={isTeacher} />
               ) : (
-              <section className="content-card content-card--enterprise">
-                <div className="section-head">
-                  <div>
-                    <span className="eyebrow">Bài luyện</span>
-                    <h2>Chế độ luyện tập cho bài học</h2>
-                  </div>
-                  <span className="pill">Tương tác</span>
-                </div>
-
-                <div className="exercise-tabs">
-                  {exerciseTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      className={activeTab === tab.id ? 'exercise-tab is-active' : 'exercise-tab'}
-                      onClick={() => setActiveTab(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="exercise-panel">
-                  {activeTab === 'mcq' ? (
-                    <div className="exercise-card">
-                      <h3>Trắc nghiệm</h3>
-                      <p>Từ nào phù hợp nhất với "hello"?</p>
-                      <div className="exercise-options">
-                        {['xin chào', 'tạm biệt', 'cảm ơn'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className={mcqAnswer === option ? 'answer-pill is-active' : 'answer-pill'}
-                            onClick={() => setMcqAnswer(option)}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                      <div className={mcqAnswer === 'xin chào' ? 'exercise-feedback success' : 'exercise-feedback'}>
-                        {mcqAnswer ? `Đã chọn: ${mcqAnswer}` : 'Chọn một đáp án để xem phản hồi.'}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {activeTab === 'tf' ? (
-                    <div className="exercise-card">
-                      <h3>Đúng / Sai</h3>
-                      <p>"Good morning" được dùng trước buổi trưa.</p>
-                      <div className="exercise-options">
-                        {['Đúng', 'Sai'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className={tfAnswer === option ? 'answer-pill is-active' : 'answer-pill'}
-                            onClick={() => setTfAnswer(option)}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                      <div className={tfAnswer === 'Đúng' ? 'exercise-feedback success' : 'exercise-feedback'}>
-                        {tfAnswer ? (tfAnswer === 'Đúng' ? 'Chính xác, nhận định này đúng.' : 'Chưa đúng. Nhận định này là đúng.') : 'Chọn một nhận định.'}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {activeTab === 'match' ? (
-                    <div className="exercise-card">
-                      <h3>Nối cặp</h3>
-                      <p>Ghép từ tiếng Anh với nghĩa tiếng Việt phù hợp.</p>
-                      <div className="match-list">
-                        {matchingPairs.map((item, index) => (
-                          <label key={item.word} className="match-row">
-                            <span>{item.word}</span>
-                            <select
-                              value={matchAnswers[index]}
-                              onChange={(event) => {
-                                const next = [...matchAnswers];
-                                next[index] = event.target.value;
-                                setMatchAnswers(next);
-                              }}
-                            >
-                              <option value="">Chọn nghĩa</option>
-                              {matchingPairs.map((pair) => (
-                                <option key={pair.answer} value={pair.answer}>
-                                  {pair.answer}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="exercise-feedback">{matchAnswers.filter(Boolean).length}/3 cặp đã chọn.</div>
-                    </div>
-                  ) : null}
-
-                  {activeTab === 'blank' ? (
-                    <div className="exercise-card">
-                      <h3>Điền khuyết</h3>
-                      <p>Hello, my name ____ Linh.</p>
-                      <input
-                        type="text"
-                        value={blankAnswer}
-                        onChange={(event) => setBlankAnswer(event.target.value)}
-                        placeholder="Nhập đáp án"
-                        className="lesson-input"
-                      />
-                      <div className={blankAnswer.trim().toLowerCase() === 'is' ? 'exercise-feedback success' : 'exercise-feedback'}>
-                        {blankAnswer
-                          ? blankAnswer.trim().toLowerCase() === 'is'
-                            ? 'Chính xác, "is" phù hợp trong câu này.'
-                            : 'Thử lại nhé. Gợi ý: dùng một dạng của động từ "to be".'
-                          : 'Nhập đáp án để kiểm tra.'}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {activeTab === 'flash' ? (
-                    <div className="exercise-card">
-                      <h3>Thẻ ghi nhớ</h3>
-                      <button type="button" className="flashcard" onClick={() => setFlashFlip((value) => !value)}>
-                        <span>{flashFlip ? 'Xin chào = Hello' : 'Hello'}</span>
-                        <small>{flashFlip ? 'Bấm để lật lại' : 'Bấm để xem nghĩa'}</small>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
+                <section className="content-card content-card--enterprise video-question-empty">
+                  <span className="eyebrow">Bài luyện</span>
+                  <h2>Chưa có câu hỏi cho video này</h2>
+                  <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
+                </section>
               )}
 
               {!isTeacher ? (
@@ -1796,6 +2181,15 @@ export default function LearningPage() {
                     disabled={progressSaving || isCurrentLessonCompleted}
                   >
                     {progressSaving ? 'Đang lưu...' : isCurrentLessonCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button learning-next-button"
+                    onClick={handleGoToNextLesson}
+                    disabled={!nextLesson}
+                  >
+                    Bài tiếp theo
+                    <span aria-hidden="true">→</span>
                   </button>
                 </section>
               ) : null}
@@ -1825,7 +2219,7 @@ export default function LearningPage() {
               <>
                 <div className="assignment-list">
                   {assignmentPagination.pageItems.map((assignment) => (
-                  <article key={assignment.id} className="content-card content-card--enterprise assignment-card">
+                  <article key={assignment.id} className="assignment-card">
                     <div className="assignment-card__head">
                       <div>
                         <span className="eyebrow">{assignment.courseTitle}</span>

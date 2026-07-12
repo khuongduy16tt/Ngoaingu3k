@@ -99,6 +99,8 @@ export default function CoursesPage() {
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [confirmingOrderId, setConfirmingOrderId] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [coursePageSize, setCoursePageSize] = useState(6);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -179,7 +181,7 @@ export default function CoursesPage() {
     ].filter(Boolean).length;
   }, [filters]);
   const coursePagination = usePagination(filteredCourses, {
-    pageSize: 6,
+    pageSize: coursePageSize,
     resetKey: `${filters.search}|${filters.level}|${filters.category}|${filters.price}|${filters.status}|${filters.sort}|${courses.length}`
   });
 
@@ -241,6 +243,10 @@ export default function CoursesPage() {
     setFilters(initialFilters);
   }
 
+  function toggleFilters() {
+    setFiltersOpen((currentValue) => !currentValue);
+  }
+
   return (
     <div className="page course-market-page">
       <PaymentInstructions
@@ -252,14 +258,13 @@ export default function CoursesPage() {
         onClose={() => setPaymentScreenOpen(false)}
       />
 
-      <section className="content-card content-card--enterprise marketplace-hero">
+      <section className="content-card content-card--enterprise marketplace-hero marketplace-hero--compact">
         <div className="marketplace-hero__copy">
-          <span className="eyebrow">Danh mục đào tạo</span>
-          <h1>Lựa chọn đúng khóa học, quản lý quyền sở hữu và theo dõi thư viện học viên trong một nơi.</h1>
-          <p>
-            Trải nghiệm danh mục được thiết kế như một cổng bán khóa học chuyên nghiệp: học viên có thể
-            tìm kiếm, lọc theo cấp độ hoặc chủ đề, sau đó kích hoạt khóa học vào thư viện cá nhân.
-          </p>
+          <div>
+            <span className="eyebrow">Danh mục đào tạo</span>
+            <h1>Khóa học</h1>
+          </div>
+          <p>Tìm, lọc và mua khóa học phù hợp.</p>
 
           <div className="marketplace-hero__actions">
             <a className="button" href="#course-market-grid">
@@ -278,9 +283,9 @@ export default function CoursesPage() {
         </div>
 
         <div className="marketplace-hero__stats">
-          <MarketplaceStat label="Khóa học công khai" value={courses.length || '0'} note="Sẵn sàng tư vấn và bán" />
-          <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="Ghi nhận theo từng học viên" />
-          <MarketplaceStat label="Nhóm năng lực" value={categories.length - 1 || 0} note="Luyện thi, giao tiếp, công sở" />
+          <MarketplaceStat label="Khóa học" value={courses.length || '0'} note="công khai" />
+          <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="trong thư viện" />
+          <MarketplaceStat label="Nhóm" value={categories.length - 1 || 0} note="năng lực" />
         </div>
       </section>
 
@@ -291,8 +296,12 @@ export default function CoursesPage() {
         </section>
       ) : null}
 
-      <section className="catalog-layout marketplace-layout">
-        <aside className="content-card content-card--enterprise catalog-filters marketplace-filters">
+      <section className={`catalog-layout marketplace-layout ${filtersOpen ? 'marketplace-layout--filters-open' : 'marketplace-layout--filters-closed'}`}>
+        <aside
+          id="course-marketplace-filters"
+          className="content-card content-card--enterprise catalog-filters marketplace-filters"
+          hidden={!filtersOpen}
+        >
           <div className="marketplace-filters__head">
             <div>
               <span className="eyebrow">Bộ lọc</span>
@@ -396,18 +405,50 @@ export default function CoursesPage() {
               </p>
             </div>
 
-            <label className="marketplace-sort">
-              <span>Sắp xếp</span>
-              <select
-                value={filters.sort}
-                onChange={(event) => setFilters((previous) => ({ ...previous, sort: event.target.value }))}
+            <div className="marketplace-results__tools">
+              <button
+                type="button"
+                className={`button-ghost marketplace-filter-toggle ${filtersOpen ? 'is-active' : ''}`}
+                onClick={toggleFilters}
+                aria-expanded={filtersOpen}
+                aria-controls="course-marketplace-filters"
               >
-                <option value="featured">Nổi bật</option>
-                <option value="rating">Đánh giá cao</option>
-                <option value="price-low">Giá tăng dần</option>
-                <option value="price-high">Giá giảm dần</option>
-              </select>
-            </label>
+                {filtersOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'}
+                {activeFilterCount ? <span>{activeFilterCount}</span> : null}
+              </button>
+
+              {activeFilterCount ? (
+                <button type="button" className="button-ghost marketplace-quick-reset" onClick={resetFilters}>
+                  Đặt lại
+                </button>
+              ) : null}
+
+              <label className="marketplace-sort">
+                <span>Sắp xếp</span>
+                <select
+                  value={filters.sort}
+                  onChange={(event) => setFilters((previous) => ({ ...previous, sort: event.target.value }))}
+                >
+                  <option value="featured">Nổi bật</option>
+                  <option value="rating">Đánh giá cao</option>
+                  <option value="price-low">Giá tăng dần</option>
+                  <option value="price-high">Giá giảm dần</option>
+                </select>
+              </label>
+
+              <label className="marketplace-sort marketplace-page-size">
+                <span>Hiển thị</span>
+                <select
+                  value={coursePageSize}
+                  onChange={(event) => setCoursePageSize(Number(event.target.value))}
+                >
+                  <option value={4}>4 khóa/trang</option>
+                  <option value={6}>6 khóa/trang</option>
+                  <option value={8}>8 khóa/trang</option>
+                  <option value={12}>12 khóa/trang</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           {ownedCourses.length ? (
@@ -436,6 +477,9 @@ export default function CoursesPage() {
           <div className="marketplace-results__meta">
             <span>{filteredCourses.length} khóa học phù hợp</span>
             <span>{activeFilterCount} bộ lọc đang áp dụng</span>
+            <span>
+              Trang {coursePagination.page}/{coursePagination.pageCount}
+            </span>
             <span>{auth.session ? `Vai trò hiện tại: ${roleLabels[currentRole] || currentRole}` : 'Chế độ xem khách'}</span>
           </div>
 
@@ -443,6 +487,7 @@ export default function CoursesPage() {
             <p className="empty-state">Đang tải danh mục khóa học...</p>
           ) : filteredCourses.length ? (
             <>
+              <PaginationControls {...coursePagination} label="khóa học" />
               <div id="course-market-grid" className="card-grid marketplace-grid">
                 {coursePagination.pageItems.map((course) => {
                 const isOwned = ownedCourseIdSet.has(course.id);
