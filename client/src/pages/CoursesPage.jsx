@@ -96,6 +96,7 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [purchasingCourseId, setPurchasingCourseId] = useState('');
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
+  const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [confirmingOrderId, setConfirmingOrderId] = useState('');
   const [feedback, setFeedback] = useState('');
 
@@ -200,6 +201,9 @@ export default function CoursesPage() {
 
       setOwnedCourseIds(result.ownedCourseIds);
       setActivePaymentOrder(result.order || null);
+      if (result.requiresPayment && result.order) {
+        setPaymentScreenOpen(true);
+      }
       setFeedback(
         result.requiresPayment
           ? `Đã tạo yêu cầu thanh toán cho ${course.title}. Vui lòng quét QR và bấm xác nhận sau khi chuyển khoản.`
@@ -224,6 +228,7 @@ export default function CoursesPage() {
         accessToken: auth.session?.access_token
       });
       setActivePaymentOrder(nextOrder);
+      setPaymentScreenOpen(true);
       setFeedback('Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.');
     } catch (error) {
       setFeedback(error?.message || 'Chưa thể gửi xác nhận thanh toán.');
@@ -238,6 +243,15 @@ export default function CoursesPage() {
 
   return (
     <div className="page course-market-page">
+      <PaymentInstructions
+        order={activePaymentOrder}
+        confirming={confirmingOrderId === activePaymentOrder?.id}
+        onConfirm={handleConfirmPayment}
+        variant="overlay"
+        open={paymentScreenOpen}
+        onClose={() => setPaymentScreenOpen(false)}
+      />
+
       <section className="content-card content-card--enterprise marketplace-hero">
         <div className="marketplace-hero__copy">
           <span className="eyebrow">Danh mục đào tạo</span>
@@ -418,12 +432,6 @@ export default function CoursesPage() {
               </div>
             </section>
           ) : null}
-
-          <PaymentInstructions
-            order={activePaymentOrder}
-            confirming={confirmingOrderId === activePaymentOrder?.id}
-            onConfirm={handleConfirmPayment}
-          />
 
           <div className="marketplace-results__meta">
             <span>{filteredCourses.length} khóa học phù hợp</span>

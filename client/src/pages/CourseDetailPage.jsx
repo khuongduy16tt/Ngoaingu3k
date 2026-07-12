@@ -33,6 +33,7 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState(null);
+  const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [feedback, setFeedback] = useState('');
 
@@ -75,6 +76,12 @@ export default function CourseDetailPage() {
       return;
     }
 
+    if (paymentOrder) {
+      setPaymentScreenOpen(true);
+      setFeedback('');
+      return;
+    }
+
     setPurchasing(true);
     setFeedback('');
 
@@ -88,6 +95,9 @@ export default function CourseDetailPage() {
 
       setOwnedCourseIds(result.ownedCourseIds);
       setPaymentOrder(result.order || null);
+      if (result.requiresPayment && result.order) {
+        setPaymentScreenOpen(true);
+      }
       setFeedback(
         result.requiresPayment
           ? 'Đã tạo mã thanh toán. Vui lòng chuyển khoản theo QR rồi bấm xác nhận.'
@@ -112,6 +122,7 @@ export default function CourseDetailPage() {
         accessToken: auth.session?.access_token
       });
       setPaymentOrder(nextOrder);
+      setPaymentScreenOpen(true);
       setFeedback('Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.');
     } catch (error) {
       setFeedback(error?.message || 'Chưa thể gửi xác nhận thanh toán.');
@@ -182,7 +193,7 @@ export default function CourseDetailPage() {
               disabled={currentRole !== 'student' || purchasing}
               onClick={handlePurchase}
             >
-              {currentRole === 'student' ? (purchasing ? 'Đang xử lý...' : 'Mua ngay') : 'Chỉ dành cho học viên'}
+              {currentRole === 'student' ? (purchasing ? 'Đang xử lý...' : paymentOrder ? 'Tiếp tục thanh toán' : 'Mua ngay') : 'Chỉ dành cho học viên'}
             </button>
           ) : (
             <Link className="button" to="/auth">
@@ -200,6 +211,9 @@ export default function CourseDetailPage() {
         order={paymentOrder}
         confirming={confirmingPayment}
         onConfirm={handleConfirmPayment}
+        variant="overlay"
+        open={paymentScreenOpen}
+        onClose={() => setPaymentScreenOpen(false)}
       />
 
       {feedback ? (

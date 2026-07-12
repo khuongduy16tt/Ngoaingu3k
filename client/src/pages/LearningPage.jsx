@@ -15,6 +15,7 @@ import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 
 const fallbackLessons = [
   { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
@@ -295,6 +296,69 @@ function getExerciseCorrectLabel(exercise) {
   );
 
   return answerByText?.label || normalizedAnswer;
+}
+
+function LessonVideoPlayer({ lesson, isTeacher }) {
+  const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
+  const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
+  const videoIssue = getVideoEmbedIssue(rawVideoUrl);
+  const videoAccessHint = getVideoAccessHint(rawVideoUrl);
+
+  if (!videoUrl) {
+    return (
+      <section className="content-card content-card--enterprise lesson-video-empty">
+        <span className="eyebrow">Video bài học</span>
+        <h2>{lesson?.title || 'Bài học'}</h2>
+        <p>
+          {videoIssue ||
+            (isTeacher
+            ? 'Bài này chưa có link video Google Drive. Hãy mở bảng giảng viên để gắn video cho từng bài.'
+            : 'Bài học này chưa có video. Bạn vẫn có thể làm phần bài tập bên dưới nếu đã được mở khóa.')}
+        </p>
+        {rawVideoUrl ? (
+          <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
+            Mở link gốc
+          </a>
+        ) : isTeacher ? (
+          <Link className="button-ghost" to="/dashboard/teacher">
+            Sửa video bài học
+          </Link>
+        ) : null}
+      </section>
+    );
+  }
+
+  return (
+    <section className="content-card content-card--enterprise lesson-video-panel">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Video bài học</span>
+          <h2>{lesson?.videoTitle || lesson?.title || 'Bài học'}</h2>
+          <p>{lesson?.note || 'Xem video trước, sau đó làm bài tập bên dưới.'}</p>
+        </div>
+        <span className="pill">{getVideoSourceLabel(rawVideoUrl)}</span>
+      </div>
+      {videoAccessHint ? (
+        <div className="lesson-video-panel__notice">
+          <div>
+            <strong>Video Google Drive</strong>
+            <p>{videoAccessHint}</p>
+          </div>
+          <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
+            Mở link gốc
+          </a>
+        </div>
+      ) : null}
+      <div className="lesson-video-panel__frame">
+        <iframe
+          src={videoUrl}
+          title={lesson?.videoTitle || lesson?.title || 'Video bài học'}
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </section>
+  );
 }
 
 function LessonExercisePreview({ lesson, isTeacher }) {
@@ -1271,6 +1335,10 @@ export default function LearningPage() {
 
               <div className="teacher-lesson-bar__stats">
                 <span>
+                  <b>{currentLesson.videoUrl ? 'Có' : 'Chưa'}</b>
+                  Video
+                </span>
+                <span>
                   <b>{lessonAudio ? 'Có' : 'Chưa'}</b>
                   Audio
                 </span>
@@ -1573,6 +1641,8 @@ export default function LearningPage() {
                   </div>
                 </section>
               ) : null}
+
+              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} />
 
               {currentLessonExercises.length ? (
                 <LessonExercisePreview lesson={currentLesson} isTeacher={isTeacher} />

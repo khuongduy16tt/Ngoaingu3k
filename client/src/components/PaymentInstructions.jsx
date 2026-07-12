@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { formatVnd } from '../lib/money';
 
 const statusText = {
@@ -9,18 +9,55 @@ const statusText = {
   failed: 'Thanh toán thất bại'
 };
 
-export function PaymentInstructions({ order, confirming = false, onConfirm }) {
+export function PaymentInstructions({
+  order,
+  confirming = false,
+  onConfirm,
+  variant = 'card',
+  open = true,
+  onClose
+}) {
+  const isOverlay = variant === 'overlay';
+
+  useEffect(() => {
+    if (!isOverlay || !open) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOverlay, onClose, open]);
+
   if (!order) return null;
+  if (isOverlay && !open) return null;
 
   const awaitingAdmin = order.status === 'awaiting_admin';
   const paid = order.status === 'paid';
 
-  return (
-    <section className="content-card content-card--enterprise payment-instructions">
-      <div>
-        <span className="eyebrow">Thanh toán chuyển khoản</span>
-        <h3>{order.courseTitle}</h3>
-        <p>{statusText[order.status] || 'Chờ thanh toán'}</p>
+  const content = (
+    <section className={`content-card content-card--enterprise payment-instructions ${isOverlay ? 'payment-instructions--overlay' : ''}`}>
+      <div className="payment-instructions__head">
+        <div>
+          <span className="eyebrow">Thanh toán chuyển khoản</span>
+          <h3>{order.courseTitle}</h3>
+          <p>{statusText[order.status] || 'Chờ thanh toán'}</p>
+        </div>
+        {onClose ? (
+          <button type="button" className="payment-instructions__close" onClick={onClose} aria-label="Đóng hướng dẫn thanh toán">
+            ×
+          </button>
+        ) : null}
       </div>
 
       <div className="payment-instructions__body">
@@ -61,5 +98,18 @@ export function PaymentInstructions({ order, confirming = false, onConfirm }) {
         </button>
       )}
     </section>
+  );
+
+  if (!isOverlay) {
+    return content;
+  }
+
+  return (
+    <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Thanh toán chuyển khoản">
+      <button type="button" className="payment-screen__backdrop" onClick={onClose} aria-label="Đóng hướng dẫn thanh toán" />
+      <div className="payment-screen__panel">
+        {content}
+      </div>
+    </div>
   );
 }

@@ -28,6 +28,7 @@ import { PaginationControls, usePagination } from '../components/Pagination';
 import { average, buildStudentProgressRows } from '../lib/studentProgressService';
 import { formatVnd, normalizeVndAmount } from '../lib/money';
 import { parseExcelCourseFile } from '../lib/excelCourseParser';
+import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -358,6 +359,64 @@ function createEmptyCourseDraft() {
   };
 }
 
+const TEACHER_COURSE_DRAFT_STORAGE_KEY = 'teacher-course-draft-v1';
+
+function getTeacherCourseDraftKey(teacherId = 'local') {
+  return `${TEACHER_COURSE_DRAFT_STORAGE_KEY}:${teacherId || 'local'}`;
+}
+
+function readTeacherCourseDraft(teacherId) {
+  try {
+    const rawValue = localStorage.getItem(getTeacherCourseDraftKey(teacherId));
+    if (!rawValue) return null;
+    const parsedValue = JSON.parse(rawValue);
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeTeacherCourseDraft(teacherId, draftState) {
+  try {
+    localStorage.setItem(getTeacherCourseDraftKey(teacherId), JSON.stringify({
+      ...draftState,
+      savedAt: new Date().toISOString()
+    }));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function clearTeacherCourseDraft(teacherId) {
+  try {
+    localStorage.removeItem(getTeacherCourseDraftKey(teacherId));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function isCourseDraftDirty(draftState) {
+  const defaultDraft = createEmptyCourseDraft();
+  const draft = draftState?.courseDraft || defaultDraft;
+  const manualDraft = draftState?.manualLessonDraft || {};
+
+  return Boolean(
+    draftState?.editingCourseId ||
+      draftState?.courseInputMode !== 'manual' ||
+      draftState?.importDriveLink?.trim() ||
+      draft.title?.trim() ||
+      draft.summary?.trim() ||
+      draft.sections?.length ||
+      String(draft.price || '') !== defaultDraft.price ||
+      String(draft.lessonsCount || '') !== defaultDraft.lessonsCount ||
+      draft.category !== defaultDraft.category ||
+      draft.level !== defaultDraft.level ||
+      draft.duration !== defaultDraft.duration ||
+      manualDraft.lessonsText?.trim() ||
+      (manualDraft.sectionTitle && manualDraft.sectionTitle !== 'Nội dung chính')
+  );
+}
+
 function flattenDraftLessons(sections = []) {
   return sections.flatMap((section, sectionIndex) =>
     (section.lessons || []).map((lesson, lessonIndex) => ({
@@ -387,6 +446,10 @@ function getCourseQuestionCount(sections = []) {
 
 function LessonStudentViewPreview({ lesson, showAnswers = false }) {
   const exercises = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
+  const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
+  const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
+  const videoIssue = getVideoEmbedIssue(rawVideoUrl);
+  const videoAccessHint = getVideoAccessHint(rawVideoUrl);
 
   return (
     <div className="lesson-student-preview">
@@ -398,6 +461,44 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
         </div>
         <span className="pill">{showAnswers ? 'Có đáp án' : 'Ẩn đáp án'}</span>
       </div>
+
+      {rawVideoUrl && !videoUrl ? (
+        <div className="lesson-video-warning">
+          <strong>Video chưa thể nhúng</strong>
+          <p>{videoIssue || 'Link video hiện tại chưa thể phát trực tiếp trong trang học.'}</p>
+          <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
+            Mở link gốc
+          </a>
+        </div>
+      ) : null}
+
+      {videoUrl ? (
+        <div className="lesson-video-panel lesson-video-panel--preview">
+          {videoAccessHint ? (
+            <div className="lesson-video-panel__notice">
+              <div>
+                <strong>Video Google Drive</strong>
+                <p>{videoAccessHint}</p>
+              </div>
+              <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
+                Mở link gốc
+              </a>
+            </div>
+          ) : null}
+          <div className="lesson-video-panel__frame">
+            <iframe
+              src={videoUrl}
+              title={lesson?.videoTitle || lesson?.title || 'Video bài học'}
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+          <div className="lesson-video-panel__meta">
+            <strong>{lesson?.videoTitle || lesson?.title || 'Video bài học'}</strong>
+            <span>{getVideoSourceLabel(rawVideoUrl)}</span>
+          </div>
+        </div>
+      ) : null}
 
       {lesson?.audioUrl || lesson?.imageUrl ? (
         <div className="lesson-asset-strip">
@@ -467,6 +568,7 @@ export function TeacherDashboardPage() {
   const [importDriveLink, setImportDriveLink] = useState('');
   const [selectedDraftLessonId, setSelectedDraftLessonId] = useState('');
   const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
+  const [draftHydratedTeacherId, setDraftHydratedTeacherId] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -489,6 +591,75 @@ export function TeacherDashboardPage() {
       active = false;
     };
   }, [teacherId]);
+
+  useEffect(() => {
+    setDraftHydratedTeacherId('');
+    const savedDraft = readTeacherCourseDraft(teacherId);
+
+    if (savedDraft && isCourseDraftDirty(savedDraft)) {
+      const restoredCourseDraft = {
+        ...createEmptyCourseDraft(),
+        ...(savedDraft.courseDraft || {}),
+        sections: Array.isArray(savedDraft.courseDraft?.sections) ? savedDraft.courseDraft.sections : []
+      };
+      const restoredManualDraft = {
+        sectionTitle: 'Nội dung chính',
+        lessonsText: '',
+        ...(savedDraft.manualLessonDraft || {})
+      };
+
+      setCourseDraft(restoredCourseDraft);
+      setEditingCourseId(savedDraft.editingCourseId || '');
+      setCourseInputMode(savedDraft.courseInputMode || 'manual');
+      setManualLessonDraft(restoredManualDraft);
+      setImportDriveLink(savedDraft.importDriveLink || '');
+      setSelectedDraftLessonId(savedDraft.selectedDraftLessonId || '');
+      setStudentPreviewLessonId(savedDraft.studentPreviewLessonId || '');
+      setImportMessage({ type: 'info', text: 'Đã khôi phục bản nháp đang làm dở.' });
+    } else {
+      setCourseDraft(createEmptyCourseDraft());
+      setEditingCourseId('');
+      setCourseInputMode('manual');
+      setManualLessonDraft({ sectionTitle: 'Nội dung chính', lessonsText: '' });
+      setImportDriveLink('');
+      setSelectedDraftLessonId('');
+      setStudentPreviewLessonId('');
+    }
+
+    setDraftHydratedTeacherId(teacherId);
+  }, [teacherId]);
+
+  useEffect(() => {
+    if (draftHydratedTeacherId !== teacherId) {
+      return;
+    }
+
+    const draftState = {
+      courseDraft,
+      editingCourseId,
+      courseInputMode,
+      manualLessonDraft,
+      importDriveLink,
+      selectedDraftLessonId,
+      studentPreviewLessonId
+    };
+
+    if (isCourseDraftDirty(draftState)) {
+      writeTeacherCourseDraft(teacherId, draftState);
+    } else {
+      clearTeacherCourseDraft(teacherId);
+    }
+  }, [
+    courseDraft,
+    courseInputMode,
+    draftHydratedTeacherId,
+    editingCourseId,
+    importDriveLink,
+    manualLessonDraft,
+    selectedDraftLessonId,
+    studentPreviewLessonId,
+    teacherId
+  ]);
 
   const studentRows = useMemo(() => buildStudentProgressRows(teacherCourses), [teacherCourses]);
 
@@ -529,10 +700,11 @@ export function TeacherDashboardPage() {
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === studentPreviewLessonId) || selectedDraftLesson;
   const hasDraftAudio = draftLessons.some((lesson) => lesson.audioUrl || lesson.audioName);
   const hasDraftImage = draftLessons.some((lesson) => lesson.imageUrl || lesson.imageName);
+  const hasDraftVideo = draftLessons.some((lesson) => lesson.videoUrl);
   const importSteps = [
-    { label: '1. Nhập Excel', done: courseDraft.sections.length > 0 },
-    { label: '2. File nghe', done: hasDraftAudio, optional: true },
-    { label: '3. Thêm ảnh', done: hasDraftImage, optional: true },
+    { label: '1. Tạo bài học', done: courseDraft.sections.length > 0 },
+    { label: '2. Link video Drive', done: hasDraftVideo },
+    { label: '3. Tài nguyên phụ', done: hasDraftAudio || hasDraftImage, optional: true },
     { label: '4. Confirm & đăng', done: courseDraft.sections.length > 0 && courseDraft.title.trim() }
   ];
 
@@ -737,30 +909,48 @@ export function TeacherDashboardPage() {
   }
 
   function handleImportDriveLink() {
-    const link = importDriveLink.trim();
-    if (!link) {
-      setImportMessage({ type: 'error', text: 'Hãy dán link Google Drive hoặc URL tài liệu.' });
+    const rows = importDriveLink
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!rows.length) {
+      setImportMessage({ type: 'error', text: 'Hãy nhập ít nhất một link video Google Drive.' });
       return;
     }
 
+    const parsedRows = rows.map((row, index) => {
+      const parts = row.split('|').map((part) => part.trim()).filter(Boolean);
+      const rawUrl = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+      const title = parts.length > 1 ? parts.slice(0, -1).join(' | ') : `Bài ${index + 1}`;
+      return { rawUrl, title };
+    });
+    const invalidRow = parsedRows.find(({ rawUrl }) => getVideoEmbedIssue(rawUrl));
+    if (invalidRow) {
+      setImportMessage({ type: 'error', text: getVideoEmbedIssue(invalidRow.rawUrl) });
+      return;
+    }
+
+    const now = Date.now();
     const sections = [
       {
-        title: 'Nhập từ Drive',
-        lessons: [
-          {
-            id: `lesson-${Date.now()}`,
-            title: 'Khóa học Drive',
-            lessonNumber: '1',
-            exerciseType: 'Tài liệu Drive',
+        title: 'Video bài giảng',
+        lessons: parsedRows.map(({ rawUrl, title }, index) => {
+          return {
+            id: `drive-video-lesson-${now}-${index}`,
+            title,
+            lessonNumber: String(index + 1),
+            exerciseType: 'Video bài giảng',
             status: 'active',
-            note: 'Bài học tạo từ tài liệu Google Drive.',
+            note: `Bài ${index + 1} · Video Google Drive`,
+            videoTitle: title,
+            videoUrl: rawUrl,
+            videoEmbedUrl: getEmbeddableVideoUrl(rawUrl),
             questionCount: 0,
             questions: [],
-            exercises: [],
-            attachmentName: 'Tài liệu Drive',
-            attachmentUrl: link
-          }
-        ]
+            exercises: []
+          };
+        })
       }
     ];
 
@@ -768,12 +958,12 @@ export function TeacherDashboardPage() {
     if (!courseDraft.title.trim()) {
       setCourseDraft((previous) => ({
         ...previous,
-        title: 'Khóa học từ Drive',
+        title: 'Khóa học video từ Drive',
         lessonsCount: sections.reduce((count, section) => count + ((section.lessons || []).length), 0) || previous.lessonsCount,
-        summary: previous.summary || `Khóa học được tạo từ link Drive.`
+        summary: previous.summary || 'Khóa học gồm các video bài giảng được nhúng từ Google Drive.'
       }));
     }
-    setImportMessage({ type: 'success', text: 'Đã thêm tài liệu Drive vào khóa học.' });
+    setImportMessage({ type: 'success', text: `Đã tạo ${rows.length} bài học video từ Google Drive.` });
   }
 
   function handleCreateManualLessons() {
@@ -863,6 +1053,21 @@ export function TeacherDashboardPage() {
         : course
     );
     persistCourses(nextCourses);
+  }
+
+  function deleteTeacherCourse(courseId) {
+    const course = teacherCourses.find((item) => item.id === courseId);
+    if (!course) return;
+
+    const confirmed = window.confirm(`Xóa khóa học "${course.title}"? Hành động này sẽ gỡ khóa khỏi danh sách giảng viên.`);
+    if (!confirmed) return;
+
+    const nextCourses = teacherCourses.filter((item) => item.id !== courseId);
+    persistCourses(nextCourses);
+    if (editingCourseId === courseId) {
+      resetCourseDraft();
+    }
+    setMessage({ type: 'success', text: `Đã xóa khóa học "${course.title}".` });
   }
 
   return (
@@ -1021,18 +1226,21 @@ export function TeacherDashboardPage() {
 
             {courseInputMode === 'drive' ? (
               <label className="auth-field auth-field--full">
-                <span>Link Google Drive</span>
+                <span>Danh sách video Google Drive</span>
                 <div className="field-with-button">
-                  <input
+                  <textarea
+                    rows="5"
                     value={importDriveLink}
                     onChange={(event) => setImportDriveLink(event.target.value)}
-                    placeholder="https://drive.google.com/..."
+                    placeholder={'Bài 1 | https://drive.google.com/file/d/.../view\nBài 2 | https://drive.google.com/file/d/.../view'}
                   />
                   <button type="button" className="button-ghost" onClick={handleImportDriveLink}>
-                    Tạo bài học
+                    Tạo bài video
                   </button>
                 </div>
-                <small className="field-hint">Drive sẽ tạo một bài học gắn tài liệu để xem trước trước khi đăng.</small>
+                <small className="field-hint">
+                  Mỗi dòng tạo một bài. Dùng link file video /file/d/.../view và mở quyền Drive: Anyone with the link / Viewer.
+                </small>
               </label>
             ) : null}
 
@@ -1092,7 +1300,7 @@ export function TeacherDashboardPage() {
                           <span>{lesson.lessonNumber ? `Bài ${lesson.lessonNumber}` : 'Bài học'}</span>
                           <strong>{lesson.title || lesson.attachmentName || 'Bài học mới'}</strong>
                           <small>
-                            {[lesson.exerciseType, lesson.questionCount ? `${lesson.questionCount} câu` : '', lesson.audioName ? 'Có audio' : '', lesson.imageName ? 'Có ảnh' : ''].filter(Boolean).join(' · ')}
+                            {[lesson.videoUrl ? 'Có video' : 'Chưa có video', lesson.exerciseType, lesson.questionCount ? `${lesson.questionCount} câu` : '', lesson.audioName ? 'Có audio' : '', lesson.imageName ? 'Có ảnh' : ''].filter(Boolean).join(' · ')}
                           </small>
                         </button>
                         <button
@@ -1158,8 +1366,30 @@ export function TeacherDashboardPage() {
                         />
                       </label>
 
+                      <label className="auth-field auth-field--full">
+                        <span>Video bài học từ Google Drive</span>
+                        <input
+                          value={selectedDraftLesson.videoUrl || ''}
+                          onChange={(event) =>
+                            updateDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, {
+                              videoUrl: event.target.value,
+                              videoEmbedUrl: getEmbeddableVideoUrl(event.target.value),
+                              videoTitle: selectedDraftLesson.videoTitle || selectedDraftLesson.title || `Bài ${selectedDraftLesson.lessonNumber || ''}`.trim()
+                            })
+                          }
+                          placeholder="Dán link share Google Drive của video bài học"
+                        />
+                        <small className="field-hint">
+                          {selectedDraftLesson.videoUrl
+                            ? getVideoEmbedIssue(selectedDraftLesson.videoUrl) ||
+                              getVideoAccessHint(selectedDraftLesson.videoUrl) ||
+                              `${getVideoSourceLabel(selectedDraftLesson.videoUrl)} · học viên sẽ xem video này trước bài tập.`
+                            : 'Chưa có video cho bài này.'}
+                        </small>
+                      </label>
+
                       <label className="auth-field">
-                        <span>Bước 2: file nghe nếu có</span>
+                        <span>File nghe nếu có</span>
                         <input
                           type="file"
                           accept="audio/*"
@@ -1176,7 +1406,7 @@ export function TeacherDashboardPage() {
                       </label>
 
                       <label className="auth-field">
-                        <span>Bước 3: ảnh nếu có</span>
+                        <span>Ảnh nếu có</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1350,6 +1580,9 @@ export function TeacherDashboardPage() {
                   </Link>
                   <button type="button" className="button-ghost" onClick={() => toggleCourseStatus(course.id)}>
                     {course.status === 'published' ? 'Ẩn khóa' : 'Mở lại'}
+                  </button>
+                  <button type="button" className="button-ghost danger" onClick={() => deleteTeacherCourse(course.id)}>
+                    Xóa khóa
                   </button>
                 </div>
               </article>
