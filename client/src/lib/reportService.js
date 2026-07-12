@@ -159,6 +159,13 @@ function _today() {
 }
 
 function _statusLabel(status) {
-  const labels = { paid: 'Đã thanh toán', pending: 'Chờ thanh toán', failed: 'Thất bại', refunded: 'Hoàn tiền' };
+  const labels = {
+    paid: 'Đã thanh toán',
+    pending: 'Chờ thanh toán',
+    pending_payment: 'Chờ chuyển khoản',
+    awaiting_admin: 'Chờ admin mở khóa',
+    failed: 'Thất bại',
+    refunded: 'Hoàn tiền'
+  };
   return labels[status] || status || '';
 }

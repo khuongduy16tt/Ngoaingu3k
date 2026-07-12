@@ -9,12 +9,13 @@ import {
   defaultRolePermissions,
   getAdminDashboardData,
   getUsersWithPurchaseInfo,
+  approvePaymentOrder,
   saveAdminCourse,
   saveAdminLesson,
   saveAdminProfile,
   saveRolePermissions
 } from '../lib/adminService';
-import { getCourseCatalog, getOwnedCourseIds } from '../lib/courseService';
+import { getCourseCatalog, getOwnedCourseIds, readTeacherManagedCourses, writeTeacherManagedCourses } from '../lib/courseService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getActivityLogs } from '../lib/activityService';
 import {
@@ -24,6 +25,9 @@ import {
 } from '../lib/reportService';
 import { uploadLessonVideo, validateVideoFile } from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { average, buildStudentProgressRows } from '../lib/studentProgressService';
+import { formatVnd, normalizeVndAmount } from '../lib/money';
+import { parseExcelCourseFile } from '../lib/excelCourseParser';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -314,45 +318,6 @@ export function StudentDashboardPage() {
   );
 }
 
-const teacherCourseStorageKey = 'teacher-managed-courses-v1';
-const legacyDemoCourseIds = new Set([
-  'english-foundation',
-  'business-communication',
-  'ielts-boost',
-  'speaking-confidence',
-  'workplace-writing',
-  'toeic-fast-track'
-]);
-
-const demoCourseStudents = [
-  { name: 'Minh Anh', email: 'minh.anh@ngoaingu3k.com', courseId: 'english-foundation', progress: 82, score: 91, lastActive: 'Hôm nay' },
-  { name: 'Gia Huy', email: 'gia.huy@ngoaingu3k.com', courseId: 'english-foundation', progress: 64, score: 78, lastActive: 'Hôm qua' },
-  { name: 'Linh Chi', email: 'linh.chi@ngoaingu3k.com', courseId: 'business-communication', progress: 48, score: 84, lastActive: '2 ngày trước' },
-  { name: 'Quốc Bảo', email: 'quoc.bao@ngoaingu3k.com', courseId: 'business-communication', progress: 71, score: 88, lastActive: 'Hôm nay' },
-  { name: 'Hoàng Nam', email: 'hoang.nam@ngoaingu3k.com', courseId: 'ielts-boost', progress: 35, score: 73, lastActive: '3 ngày trước' },
-  { name: 'Thanh Trúc', email: 'thanh.truc@ngoaingu3k.com', courseId: 'ielts-boost', progress: 59, score: 86, lastActive: 'Hôm qua' }
-];
-
-function readStoredTeacherCourses(teacherId) {
-  try {
-    const rawValue = localStorage.getItem(`${teacherCourseStorageKey}:${teacherId || 'local'}`);
-    const courses = rawValue ? JSON.parse(rawValue) : [];
-    return Array.isArray(courses)
-      ? courses.filter((course) => !legacyDemoCourseIds.has(course.id))
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredTeacherCourses(teacherId, courses) {
-  try {
-    localStorage.setItem(`${teacherCourseStorageKey}:${teacherId || 'local'}`, JSON.stringify(courses));
-  } catch {
-    // ignore storage failures
-  }
-}
-
 function createCourseSlug(title) {
   return String(title || 'khoa-hoc')
     .normalize('NFD')
@@ -363,6 +328,7 @@ function createCourseSlug(title) {
 }
 
 function normalizeManagedCourse(course, index = 0) {
+  const priceValue = normalizeVndAmount(course.priceValue ?? course.price);
   return {
     id: course.id || course.slug || `course-${index + 1}`,
     title: course.title || 'Khóa học chưa đặt tên',
@@ -370,29 +336,116 @@ function normalizeManagedCourse(course, index = 0) {
     category: course.category || 'Kỹ năng cốt lõi',
     level: course.level || 'Nền tảng',
     duration: course.duration || '6 tuần',
-    lessonsCount: Number(course.lessonsCount || course.lessons_count || 12),
-    price: course.price || '$49',
+    lessonsCount: Number(course.lessonsCount || course.lessons_count || course.sections?.reduce((sum, section) => sum + (section.lessons?.length || 0), 0) || 12),
+    priceValue,
+    price: formatVnd(priceValue),
     status: course.status || 'published',
-    publishedAt: course.publishedAt || 'Đã đăng'
+    publishedAt: course.publishedAt || 'Đã đăng',
+    sections: Array.isArray(course.sections) ? course.sections : []
   };
 }
 
-function average(values) {
-  const validValues = values.filter((value) => Number.isFinite(Number(value)));
-  if (!validValues.length) return 0;
-  return Math.round(validValues.reduce((total, value) => total + Number(value), 0) / validValues.length);
+function createEmptyCourseDraft() {
+  return {
+    title: '',
+    category: 'Kỹ năng cốt lõi',
+    level: 'Nền tảng',
+    duration: '6 tuần',
+    lessonsCount: '12',
+    price: '490000',
+    summary: '',
+    sections: []
+  };
 }
 
-function getProgressLabel(progress) {
-  if (progress >= 80) return 'Tốt';
-  if (progress >= 50) return 'Đang ổn';
-  return 'Cần hỗ trợ';
+function flattenDraftLessons(sections = []) {
+  return sections.flatMap((section, sectionIndex) =>
+    (section.lessons || []).map((lesson, lessonIndex) => ({
+      ...lesson,
+      sectionIndex,
+      lessonIndex,
+      sectionTitle: section.title
+    }))
+  );
 }
 
-function getScoreLabel(score) {
-  if (score >= 85) return 'Hiệu quả cao';
-  if (score >= 70) return 'Ổn định';
-  return 'Cần can thiệp';
+function getDraftLessonKey(lesson) {
+  return lesson?.id || `${lesson?.sectionIndex || 0}-${lesson?.lessonIndex || 0}`;
+}
+
+function getCourseQuestionCount(sections = []) {
+  return sections.reduce(
+    (total, section) =>
+      total +
+      (section.lessons || []).reduce(
+        (lessonTotal, lesson) => lessonTotal + (lesson.questionCount || lesson.exercises?.length || lesson.questions?.length || 0),
+        0
+      ),
+    0
+  );
+}
+
+function LessonStudentViewPreview({ lesson, showAnswers = false }) {
+  const exercises = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
+
+  return (
+    <div className="lesson-student-preview">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Student view</span>
+          <h3>{lesson?.title || 'Bài học'}</h3>
+          <p>{lesson?.note || lesson?.exerciseType || 'Bài học học sinh sẽ nhìn thấy.'}</p>
+        </div>
+        <span className="pill">{showAnswers ? 'Có đáp án' : 'Ẩn đáp án'}</span>
+      </div>
+
+      {lesson?.audioUrl || lesson?.imageUrl ? (
+        <div className="lesson-asset-strip">
+          {lesson.audioUrl ? (
+            <div className="lesson-upload-box">
+              <strong>{lesson.audioName || 'File nghe'}</strong>
+              <audio controls src={lesson.audioUrl} className="lesson-audio" />
+            </div>
+          ) : null}
+          {lesson.imageUrl ? (
+            <div className="lesson-upload-box">
+              <strong>{lesson.imageName || 'Ảnh minh họa'}</strong>
+              <img className="lesson-image-preview" src={lesson.imageUrl} alt={lesson.imageName || lesson.title} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="generated-question-preview">
+        {exercises.length ? (
+          exercises.map((exercise, index) => (
+            <article key={exercise.id || `${lesson.id}-preview-${index}`} className="generated-question-preview__item">
+              <strong>{exercise.prompt || `${lesson.exerciseType || 'Câu hỏi'} - Câu ${exercise.number || index + 1}`}</strong>
+              {exercise.options?.length ? (
+                <div className="exercise-options">
+                  {exercise.options.map((option) => (
+                    <span
+                      key={`${exercise.id}-${option.label}`}
+                      className={showAnswers && option.label === (exercise.correctAnswer || exercise.answer) ? 'answer-pill is-correct' : 'answer-pill'}
+                    >
+                      {option.label}. {option.text}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">Bài này không có lựa chọn đáp án.</p>
+              )}
+              {showAnswers && (exercise.correctAnswer || exercise.answer) ? (
+                <div className="exercise-feedback success">Đáp án: {exercise.correctAnswer || exercise.answer}</div>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <p className="empty-state">Bài này chưa có câu hỏi.</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function TeacherDashboardPage() {
@@ -400,31 +453,32 @@ export function TeacherDashboardPage() {
   const auth = useAuth();
   const teacherId = auth.user?.id || 'local';
   const [teacherCourses, setTeacherCourses] = useState([]);
-  const [selectedCourseId, setSelectedCourseId] = useState('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [courseDraft, setCourseDraft] = useState({
-    title: '',
-    category: 'Kỹ năng cốt lõi',
-    level: 'Nền tảng',
-    duration: '6 tuần',
-    lessonsCount: '12',
-    price: '49',
-    summary: ''
+  const [courseDraft, setCourseDraft] = useState(() => createEmptyCourseDraft());
+  const [editingCourseId, setEditingCourseId] = useState('');
+  const [courseInputMode, setCourseInputMode] = useState('manual');
+  const [manualLessonDraft, setManualLessonDraft] = useState({
+    sectionTitle: 'Nội dung chính',
+    lessonsText: ''
   });
+  const [importMessage, setImportMessage] = useState({ type: '', text: '' });
+  const [importDriveLink, setImportDriveLink] = useState('');
+  const [selectedDraftLessonId, setSelectedDraftLessonId] = useState('');
+  const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
 
   useEffect(() => {
     let active = true;
 
     async function loadTeacherCourses() {
       setLoading(true);
-      const storedCourses = readStoredTeacherCourses(teacherId);
+      const storedCourses = readTeacherManagedCourses(teacherId);
       const nextCourses = storedCourses;
 
       if (active) {
         setTeacherCourses(nextCourses);
-        writeStoredTeacherCourses(teacherId, nextCourses);
+        writeTeacherManagedCourses(teacherId, nextCourses);
         setLoading(false);
       }
     }
@@ -436,29 +490,7 @@ export function TeacherDashboardPage() {
     };
   }, [teacherId]);
 
-  const courseLookup = useMemo(
-    () => new Map(teacherCourses.map((course) => [course.id, course])),
-    [teacherCourses]
-  );
-
-  const studentRows = useMemo(
-    () =>
-      demoCourseStudents
-        .filter((student) => courseLookup.has(student.courseId))
-        .map((student) => ({
-          ...student,
-          courseTitle: courseLookup.get(student.courseId)?.title || 'Khóa học'
-        })),
-    [courseLookup]
-  );
-
-  const visibleStudentRows = useMemo(
-    () =>
-      selectedCourseId === 'all'
-        ? studentRows
-        : studentRows.filter((student) => student.courseId === selectedCourseId),
-    [selectedCourseId, studentRows]
-  );
+  const studentRows = useMemo(() => buildStudentProgressRows(teacherCourses), [teacherCourses]);
 
   const courseStats = useMemo(
     () =>
@@ -490,18 +522,290 @@ export function TeacherDashboardPage() {
     pageSize: 4,
     resetKey: `${teacherId}|${courseStats.length}`
   });
-  const studentRowsPagination = usePagination(visibleStudentRows, {
-    pageSize: 8,
-    resetKey: `${selectedCourseId}|${visibleStudentRows.length}`
-  });
+  const draftLessons = useMemo(() => flattenDraftLessons(courseDraft.sections), [courseDraft.sections]);
+  const selectedDraftLesson =
+    draftLessons.find((lesson) => getDraftLessonKey(lesson) === selectedDraftLessonId) || draftLessons[0] || null;
+  const studentPreviewLesson =
+    draftLessons.find((lesson) => getDraftLessonKey(lesson) === studentPreviewLessonId) || selectedDraftLesson;
+  const hasDraftAudio = draftLessons.some((lesson) => lesson.audioUrl || lesson.audioName);
+  const hasDraftImage = draftLessons.some((lesson) => lesson.imageUrl || lesson.imageName);
+  const importSteps = [
+    { label: '1. Nhập Excel', done: courseDraft.sections.length > 0 },
+    { label: '2. File nghe', done: hasDraftAudio, optional: true },
+    { label: '3. Thêm ảnh', done: hasDraftImage, optional: true },
+    { label: '4. Confirm & đăng', done: courseDraft.sections.length > 0 && courseDraft.title.trim() }
+  ];
+
+  useEffect(() => {
+    if (!draftLessons.length) {
+      setSelectedDraftLessonId('');
+      setStudentPreviewLessonId('');
+      return;
+    }
+
+    if (!draftLessons.some((lesson) => getDraftLessonKey(lesson) === selectedDraftLessonId)) {
+      const firstLessonKey = getDraftLessonKey(draftLessons[0]);
+      setSelectedDraftLessonId(firstLessonKey);
+      setStudentPreviewLessonId(firstLessonKey);
+    }
+  }, [draftLessons, selectedDraftLessonId]);
 
   function updateDraft(field, value) {
     setCourseDraft((previous) => ({ ...previous, [field]: value }));
   }
 
+  function updateDraftSections(sections) {
+    const lessonsCount = sections.reduce((count, section) => count + ((section.lessons || []).length), 0);
+    const firstLesson = sections.flatMap((section) => section.lessons || [])[0];
+    setCourseDraft((previous) => ({
+      ...previous,
+      sections,
+      lessonsCount: String(lessonsCount || previous.lessonsCount || 1)
+    }));
+    if (firstLesson) {
+      setSelectedDraftLessonId(firstLesson.id);
+      setStudentPreviewLessonId(firstLesson.id);
+    }
+  }
+
   function persistCourses(nextCourses) {
     setTeacherCourses(nextCourses);
-    writeStoredTeacherCourses(teacherId, nextCourses);
+    writeTeacherManagedCourses(teacherId, nextCourses);
+  }
+
+  function resetCourseDraft() {
+    setEditingCourseId('');
+    setCourseDraft(createEmptyCourseDraft());
+    setCourseInputMode('manual');
+    setManualLessonDraft({ sectionTitle: 'Nội dung chính', lessonsText: '' });
+    setImportDriveLink('');
+    setImportMessage({ type: '', text: '' });
+    setSelectedDraftLessonId('');
+    setStudentPreviewLessonId('');
+  }
+
+  function loadCourseForEditing(courseId) {
+    if (!courseId) {
+      resetCourseDraft();
+      return;
+    }
+
+    const course = teacherCourses.find((item) => item.id === courseId);
+    if (!course) return;
+
+    setEditingCourseId(course.id);
+    setCourseDraft({
+      title: course.title || '',
+      category: course.category || 'Kỹ năng cốt lõi',
+      level: course.level || 'Nền tảng',
+      duration: course.duration || '6 tuần',
+      lessonsCount: String(course.lessonsCount || 1),
+      price: String(course.priceValue ?? normalizeVndAmount(course.price)),
+      summary: course.summary || '',
+      sections: Array.isArray(course.sections) ? course.sections : []
+    });
+    setCourseInputMode('excel');
+    const firstLesson = flattenDraftLessons(course.sections || [])[0];
+    setSelectedDraftLessonId(firstLesson ? getDraftLessonKey(firstLesson) : '');
+    setStudentPreviewLessonId(firstLesson ? getDraftLessonKey(firstLesson) : '');
+    setImportMessage({ type: 'info', text: `Đang chỉnh sửa "${course.title}".` });
+  }
+
+  function updateDraftLesson(sectionIndex, lessonIndex, patch) {
+    setCourseDraft((previous) => {
+      const nextSections = previous.sections.map((section, currentSectionIndex) => {
+        if (currentSectionIndex !== sectionIndex) return section;
+
+        return {
+          ...section,
+          lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
+            if (currentLessonIndex !== lessonIndex) return lesson;
+            const nextLesson = { ...lesson, ...patch };
+            return {
+              ...nextLesson,
+              questionCount: nextLesson.exercises?.length || nextLesson.questions?.length || nextLesson.questionCount || 0
+            };
+          })
+        };
+      });
+
+      return {
+        ...previous,
+        sections: nextSections
+      };
+    });
+  }
+
+  function updateDraftQuestion(sectionIndex, lessonIndex, questionIndex, patch) {
+    setCourseDraft((previous) => {
+      const nextSections = previous.sections.map((section, currentSectionIndex) => {
+        if (currentSectionIndex !== sectionIndex) return section;
+
+        return {
+          ...section,
+          lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
+            if (currentLessonIndex !== lessonIndex) return lesson;
+            const questions = Array.isArray(lesson.exercises) ? lesson.exercises : Array.isArray(lesson.questions) ? lesson.questions : [];
+            const nextQuestions = questions.map((question, currentQuestionIndex) =>
+              currentQuestionIndex === questionIndex ? { ...question, ...patch } : question
+            );
+
+            return {
+              ...lesson,
+              questions: nextQuestions,
+              exercises: nextQuestions,
+              questionCount: nextQuestions.length
+            };
+          })
+        };
+      });
+
+      return {
+        ...previous,
+        sections: nextSections
+      };
+    });
+  }
+
+  function updateDraftQuestionOption(sectionIndex, lessonIndex, questionIndex, optionIndex, value) {
+    const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
+    const questions = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
+    const question = questions[questionIndex];
+    const options = (question?.options || []).map((option, currentOptionIndex) =>
+      currentOptionIndex === optionIndex ? { ...option, text: value } : option
+    );
+
+    updateDraftQuestion(sectionIndex, lessonIndex, questionIndex, { options });
+  }
+
+  function handleDraftLessonAsset(sectionIndex, lessonIndex, type, file) {
+    if (!file) return;
+    const isAudio = type === 'audio';
+    const isImage = type === 'image';
+
+    if (isAudio && !file.type.startsWith('audio/')) {
+      setImportMessage({ type: 'error', text: 'File nghe phải là định dạng audio.' });
+      return;
+    }
+
+    if (isImage && !file.type.startsWith('image/')) {
+      setImportMessage({ type: 'error', text: 'Ảnh minh họa phải là định dạng ảnh.' });
+      return;
+    }
+
+    const fileUrl = URL.createObjectURL(file);
+    updateDraftLesson(sectionIndex, lessonIndex, {
+      [`${type}Name`]: file.name,
+      [`${type}Url`]: fileUrl
+    });
+    setImportMessage({ type: 'success', text: `Đã thêm ${isAudio ? 'file nghe' : 'ảnh'} cho bài học.` });
+  }
+
+  async function handleImportFile(file) {
+    if (!file) return;
+    setImportMessage({ type: '', text: '' });
+
+    try {
+      if (!/\.(xls|xlsx)$/i.test(file.name)) {
+        setImportMessage({ type: 'error', text: 'Vui lòng chọn đúng file Excel .xls hoặc .xlsx.' });
+        return;
+      }
+
+      const sections = await parseExcelCourseFile(file);
+      if (!sections.length) {
+        setImportMessage({ type: 'error', text: 'File Excel không có bài học hợp lệ. Kiểm tra các cột Tên bài, Bài, Dạng bài, Câu.' });
+        return;
+      }
+      updateDraftSections(sections);
+      if (!courseDraft.title.trim()) {
+        setCourseDraft((previous) => ({
+          ...previous,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          lessonsCount: sections.reduce((count, section) => count + ((section.lessons || []).length), 0) || previous.lessonsCount,
+          summary: previous.summary || `Khóa học được tạo tự động từ ${file.name}.`
+        }));
+      }
+      const lessonsCount = sections.reduce((count, section) => count + ((section.lessons || []).length), 0);
+      const questionsCount = sections.reduce(
+        (count, section) => count + (section.lessons || []).reduce((lessonCount, lesson) => lessonCount + (lesson.questionCount || 0), 0),
+        0
+      );
+      setImportMessage({ type: 'success', text: `Đã đọc ${sections.length} chủ đề, ${lessonsCount} bài học và ${questionsCount} câu từ ${file.name}.` });
+    } catch (error) {
+      setImportMessage({ type: 'error', text: 'Không thể đọc tệp nhập. Vui lòng thử lại.' });
+    }
+  }
+
+  function handleImportDriveLink() {
+    const link = importDriveLink.trim();
+    if (!link) {
+      setImportMessage({ type: 'error', text: 'Hãy dán link Google Drive hoặc URL tài liệu.' });
+      return;
+    }
+
+    const sections = [
+      {
+        title: 'Nhập từ Drive',
+        lessons: [
+          {
+            id: `lesson-${Date.now()}`,
+            title: 'Khóa học Drive',
+            lessonNumber: '1',
+            exerciseType: 'Tài liệu Drive',
+            status: 'active',
+            note: 'Bài học tạo từ tài liệu Google Drive.',
+            questionCount: 0,
+            questions: [],
+            exercises: [],
+            attachmentName: 'Tài liệu Drive',
+            attachmentUrl: link
+          }
+        ]
+      }
+    ];
+
+    updateDraftSections(sections);
+    if (!courseDraft.title.trim()) {
+      setCourseDraft((previous) => ({
+        ...previous,
+        title: 'Khóa học từ Drive',
+        lessonsCount: sections.reduce((count, section) => count + ((section.lessons || []).length), 0) || previous.lessonsCount,
+        summary: previous.summary || `Khóa học được tạo từ link Drive.`
+      }));
+    }
+    setImportMessage({ type: 'success', text: 'Đã thêm tài liệu Drive vào khóa học.' });
+  }
+
+  function handleCreateManualLessons() {
+    const lessonLines = manualLessonDraft.lessonsText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!lessonLines.length) {
+      setImportMessage({ type: 'error', text: 'Hãy nhập ít nhất 1 bài học, mỗi bài trên một dòng.' });
+      return;
+    }
+
+    const sections = [
+      {
+        title: manualLessonDraft.sectionTitle.trim() || 'Nội dung chính',
+        lessons: lessonLines.map((title, index) => ({
+          id: `manual-lesson-${Date.now()}-${index}`,
+          title,
+          lessonNumber: String(index + 1),
+          exerciseType: 'Nhập thủ công',
+          status: 'active',
+          note: `Bài ${index + 1} · Nhập thủ công`,
+          questionCount: 0,
+          questions: [],
+          exercises: []
+        }))
+      }
+    ];
+
+    updateDraftSections(sections);
+    setImportMessage({ type: 'success', text: `Đã tạo ${lessonLines.length} bài học thủ công để xem trước.` });
   }
 
   function handlePublishCourse(event) {
@@ -513,29 +817,42 @@ export function TeacherDashboardPage() {
       return;
     }
 
+    if (!courseDraft.sections.length) {
+      setMessage({ type: 'error', text: 'Hãy tạo bài học bằng Drive, Excel hoặc nhập thủ công trước khi đăng.' });
+      return;
+    }
+
     setSaving(true);
+    const existingCourse = teacherCourses.find((course) => course.id === editingCourseId);
     const slug = createCourseSlug(courseDraft.title);
     const nextCourse = normalizeManagedCourse({
-      id: `${slug}-${Date.now()}`,
+      ...(existingCourse || {}),
+      id: existingCourse?.id || `${slug}-${Date.now()}`,
       ...courseDraft,
       lessonsCount: Number(courseDraft.lessonsCount) || 1,
-      price: `$${Number(courseDraft.price || 0)}`,
+      price: normalizeVndAmount(courseDraft.price),
       status: 'published',
-      publishedAt: 'Vừa đăng'
+      publishedAt: existingCourse ? 'Vừa cập nhật' : 'Vừa đăng'
     });
-    const nextCourses = [nextCourse, ...teacherCourses];
+    const nextCourses = existingCourse
+      ? teacherCourses.map((course) => (course.id === existingCourse.id ? nextCourse : course))
+      : [nextCourse, ...teacherCourses];
     persistCourses(nextCourses);
-    setSelectedCourseId(nextCourse.id);
-    setCourseDraft({
-      title: '',
-      category: 'Kỹ năng cốt lõi',
-      level: 'Nền tảng',
-      duration: '6 tuần',
-      lessonsCount: '12',
-      price: '49',
-      summary: ''
-    });
-    setMessage({ type: 'success', text: 'Khóa học đã được đăng lên khu quản lý của giảng viên.' });
+    if (existingCourse) {
+      setCourseDraft((previous) => ({
+        ...previous,
+        lessonsCount: String(nextCourse.lessonsCount)
+      }));
+      setMessage({ type: 'success', text: `Đã cập nhật khóa học "${nextCourse.title}" thành công.` });
+    } else {
+      setCourseDraft(createEmptyCourseDraft());
+      setManualLessonDraft({ sectionTitle: 'Nội dung chính', lessonsText: '' });
+      setImportDriveLink('');
+      setImportMessage({ type: '', text: '' });
+      setSelectedDraftLessonId('');
+      setStudentPreviewLessonId('');
+      setMessage({ type: 'success', text: `Đã đăng khóa học "${nextCourse.title}" thành công.` });
+    }
     setSaving(false);
   }
 
@@ -559,7 +876,7 @@ export function TeacherDashboardPage() {
           <div className="section-head">
             <div>
               <span className="eyebrow">Quản lý khóa học</span>
-              <h2>Đăng khóa học mới</h2>
+              <h2>{editingCourseId ? 'Chỉnh sửa khóa học' : 'Đăng khóa học mới'}</h2>
             </div>
             <span className="pill">{loading ? 'Đang tải' : `${teacherCourses.length} khóa`}</span>
           </div>
@@ -569,6 +886,34 @@ export function TeacherDashboardPage() {
               {message.text}
             </div>
           ) : null}
+
+          {teacherCourses.length ? (
+            <div className="teacher-edit-bar">
+              <label>
+                <span>Khóa đang sửa</span>
+                <select value={editingCourseId} onChange={(event) => loadCourseForEditing(event.target.value)}>
+                  <option value="">Tạo khóa mới</option>
+                  {teacherCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="button-ghost" onClick={resetCourseDraft}>
+                Tạo mới
+              </button>
+            </div>
+          ) : null}
+
+          <div className="import-stepper">
+            {importSteps.map((step) => (
+              <span key={step.label} className={step.done ? 'import-step is-done' : 'import-step'}>
+                {step.label}
+                {step.optional ? ' nếu có' : ''}
+              </span>
+            ))}
+          </div>
 
           <div className="dashboard-form__grid">
             <label className="auth-field">
@@ -619,10 +964,11 @@ export function TeacherDashboardPage() {
             </label>
 
             <label className="auth-field">
-              <span>Giá bán USD</span>
+              <span>Giá bán VND</span>
               <input
                 type="number"
                 min="0"
+                step="10000"
                 value={courseDraft.price}
                 onChange={(event) => updateDraft('price', event.target.value)}
               />
@@ -637,10 +983,321 @@ export function TeacherDashboardPage() {
                 placeholder="Mục tiêu, lộ trình và kết quả học viên đạt được sau khóa..."
               />
             </label>
+
+            <div className="auth-field auth-field--full">
+              <span>Cách tạo nội dung</span>
+              <div className="course-source-selector" role="radiogroup" aria-label="Cách tạo khóa học">
+                {[
+                  { id: 'drive', label: 'Google Drive' },
+                  { id: 'excel', label: 'Excel' },
+                  { id: 'manual', label: 'Nhập thủ công' }
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`answer-pill marketplace-filter-pill ${courseInputMode === option.id ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setCourseInputMode(option.id);
+                      setImportMessage({ type: '', text: '' });
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {courseInputMode === 'excel' ? (
+              <label className="auth-field auth-field--full">
+                <span>Nhập khóa học bằng Excel</span>
+                <input
+                  type="file"
+                  accept=".xls,.xlsx"
+                  onChange={(event) => handleImportFile(event.target.files?.[0])}
+                />
+                <small className="field-hint">Mỗi dòng Excel sẽ được tự động tạo thành một bài học để giảng viên xem trước.</small>
+              </label>
+            ) : null}
+
+            {courseInputMode === 'drive' ? (
+              <label className="auth-field auth-field--full">
+                <span>Link Google Drive</span>
+                <div className="field-with-button">
+                  <input
+                    value={importDriveLink}
+                    onChange={(event) => setImportDriveLink(event.target.value)}
+                    placeholder="https://drive.google.com/..."
+                  />
+                  <button type="button" className="button-ghost" onClick={handleImportDriveLink}>
+                    Tạo bài học
+                  </button>
+                </div>
+                <small className="field-hint">Drive sẽ tạo một bài học gắn tài liệu để xem trước trước khi đăng.</small>
+              </label>
+            ) : null}
+
+            {courseInputMode === 'manual' ? (
+              <div className="auth-field auth-field--full">
+                <span>Nhập bài học thủ công</span>
+                <input
+                  value={manualLessonDraft.sectionTitle}
+                  onChange={(event) => setManualLessonDraft((previous) => ({ ...previous, sectionTitle: event.target.value }))}
+                  placeholder="Tên chương"
+                />
+                <textarea
+                  rows="5"
+                  value={manualLessonDraft.lessonsText}
+                  onChange={(event) => setManualLessonDraft((previous) => ({ ...previous, lessonsText: event.target.value }))}
+                  placeholder={'Bài 1. Giới thiệu\nBài 2. Luyện tập\nBài 3. Kiểm tra'}
+                />
+                <button type="button" className="button-ghost" onClick={handleCreateManualLessons}>
+                  Tạo bài học
+                </button>
+              </div>
+            ) : null}
           </div>
 
+          {importMessage.text ? (
+            <div className={`auth-message ${importMessage.type === 'success' ? 'auth-message--success' : importMessage.type === 'error' ? 'auth-message--error' : 'auth-message--info'}`}>
+              {importMessage.text}
+            </div>
+          ) : null}
+
+          {courseDraft.sections.length ? (
+            <div className="course-import-preview">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">Confirm nội dung</span>
+                  <h3>Xem, sửa và kiểm tra bài học trước khi đăng</h3>
+                </div>
+                <span className="pill">
+                  {draftLessons.length} bài · {getCourseQuestionCount(courseDraft.sections)} câu
+                </span>
+              </div>
+
+              <div className="lesson-import-workbench">
+                <div className="import-lesson-strip">
+                  {draftLessons.map((lesson) => {
+                    const lessonKey = getDraftLessonKey(lesson);
+                    return (
+                      <article
+                        key={lessonKey}
+                        className={lessonKey === selectedDraftLessonId ? 'import-lesson-pill is-active' : 'import-lesson-pill'}
+                      >
+                        <button
+                          type="button"
+                          className="import-lesson-pill__main"
+                          onClick={() => setSelectedDraftLessonId(lessonKey)}
+                        >
+                          <span>{lesson.lessonNumber ? `Bài ${lesson.lessonNumber}` : 'Bài học'}</span>
+                          <strong>{lesson.title || lesson.attachmentName || 'Bài học mới'}</strong>
+                          <small>
+                            {[lesson.exerciseType, lesson.questionCount ? `${lesson.questionCount} câu` : '', lesson.audioName ? 'Có audio' : '', lesson.imageName ? 'Có ảnh' : ''].filter(Boolean).join(' · ')}
+                          </small>
+                        </button>
+                        <button
+                          type="button"
+                          className="button-ghost"
+                          onClick={() => {
+                            setSelectedDraftLessonId(lessonKey);
+                            setStudentPreviewLessonId(lessonKey);
+                          }}
+                        >
+                          Student view
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {selectedDraftLesson ? (
+                  <div className="lesson-edit-panel">
+                    <div className="section-head">
+                      <div>
+                        <span className="eyebrow">Sửa bài học</span>
+                        <h3>{selectedDraftLesson.title || 'Bài học mới'}</h3>
+                      </div>
+                      <span className="pill">{selectedDraftLesson.sectionTitle}</span>
+                    </div>
+
+                    <div className="dashboard-form__grid">
+                      <label className="auth-field">
+                        <span>Tên bài</span>
+                        <input
+                          value={selectedDraftLesson.title || ''}
+                          onChange={(event) =>
+                            updateDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, {
+                              title: event.target.value
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label className="auth-field">
+                        <span>Dạng bài</span>
+                        <input
+                          value={selectedDraftLesson.exerciseType || ''}
+                          onChange={(event) =>
+                            updateDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, {
+                              exerciseType: event.target.value
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label className="auth-field auth-field--full">
+                        <span>Ghi chú bài học</span>
+                        <textarea
+                          rows="2"
+                          value={selectedDraftLesson.note || ''}
+                          onChange={(event) =>
+                            updateDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, {
+                              note: event.target.value
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label className="auth-field">
+                        <span>Bước 2: file nghe nếu có</span>
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          onChange={(event) =>
+                            handleDraftLessonAsset(
+                              selectedDraftLesson.sectionIndex,
+                              selectedDraftLesson.lessonIndex,
+                              'audio',
+                              event.target.files?.[0]
+                            )
+                          }
+                        />
+                        <small className="field-hint">{selectedDraftLesson.audioName || 'Chưa thêm file nghe'}</small>
+                      </label>
+
+                      <label className="auth-field">
+                        <span>Bước 3: ảnh nếu có</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) =>
+                            handleDraftLessonAsset(
+                              selectedDraftLesson.sectionIndex,
+                              selectedDraftLesson.lessonIndex,
+                              'image',
+                              event.target.files?.[0]
+                            )
+                          }
+                        />
+                        <small className="field-hint">{selectedDraftLesson.imageName || 'Chưa thêm ảnh'}</small>
+                      </label>
+                    </div>
+
+                    <div className="lesson-question-editor">
+                      {(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).map(
+                        (question, questionIndex) => (
+                          <article key={question.id || `${selectedDraftLesson.id}-q-${questionIndex}`} className="lesson-question-editor__item">
+                            <div className="lesson-question-editor__head">
+                              <strong>Câu {question.number || questionIndex + 1}</strong>
+                              <label>
+                                <span>Đáp án đúng</span>
+                                <select
+                                  value={question.correctAnswer || question.answer || ''}
+                                  onChange={(event) =>
+                                    updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                      answer: event.target.value,
+                                      correctAnswer: event.target.value
+                                    })
+                                  }
+                                >
+                                  <option value="">Chọn đáp án</option>
+                                  {(question.options || []).map((option) => (
+                                    <option key={option.label} value={option.label}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
+
+                            <label className="auth-field auth-field--full">
+                              <span>Nội dung câu</span>
+                              <input
+                                value={question.prompt || ''}
+                                onChange={(event) =>
+                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                    prompt: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+
+                            <div className="question-option-editor">
+                              {(question.options || []).map((option, optionIndex) => (
+                                <label key={`${question.id}-${option.label}`} className="auth-field">
+                                  <span>Lựa chọn {option.label}</span>
+                                  <input
+                                    value={option.text || ''}
+                                    onChange={(event) =>
+                                      updateDraftQuestionOption(
+                                        selectedDraftLesson.sectionIndex,
+                                        selectedDraftLesson.lessonIndex,
+                                        questionIndex,
+                                        optionIndex,
+                                        event.target.value
+                                      )
+                                    }
+                                  />
+                                </label>
+                              ))}
+                            </div>
+
+                            {(question.options || []).length < 4 ? (
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                onClick={() => {
+                                  const nextLabel = ['A', 'B', 'C', 'D'][(question.options || []).length];
+                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                    options: [...(question.options || []), { label: nextLabel, text: '' }]
+                                  });
+                                }}
+                              >
+                                Thêm lựa chọn
+                              </button>
+                            ) : null}
+
+                            <label className="auth-field auth-field--full">
+                              <span>Ghi chú</span>
+                              <input
+                                value={question.note || ''}
+                                onChange={(event) =>
+                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                    note: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+                          </article>
+                        )
+                      )}
+
+                      {!(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).length ? (
+                        <p className="empty-state">Bài này chưa có câu hỏi. Bạn có thể đăng bài dạng tài liệu hoặc nhập lại Excel có câu hỏi.</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {studentPreviewLesson ? (
+                <LessonStudentViewPreview lesson={studentPreviewLesson} />
+              ) : null}
+            </div>
+          ) : null}
+
           <button type="submit" className="button dashboard-submit" disabled={saving}>
-            {saving ? 'Đang đăng...' : 'Đăng khóa học'}
+            {saving ? 'Đang lưu...' : editingCourseId ? 'Cập nhật khóa học' : 'Confirm và đăng bài'}
           </button>
         </form>
 
@@ -685,9 +1342,12 @@ export function TeacherDashboardPage() {
                 </div>
 
                 <div className="teacher-course-card__actions">
-                  <button type="button" className="button-ghost" onClick={() => setSelectedCourseId(course.id)}>
-                    Xem học sinh
+                  <button type="button" className="button-ghost" onClick={() => loadCourseForEditing(course.id)}>
+                    Sửa khóa
                   </button>
+                  <Link className="button-ghost" to={`/student-progress?course=${encodeURIComponent(course.id)}`}>
+                    Xem tiến độ
+                  </Link>
                   <button type="button" className="button-ghost" onClick={() => toggleCourseStatus(course.id)}>
                     {course.status === 'published' ? 'Ẩn khóa' : 'Mở lại'}
                   </button>
@@ -697,80 +1357,6 @@ export function TeacherDashboardPage() {
           </div>
           <PaginationControls {...courseStatsPagination} label="khóa học" />
         </div>
-      </section>
-
-      <section className="content-card content-card--enterprise teacher-student-monitor">
-        <div className="section-head">
-          <div>
-            <span className="eyebrow">Theo dõi học sinh</span>
-            <h2>Ai đang học khóa nào, tiến độ và hiệu quả ra sao</h2>
-          </div>
-          <label className="teacher-course-filter">
-            <span>Khóa học</span>
-            <select value={selectedCourseId} onChange={(event) => setSelectedCourseId(event.target.value)}>
-              <option value="all">Tất cả khóa</option>
-              {teacherCourses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="teacher-monitor-summary">
-          <article>
-            <span>Học sinh trong bộ lọc</span>
-            <strong>{visibleStudentRows.length}</strong>
-          </article>
-          <article>
-            <span>Tiến độ trung bình</span>
-            <strong>{average(visibleStudentRows.map((student) => student.progress))}%</strong>
-          </article>
-          <article>
-            <span>Hiệu quả trung bình</span>
-            <strong>{average(visibleStudentRows.map((student) => student.score))}%</strong>
-          </article>
-        </div>
-
-        <div className="teacher-student-table-wrap">
-          <table className="teacher-student-table">
-            <thead>
-              <tr>
-                <th>Học sinh</th>
-                <th>Đang học khóa</th>
-                <th>Tiến độ</th>
-                <th>Hiệu quả</th>
-                <th>Hoạt động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {studentRowsPagination.pageItems.map((student) => (
-                <tr key={`${student.email}-${student.courseId}`}>
-                  <td>
-                    <strong>{student.name}</strong>
-                    <span>{student.email}</span>
-                  </td>
-                  <td>{student.courseTitle}</td>
-                  <td>
-                    <div className="teacher-progress-cell">
-                      <div className="meter">
-                        <span style={{ width: `${student.progress}%` }} />
-                      </div>
-                      <small>{student.progress}% · {getProgressLabel(student.progress)}</small>
-                    </div>
-                  </td>
-                  <td>
-                    <strong>{student.score}%</strong>
-                    <span>{getScoreLabel(student.score)}</span>
-                  </td>
-                  <td>{student.lastActive}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <PaginationControls {...studentRowsPagination} label="học sinh" />
       </section>
     </DashboardShell>
   );
@@ -792,7 +1378,7 @@ const emptyCourseDraft = {
   slug: '',
   title: '',
   description: '',
-  price: '49',
+  price: '490000',
   status: 'published',
   teacherId: '',
   bannerUrl: '',
@@ -828,12 +1414,17 @@ const adminRoleLabels = {
   admin: 'Quản trị'
 };
 
+const paymentStatusLabels = {
+  pending_payment: 'Chờ chuyển khoản',
+  pending: 'Chờ chuyển khoản',
+  awaiting_admin: 'Chờ admin mở khóa',
+  paid: 'Đã mở khóa',
+  failed: 'Thất bại',
+  cancelled: 'Đã hủy'
+};
+
 function formatMoney(value) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
+  return formatVnd(value);
 }
 
 function getCourseKey(course) {
@@ -956,6 +1547,9 @@ export function AdminDashboardPage() {
   }, [adminData.courses]);
 
   const paidOrders = adminData.orders.filter((order) => order.status === 'paid');
+  const paymentReviewOrders = adminData.orders.filter((order) =>
+    ['pending_payment', 'pending', 'awaiting_admin', 'paid'].includes(order.status)
+  );
   const revenue = paidOrders.reduce((total, order) => total + Number(order.amount || 0), 0);
 
   const metrics = useMemo(
@@ -1091,7 +1685,7 @@ export function AdminDashboardPage() {
     try {
       await saveAdminCourse({
         ...courseDraft,
-        price: Number(courseDraft.price || 0)
+        price: normalizeVndAmount(courseDraft.price)
       });
       await reloadAdminData();
       resetCourseDraft();
@@ -1185,6 +1779,21 @@ export function AdminDashboardPage() {
     }
   }
 
+  async function handleApprovePayment(order) {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      await approvePaymentOrder(order, auth.session?.access_token);
+      await reloadAdminData();
+      setMessage({ type: 'success', text: `Đã mở khóa ${getCourseTitle(courseLookup, order.courseId)} cho học viên.` });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Chưa thể mở khóa đơn hàng.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleLessonVideoUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1229,6 +1838,7 @@ export function AdminDashboardPage() {
         <div className="admin-tabs-nav" role="tablist" aria-label="Điều hướng quản trị">
           {[
             { id: 'overview', label: '📊 Tổng quan' },
+            { id: 'payments', label: '💳 Thanh toán' },
             { id: 'users', label: '👥 Người dùng' },
             { id: 'activity', label: '📋 Lịch sử hoạt động' },
           ].map((tab) => (
@@ -1245,6 +1855,76 @@ export function AdminDashboardPage() {
           ))}
         </div>
       </section>
+
+      {adminTab === 'payments' ? (
+        <section className="content-card content-card--enterprise admin-panel">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Duyệt thanh toán</span>
+              <h2>Yêu cầu mở khóa sau chuyển khoản</h2>
+            </div>
+            <span className="pill">{paymentReviewOrders.length} đơn</span>
+          </div>
+
+          {message.text ? (
+            <div className={`auth-message ${message.type === 'success' ? 'auth-message--success' : message.type === 'error' ? 'auth-message--error' : ''}`}>
+              {message.text}
+            </div>
+          ) : null}
+
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Học viên</th>
+                  <th>Khóa học</th>
+                  <th>Số tiền</th>
+                  <th>Nội dung CK</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentReviewOrders.map((order) => {
+                  const user = profileLookup.get(order.userId);
+                  const course = courseLookup.get(order.courseId) || courseLookup.get(order.localCourseId);
+                  const canApprove = ['pending', 'pending_payment', 'awaiting_admin'].includes(order.status);
+
+                  return (
+                    <tr key={order.id}>
+                      <td>
+                        <strong>{order.studentName || user?.fullName || 'Học viên'}</strong>
+                        <span>{order.studentEmail || user?.email || order.userId}</span>
+                      </td>
+                      <td>{order.courseTitle || course?.title || order.courseId}</td>
+                      <td>{formatMoney(order.amount)}</td>
+                      <td>{order.transferCode || order.id}</td>
+                      <td>
+                        <span className={`pill ${order.status === 'paid' ? 'pill--success' : ''}`}>
+                          {paymentStatusLabels[order.status] || order.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button-ghost"
+                          disabled={!canApprove || saving}
+                          onClick={() => handleApprovePayment(order)}
+                        >
+                          {order.status === 'paid' ? 'Đã mở' : canApprove ? 'Mở khóa' : 'Chờ xác nhận'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {paymentReviewOrders.length === 0 ? (
+                  <tr><td colSpan={6} className="empty-state">Chưa có yêu cầu thanh toán cần xử lý.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {/* ── Tab: Người dùng ── */}
       {adminTab === 'users' ? (
@@ -1594,8 +2274,8 @@ export function AdminDashboardPage() {
               </select>
             </label>
             <label className="auth-field">
-              <span>Giá USD</span>
-              <input type="number" min="0" value={courseDraft.price} onChange={(event) => updateCourseDraft('price', event.target.value)} />
+              <span>Giá VND</span>
+              <input type="number" min="0" step="10000" value={courseDraft.price} onChange={(event) => updateCourseDraft('price', event.target.value)} />
             </label>
             <label className="auth-field">
               <span>Banner URL</span>

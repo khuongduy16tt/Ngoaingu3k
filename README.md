@@ -50,6 +50,9 @@ served from the Express dev server or deployed as a single Vercel project, leave
 - Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel project
   settings and local `client/.env`. Only set `VITE_API_URL` when the API is
   deployed on a different domain.
+- Manual bank-transfer checkout can show a real QR when `VITE_PAYMENT_QR_URL`
+  points to the QR image. Admin payment email requires `RESEND_API_KEY`,
+  `ADMIN_PAYMENT_EMAIL`, and optionally `PAYMENT_EMAIL_FROM` on the server.
 
 ## Supabase setup
 

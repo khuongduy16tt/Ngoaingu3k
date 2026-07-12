@@ -10,6 +10,7 @@ const CoursesPage = lazy(() => import('./pages/CoursesPage'));
 const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'));
 const LearningPage = lazy(() => import('./pages/LearningPage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
+const StudentProgressPage = lazy(() => import('./pages/StudentProgressPage'));
 const StudentDashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((module) => ({ default: module.StudentDashboardPage }))
 );
@@ -120,6 +121,14 @@ export function AppRoutes() {
         />
         <Route path="/dashboard" element={<DashboardRedirect />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route
+          path="/student-progress"
+          element={
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <StudentProgressPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard/student"
           element={

@@ -663,12 +663,12 @@
 
 .lesson-item {
   display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
+  align-items: center;
+  gap: 0.65rem;
   width: 100%;
   text-align: left;
-  padding: 0.92rem 0.95rem;
-  border-radius: 1rem;
+  padding: 0.62rem 0.72rem;
+  border-radius: 0.75rem;
   border: 1px solid transparent;
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
@@ -692,10 +692,16 @@
 }
 
 .lesson-item__icon {
-  width: 1.6rem;
+  width: 1.8rem;
+  height: 1.8rem;
   display: inline-grid;
   place-items: center;
+  border: 1px solid rgba(122, 245, 218, 0.32);
+  border-radius: 0.5rem;
+  background: rgba(122, 245, 218, 0.08);
   color: #7af5da;
+  font-size: 0.72rem;
+  font-weight: 900;
   flex: 0 0 auto;
 }
 
@@ -705,12 +711,88 @@
 }
 
 .lesson-item__copy strong {
-  font-size: 0.95rem;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .lesson-item__copy span {
-  font-size: 0.84rem;
+  font-size: 0.76rem;
   color: var(--muted);
+}
+
+.excel-lesson-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.excel-exercise-list {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.excel-exercise-row {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.excel-exercise-row__head {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.excel-exercise-row__head span {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.excel-exercise-row__head strong {
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.excel-option-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.excel-exercise-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.excel-exercise-row__meta small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.excel-lesson-panel__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.25rem;
+}
+
+.excel-lesson-panel__footer span {
+  color: var(--text);
+  font-weight: 850;
 }
 
 .lesson-main {
@@ -803,6 +885,59 @@
   display: none;
 }
 
+.content-card.today-course-strip,
+.content-card.lesson-action-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.today-course-strip > div,
+.lesson-action-strip > div {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.today-course-strip strong,
+.lesson-action-strip strong {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.lesson-action-strip p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.today-course-strip__select {
+  display: grid;
+  gap: 0.35rem;
+  min-width: min(360px, 100%);
+}
+
+.today-course-strip__select span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.today-course-strip__select select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-weight: 800;
+}
+
 @media (max-width: 980px) {
   .teacher-lesson-bar {
     grid-template-columns: 1fr;
@@ -811,6 +946,12 @@
   .teacher-lesson-bar__actions,
   .teacher-lesson-bar__stats {
     justify-content: flex-start;
+  }
+
+  .content-card.today-course-strip,
+  .content-card.lesson-action-strip {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
@@ -1161,6 +1302,354 @@
   border-radius: 0.9rem;
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
+}
+
+.teacher-edit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.teacher-edit-bar label {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 260px;
+}
+
+.teacher-edit-bar span,
+.lesson-question-editor__head label span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.teacher-edit-bar select,
+.lesson-question-editor__head select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.import-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.import-step {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.import-step.is-done {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.course-source-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.field-with-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.auth-message--error {
+  border-color: rgba(255, 107, 107, 0.36);
+  color: #ffb4b4;
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.auth-message--info {
+  border-color: rgba(97, 200, 255, 0.24);
+  background: rgba(97, 200, 255, 0.08);
+}
+
+.import-preview-section {
+  margin-top: 0.75rem;
+}
+
+.import-preview-section .section-title {
+  margin: 0 0 0.35rem;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.import-preview-section ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.course-import-preview {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.import-lesson-strip {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.import-lesson-pill {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.import-lesson-pill.is-active {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.import-lesson-pill__main {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 0.35rem 0.65rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.import-lesson-pill__main small {
+  grid-column: 2;
+}
+
+.import-lesson-pill span,
+.import-lesson-pill small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.import-lesson-pill strong {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-import-workbench {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.42fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.lesson-edit-panel,
+.lesson-student-preview,
+.lesson-question-editor,
+.lesson-question-editor__item {
+  display: grid;
+  gap: 1rem;
+}
+
+.lesson-edit-panel,
+.lesson-student-preview {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.lesson-question-editor__item {
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.lesson-question-editor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lesson-question-editor__head strong {
+  color: var(--text);
+}
+
+.lesson-question-editor__head label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 180px;
+}
+
+.question-option-editor,
+.lesson-asset-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.lesson-image-preview {
+  width: 100%;
+  max-height: 220px;
+  display: block;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.answer-pill.is-correct {
+  color: var(--success) !important;
+  border-color: color-mix(in srgb, var(--success) 38%, var(--border)) !important;
+  background: color-mix(in srgb, var(--success) 12%, var(--surface)) !important;
+}
+
+.answer-pill.is-wrong {
+  color: #ff8b8b !important;
+  border-color: rgba(255, 107, 107, 0.38) !important;
+  background: rgba(255, 107, 107, 0.1) !important;
+}
+
+.payment-instructions {
+  display: grid;
+  gap: 1rem;
+}
+
+.payment-instructions__body {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.payment-qr-box {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  text-align: center;
+}
+
+.payment-qr-box img {
+  width: 100%;
+  max-width: 160px;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.payment-qr-box strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.4rem;
+}
+
+.payment-qr-box span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.payment-detail-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.payment-detail-list div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.payment-detail-list span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.payment-detail-list strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .field-with-button {
+    grid-template-columns: 1fr;
+  }
+
+  .import-stepper,
+  .lesson-import-workbench,
+  .question-option-editor,
+  .lesson-asset-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .import-lesson-pill {
+    grid-template-columns: 1fr;
+  }
+
+  .import-lesson-pill__main {
+    grid-template-columns: 1fr;
+  }
+
+  .import-lesson-pill__main small {
+    grid-column: auto;
+  }
+
+  .import-lesson-pill strong {
+    white-space: normal;
+  }
+
+  .payment-instructions__body {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-overview,

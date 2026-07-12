@@ -1,17 +1,116 @@
 import { supabase, isSupabaseReady } from './supabase';
 import { apiFetch } from './api';
-import { logActivity } from './activityService';
+import { logActivity } from '../lib/activityService';
 import { featuredCourses as mockCourses, courseDetail as mockCourseDetail } from '../data/mock';
+import { formatVnd, normalizeVndAmount } from './money';
+import {
+  createManualPaymentOrder,
+  confirmManualPaymentTransfer,
+  findPaymentOrderForCourse,
+  upsertPaymentOrder
+} from './paymentService';
+import {
+  PURCHASED_COURSES_STORAGE_KEY,
+  getPurchasedCourseIds,
+  grantPurchasedCourseId,
+  setPurchasedCourseIds
+} from './purchaseStorage';
 
-export const PURCHASED_COURSES_STORAGE_KEY = 'learning-purchased-courses';
+const TEACHER_MANAGED_COURSES_KEY = 'teacher-managed-courses-v1';
+
+export { PURCHASED_COURSES_STORAGE_KEY };
+
+export function readTeacherManagedCourses(teacherId = 'local') {
+  try {
+    const rawValue = localStorage.getItem(`${TEACHER_MANAGED_COURSES_KEY}:${teacherId}`);
+    const courses = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(courses) ? courses : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeTeacherManagedCourses(teacherId = 'local', courses = []) {
+  try {
+    localStorage.setItem(`${TEACHER_MANAGED_COURSES_KEY}:${teacherId}`, JSON.stringify(courses));
+  } catch {
+    // ignore storage failures
+  }
+  return courses;
+}
+
+function readAllTeacherManagedCourses() {
+  try {
+    const managedCourses = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (typeof key !== 'string' || !key.startsWith(`${TEACHER_MANAGED_COURSES_KEY}:`)) {
+        continue;
+      }
+
+      const rawValue = localStorage.getItem(key);
+      if (!rawValue) {
+        continue;
+      }
+
+      try {
+        const courses = JSON.parse(rawValue);
+        if (Array.isArray(courses)) {
+          managedCourses.push(...courses);
+        }
+      } catch {
+        // ignore invalid JSON values
+      }
+    }
+    return managedCourses;
+  } catch {
+    return [];
+  }
+}
+
+function normalizeManagedCourse(course, fallbackIndex = 0) {
+  const priceValue = normalizeVndAmount(course.priceValue ?? course.price);
+  const slug = course.slug || course.id || createCourseSlug(course.title || `khoa-hoc-${fallbackIndex + 1}`);
+  const sections = Array.isArray(course.sections) ? course.sections : [];
+  const lessonCount = sections.reduce((total, section) => total + ((Array.isArray(section.lessons) ? section.lessons.length : 0) || 0), 0) || Number(course.lessonsCount || 1);
+
+  return {
+    id: course.id || slug,
+    databaseId: course.databaseId || course.id || slug,
+    slug,
+    title: course.title || 'Khóa học chưa đặt tên',
+    level: course.level || 'Nền tảng',
+    priceValue,
+    price: formatPrice(priceValue),
+    progress: course.progress ?? 0,
+    instructor: course.instructor || 'Giảng viên trung tâm',
+    summary: course.description || course.summary || 'Khóa học được giảng viên tạo.',
+    category: course.category || 'Kỹ năng cốt lõi',
+    bannerUrl: course.bannerUrl || course.banner_url || null,
+    duration: course.duration || `${Math.max(1, Number(course.duration || 6))} tuần`,
+    lessonsCount: lessonCount,
+    rating: typeof course.rating === 'number' ? course.rating : 4.7,
+    studentsCount: course.studentsCount ?? 0,
+    badge: course.badge || 'Tự tạo',
+    hero: course.hero || course.summary || 'Lộ trình học do giảng viên nhập liệu trực tiếp.',
+    language: course.language || 'Tiếng Anh',
+    certificate: course.certificate ?? false,
+    whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : [],
+    sections
+  };
+}
+
+function createCourseSlug(title) {
+  return String(title || 'khoa-hoc')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'khoa-hoc';
+}
 
 function formatPrice(value) {
-  const amount = Number.isFinite(Number(value)) ? Number(value) : 0;
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  }).format(amount);
+  return formatVnd(value);
 }
 
 function defaultLevel(index) {
@@ -45,9 +144,12 @@ function defaultHero(course) {
 }
 
 function normalizeCourse(course, fallbackIndex = 0) {
-  const priceValue = Number.isFinite(Number(course.price)) ? Number(course.price) : 0;
+  const priceValue = normalizeVndAmount(course.priceValue ?? course.price);
   const slug = course.slug || course.id || `course-${fallbackIndex + 1}`;
-  const lessonsCount = course.lessonsCount ?? 12 + fallbackIndex * 4;
+  const sections = Array.isArray(course.sections) ? course.sections : [];
+  const lessonsCount = sections.length
+    ? sections.reduce((total, section) => total + ((Array.isArray(section.lessons) ? section.lessons.length : 0) || 0), 0)
+    : course.lessonsCount ?? 12 + fallbackIndex * 4;
 
   const normalized = {
     id: slug,
@@ -70,7 +172,8 @@ function normalizeCourse(course, fallbackIndex = 0) {
     hero: course.hero || course.description || 'Hành trình học chuyên nghiệp với bài học, thực hành và quyền truy cập sau khi mua.',
     language: course.language || 'Tiếng Anh',
     certificate: course.certificate ?? true,
-    whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : []
+    whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : [],
+    sections
   };
 
   if (!normalized.whatYouGet.length) {
@@ -87,53 +190,28 @@ function createFallbackSections() {
   }));
 }
 
-function readStoredJson(key, fallback) {
-  try {
-    const rawValue = localStorage.getItem(key);
-    if (!rawValue) {
-      return fallback;
-    }
-
-    const parsed = JSON.parse(rawValue);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function dedupeStrings(values) {
   return Array.from(new Set((values || []).filter(Boolean)));
 }
 
-function writeStoredJson(key, value) {
-  const nextValue = dedupeStrings(value);
-
-  try {
-    localStorage.setItem(key, JSON.stringify(nextValue));
-    window.dispatchEvent(new CustomEvent('course-purchases-updated', { detail: nextValue }));
-  } catch {
-    // ignore storage failures in restricted browser contexts
-  }
-
-  return nextValue;
+export function getStoredPurchasedCourseIds(userId = 'local') {
+  return getPurchasedCourseIds(userId);
 }
 
-export function getStoredPurchasedCourseIds() {
-  const stored = readStoredJson(PURCHASED_COURSES_STORAGE_KEY, []);
-  return Array.isArray(stored) ? dedupeStrings(stored) : [];
+export function setStoredPurchasedCourseIds(courseIds, userId = 'local') {
+  return setPurchasedCourseIds(userId, courseIds);
 }
 
-export function setStoredPurchasedCourseIds(courseIds) {
-  return writeStoredJson(PURCHASED_COURSES_STORAGE_KEY, courseIds);
-}
-
-export function addStoredPurchasedCourseId(courseId) {
-  return setStoredPurchasedCourseIds([...getStoredPurchasedCourseIds(), courseId]);
+export function addStoredPurchasedCourseId(courseId, userId = 'local') {
+  return grantPurchasedCourseId(userId, courseId);
 }
 
 export async function getCourseCatalog() {
+  const localTeacherCourses = readAllTeacherManagedCourses();
+  const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
+
   if (!isSupabaseReady()) {
-    return mockCourses.map((course, index) => normalizeCourse(course, index));
+    return [...mockCourses.map((course, index) => normalizeCourse(course, index)), ...normalizedLocalCourses];
   }
 
   const { data, error } = await supabase
@@ -144,10 +222,10 @@ export async function getCourseCatalog() {
 
   if (error) {
     console.warn('[getCourseCatalog] Supabase error:', error.message);
-    return [];
+    return normalizedLocalCourses;
   }
 
-  return (data || []).map((course, index) => normalizeCourse(course, index));
+  return [...(data || []).map((course, index) => normalizeCourse(course, index)), ...normalizedLocalCourses];
 }
 
 export async function getFeaturedCourses() {
@@ -156,7 +234,7 @@ export async function getFeaturedCourses() {
 }
 
 export async function getOwnedCourseIds(userId, courses = []) {
-  const storedIds = getStoredPurchasedCourseIds();
+  const storedIds = getStoredPurchasedCourseIds(userId || 'local');
 
   if (!isSupabaseReady() || !userId) {
     return storedIds;
@@ -183,60 +261,141 @@ export async function getOwnedCourseIds(userId, courses = []) {
   const mergedIds = dedupeStrings([...storedIds, ...remoteIds]);
 
   if (mergedIds.length !== storedIds.length) {
-    setStoredPurchasedCourseIds(mergedIds);
+    setStoredPurchasedCourseIds(mergedIds, userId);
   }
 
   return mergedIds;
 }
 
-export async function purchaseCourse({ course, userId, accessToken }) {
+export async function purchaseCourse({ course, userId, accessToken, user }) {
   if (!course?.id) {
     throw new Error('Thiếu dữ liệu khóa học.');
   }
 
-  const currentIds = getStoredPurchasedCourseIds();
+  const currentIds = getStoredPurchasedCourseIds(userId || 'local');
   if (currentIds.includes(course.id)) {
     return { ownedCourseIds: currentIds, mode: 'existing' };
   }
 
+  const existingOrder = findPaymentOrderForCourse(userId || 'local', course.id);
+  if (existingOrder) {
+    return {
+      ownedCourseIds: currentIds,
+      mode: 'manual-payment',
+      order: existingOrder,
+      requiresPayment: true
+    };
+  }
+
   if (!isSupabaseReady() || !userId) {
-    const ownedCourseIds = addStoredPurchasedCourseId(course.id);
+    const order = createManualPaymentOrder({
+      course,
+      user: user || { id: userId || 'local' }
+    });
     if (userId) {
-      void logActivity(userId, 'purchase', course.id, course.title);
+      void logActivity(userId, 'purchase', course.id, course.title, { orderId: order.id, status: order.status });
     }
-    return { ownedCourseIds, mode: 'local' };
+    return { ownedCourseIds: currentIds, mode: 'manual-payment', order, requiresPayment: true };
   }
 
   if (!accessToken) {
     throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại trước khi mua khóa học.');
   }
 
+  const remoteCourseId = course.databaseId || course.id;
+  if (!isUuid(remoteCourseId)) {
+    const order = createManualPaymentOrder({
+      course,
+      user: user || { id: userId }
+    });
+    void logActivity(userId, 'purchase', course.id, course.title, { orderId: order.id, status: order.status });
+    return { ownedCourseIds: currentIds, mode: 'manual-payment', order, requiresPayment: true };
+  }
+
   const response = await apiFetch('/api/payments/checkout', {
     method: 'POST',
     token: accessToken,
     body: {
-      courseId: course.databaseId || course.id,
+      courseId: remoteCourseId,
       amount: course.priceValue ?? 0,
-      provider: 'demo-checkout'
+      provider: 'manual-bank-transfer'
     }
   });
 
-  void logActivity(userId, 'purchase', course.databaseId || course.id, course.title, {
+  const order = createManualPaymentOrder({
+    course,
+    user: user || { id: userId },
+    remoteOrder: {
+      orderId: response.orderId,
+      amount: response.amount ?? course.priceValue ?? 0,
+      status: response.status || 'pending',
+      transferCode: response.transferCode,
+      qrImageUrl: response.qrImageUrl
+    }
+  });
+
+  void logActivity(userId, 'purchase', remoteCourseId, course.title, {
     orderId: response.orderId,
-    mode: response.mode
+    mode: response.mode,
+    status: response.status || order.status
   });
 
   return {
-    ownedCourseIds: addStoredPurchasedCourseId(course.id),
-    mode: response.mode || 'api',
+    ownedCourseIds: currentIds,
+    mode: response.mode || 'manual-payment',
+    order,
     orderId: response.orderId,
+    requiresPayment: true,
     status: response.status
   };
+}
+
+export function getPendingCoursePaymentOrder(userId, courseId) {
+  return findPaymentOrderForCourse(userId || 'local', courseId);
+}
+
+export async function confirmCoursePayment({ order, accessToken }) {
+  if (!order?.id) {
+    throw new Error('Thiếu thông tin đơn thanh toán.');
+  }
+
+  if (!isSupabaseReady() || !accessToken || String(order.id).startsWith('local-payment-')) {
+    return confirmManualPaymentTransfer(order.id);
+  }
+
+  const response = await apiFetch('/api/payments/confirm-transfer', {
+    method: 'POST',
+    token: accessToken,
+    body: {
+      orderId: order.id
+    }
+  });
+
+  return confirmManualPaymentTransfer(order.id, {
+    ...order,
+    status: response.status || 'awaiting_admin',
+    adminEmailSent: Boolean(response.adminEmailSent)
+  }) || upsertPaymentOrder({
+    ...order,
+    status: response.status || 'awaiting_admin',
+    adminEmailSent: Boolean(response.adminEmailSent)
+  });
 }
 
 export async function getCourseBySlug(courseSlug) {
   if (!courseSlug) {
     return null;
+  }
+
+  const localTeacherCourses = readAllTeacherManagedCourses();
+  const localCourse = localTeacherCourses.find((course) => course.id === courseSlug || course.slug === courseSlug || course.databaseId === courseSlug);
+  if (localCourse) {
+    const normalizedCourse = normalizeCourse(localCourse);
+    return {
+      ...normalizedCourse,
+      hero: normalizedCourse.hero || defaultHero(normalizedCourse),
+      sections: Array.isArray(normalizedCourse.sections) ? normalizedCourse.sections : []
+    };
   }
 
   if (!isSupabaseReady()) {

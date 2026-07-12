@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getCourseBySlug, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
+import {
+  confirmCoursePayment,
+  getCourseBySlug,
+  getOwnedCourseIds,
+  getPendingCoursePaymentOrder,
+  purchaseCourse
+} from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { PaymentInstructions } from '../components/PaymentInstructions';
 
 const lessonStatusLabels = {
   done: 'hoàn thành',
@@ -25,6 +32,8 @@ export default function CourseDetailPage() {
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
@@ -42,6 +51,7 @@ export default function CourseDetailPage() {
       if (alive) {
         setCourse(nextCourse);
         setOwnedCourseIds(nextOwnedIds);
+        setPaymentOrder(nextCourse ? getPendingCoursePaymentOrder(auth.user?.id, nextCourse.id) || null : null);
         setLoading(false);
       }
     }
@@ -72,15 +82,41 @@ export default function CourseDetailPage() {
       const result = await purchaseCourse({
         course,
         userId: auth.user?.id,
-        accessToken: auth.session?.access_token
+        accessToken: auth.session?.access_token,
+        user: auth.user
       });
 
       setOwnedCourseIds(result.ownedCourseIds);
-      setFeedback(`${course.title} đã được kích hoạt trong thư viện học tập của học viên.`);
+      setPaymentOrder(result.order || null);
+      setFeedback(
+        result.requiresPayment
+          ? 'Đã tạo mã thanh toán. Vui lòng chuyển khoản theo QR rồi bấm xác nhận.'
+          : `${course.title} đã được ghi nhận.`
+      );
     } catch (error) {
       setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
     } finally {
       setPurchasing(false);
+    }
+  }
+
+  async function handleConfirmPayment() {
+    if (!paymentOrder) return;
+
+    setConfirmingPayment(true);
+    setFeedback('');
+
+    try {
+      const nextOrder = await confirmCoursePayment({
+        order: paymentOrder,
+        accessToken: auth.session?.access_token
+      });
+      setPaymentOrder(nextOrder);
+      setFeedback('Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.');
+    } catch (error) {
+      setFeedback(error?.message || 'Chưa thể gửi xác nhận thanh toán.');
+    } finally {
+      setConfirmingPayment(false);
     }
   }
 
@@ -132,7 +168,7 @@ export default function CourseDetailPage() {
           <p>
             {isOwned
               ? 'Khóa học này đã thuộc thư viện của tài khoản học viên hiện tại.'
-              : 'Mua một lần, kích hoạt ngay và lưu khóa học trong thư viện cá nhân.'}
+              : 'Mua một lần, chuyển khoản qua QR và chờ admin mở khóa sau khi kế toán kiểm tra.'}
           </p>
 
           {isOwned ? (
@@ -159,6 +195,12 @@ export default function CourseDetailPage() {
           </Link>
         </div>
       </section>
+
+      <PaymentInstructions
+        order={paymentOrder}
+        confirming={confirmingPayment}
+        onConfirm={handleConfirmPayment}
+      />
 
       {feedback ? (
         <section className="content-card content-card--enterprise marketplace-feedback">

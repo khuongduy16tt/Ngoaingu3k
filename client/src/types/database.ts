@@ -6,7 +6,7 @@ export type Role = 'student' | 'teacher' | 'admin';
 
 export type CourseStatus = 'draft' | 'published' | 'hidden';
 
-export type OrderStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type OrderStatus = 'pending' | 'pending_payment' | 'awaiting_admin' | 'paid' | 'failed' | 'refunded';
 
 export type AssignmentScope = 'selected_students' | 'course_buyers';
 

@@ -80,13 +80,14 @@ function writeStoredJson(key, value) {
   }
 }
 
-function PracticeBadge({ title, text }) {
-  return (
-    <article className="practice-badge">
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </article>
-  );
+function getCourseRouteKey(course) {
+  return course?.id || course?.slug || course?.databaseId || '';
+}
+
+function getCourseAccessKeys(course) {
+  return [course?.id, course?.slug, course?.databaseId]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
 }
 
 function formatAssignmentScope(scope) {
@@ -210,11 +211,20 @@ function buildLessonsFromCourse(course) {
     .filter((lesson) => lesson.title);
 
   return flattenedLessons.map((lesson, index) => ({
+    ...lesson,
     id: lesson.id || lesson.databaseId || `lesson-${index + 1}`,
     databaseId: lesson.databaseId || (/^[0-9a-f-]{36}$/i.test(lesson.id || '') ? lesson.id : ''),
     title: lesson.title,
     status: normalizeLessonStatus(lesson.status, index),
-    note: lesson.note || lesson.sectionTitle || `Bước ${index + 1} trong lộ trình ${course.title}`
+    note: lesson.note || lesson.sectionTitle || `Bước ${index + 1} trong lộ trình ${course.title}`,
+    lessonNumber: lesson.lessonNumber || String(index + 1),
+    exerciseType: lesson.exerciseType || lesson.type || 'Bài học',
+    questionCount: Number(lesson.questionCount || lesson.exercises?.length || lesson.questions?.length || 0),
+    exercises: Array.isArray(lesson.exercises)
+      ? lesson.exercises
+      : Array.isArray(lesson.questions)
+        ? lesson.questions
+        : []
   }));
 }
 
@@ -261,6 +271,159 @@ function scoreAnswers(questions, answers) {
       };
     },
     { score: 0, maxScore: 0 }
+  );
+}
+
+function normalizeExerciseAnswer(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function getExerciseCorrectLabel(exercise) {
+  const options = Array.isArray(exercise?.options) ? exercise.options : [];
+  const rawAnswer = exercise?.correctAnswer || exercise?.answer || '';
+  const normalizedAnswer = normalizeExerciseAnswer(rawAnswer);
+
+  if (['A', 'B', 'C', 'D'].includes(normalizedAnswer)) {
+    return normalizedAnswer;
+  }
+
+  const answerByText = options.find(
+    (option) => String(option.text || '').trim().toLowerCase() === String(rawAnswer || '').trim().toLowerCase()
+  );
+
+  return answerByText?.label || normalizedAnswer;
+}
+
+function LessonExercisePreview({ lesson, isTeacher }) {
+  const exercises = Array.isArray(lesson?.exercises) ? lesson.exercises : [];
+  const [selectedAnswers, setSelectedAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    setSelectedAnswers({});
+    setSubmitted(false);
+  }, [lesson?.id]);
+
+  if (!exercises.length) {
+    return null;
+  }
+
+  const answerableExercises = exercises.filter((exercise) => exercise.options?.length);
+  const answeredCount = answerableExercises.filter((exercise) => selectedAnswers[exercise.id]).length;
+  const correctCount = answerableExercises.filter(
+    (exercise) => selectedAnswers[exercise.id] === getExerciseCorrectLabel(exercise)
+  ).length;
+  const canSubmit = answerableExercises.length > 0 && answeredCount === answerableExercises.length;
+
+  function selectAnswer(exercise, optionLabel) {
+    setSelectedAnswers((previous) => ({
+      ...previous,
+      [exercise.id]: optionLabel
+    }));
+  }
+
+  return (
+    <section className="content-card content-card--enterprise excel-lesson-panel">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Bài tập từ Excel</span>
+          <h2>{lesson.exerciseType || 'Nội dung bài học'}</h2>
+          <p>{exercises.length} mục được đọc trực tiếp từ file Excel.</p>
+        </div>
+        <span className="pill">{lesson.sourceSheet || 'Excel'}</span>
+      </div>
+
+      {lesson.audioUrl || lesson.imageUrl ? (
+        <div className="lesson-asset-strip">
+          {lesson.audioUrl ? (
+            <div className="lesson-upload-box">
+              <strong>{lesson.audioName || 'File nghe'}</strong>
+              <audio controls src={lesson.audioUrl} className="lesson-audio" />
+            </div>
+          ) : null}
+          {lesson.imageUrl ? (
+            <div className="lesson-upload-box">
+              <strong>{lesson.imageName || 'Ảnh minh họa'}</strong>
+              <img className="lesson-image-preview" src={lesson.imageUrl} alt={lesson.imageName || lesson.title} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="excel-exercise-list">
+        {exercises.map((exercise, index) => {
+          const correctLabel = getExerciseCorrectLabel(exercise);
+          const selectedLabel = selectedAnswers[exercise.id];
+          const isCorrect = selectedLabel && selectedLabel === correctLabel;
+
+          return (
+            <article key={exercise.id || `${lesson.id}-exercise-${index}`} className="excel-exercise-row">
+              <div className="excel-exercise-row__head">
+                <span>Câu {exercise.number || index + 1}</span>
+                <strong>{exercise.prompt || lesson.exerciseType || `Mục ${index + 1}`}</strong>
+              </div>
+
+              {exercise.options?.length ? (
+                <div className="excel-option-grid">
+                  {exercise.options.map((option) => {
+                    const optionLabel = option.label || '';
+                    const showCorrect = (isTeacher || submitted) && optionLabel === correctLabel;
+                    const showWrong = submitted && selectedLabel === optionLabel && optionLabel !== correctLabel;
+                    const isSelected = selectedLabel === optionLabel;
+
+                    return (
+                      <button
+                        key={`${exercise.id}-${optionLabel}-${option.text}`}
+                        type="button"
+                        className={[
+                          'answer-pill',
+                          isSelected ? 'is-active' : '',
+                          showCorrect ? 'is-correct' : '',
+                          showWrong ? 'is-wrong' : ''
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => selectAnswer(exercise, optionLabel)}
+                        disabled={isTeacher}
+                      >
+                        {optionLabel}. {option.text}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty-state">Không có lựa chọn, học viên thực hiện theo hướng dẫn của dạng bài.</p>
+              )}
+
+              {submitted && selectedLabel ? (
+                <div className={isCorrect ? 'exercise-feedback success' : 'exercise-feedback'}>
+                  {isCorrect ? 'Chính xác.' : `Chưa đúng. Đáp án đúng là ${correctLabel}.`}
+                </div>
+              ) : null}
+
+              <div className="excel-exercise-row__meta">
+                {isTeacher && correctLabel ? <span className="pill">Đáp án: {correctLabel}</span> : null}
+                {exercise.note ? <small>{exercise.note}</small> : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {!isTeacher && answerableExercises.length ? (
+        <div className="excel-lesson-panel__footer">
+          <span>
+            {submitted
+              ? `Kết quả: ${correctCount}/${answerableExercises.length} câu đúng`
+              : `${answeredCount}/${answerableExercises.length} câu đã chọn`}
+          </span>
+          <button type="button" className="button" onClick={() => setSubmitted(true)} disabled={!canSubmit}>
+            Kiểm tra đáp án
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -411,6 +574,7 @@ export default function LearningPage() {
   const [audioMap, setAudioMap] = useState(() => readStoredJson(storageKeys.audioByLesson, {}));
   const [fileMap, setFileMap] = useState(() => readStoredJson(storageKeys.filesByLesson, {}));
   const [purchasedCourses, setPurchasedCourses] = useState(() => readStoredJson(storageKeys.purchasedCourses, []));
+  const [availableCourses, setAvailableCourses] = useState([]);
   const [teacherAssignments, setTeacherAssignments] = useState([]);
   const [studentAssignments, setStudentAssignments] = useState([]);
   const [assignmentAttempts, setAssignmentAttempts] = useState({});
@@ -451,15 +615,28 @@ export default function LearningPage() {
       setLoadingCourse(true);
 
       try {
-        const nextCourse = routeCourseKey
-          ? await getCourseBySlug(routeCourseKey)
-          : (await getCourseCatalog())[0] || null;
+        const canBrowseAllCourses = currentRole === 'teacher' || currentRole === 'admin';
+        const catalog = await getCourseCatalog();
+        const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, catalog);
+        const ownedCourseKeySet = new Set(nextOwnedCourseIds.map((courseKey) => String(courseKey).toLowerCase()));
+        const ownedCourses = catalog.filter((course) =>
+          getCourseAccessKeys(course).some((courseKey) => ownedCourseKeySet.has(courseKey))
+        );
+        const accessibleCourses = canBrowseAllCourses ? catalog : ownedCourses;
+        const routeCourse = routeCourseKey ? await getCourseBySlug(routeCourseKey) : null;
+        const fallbackCourse = accessibleCourses[0] || (canBrowseAllCourses ? catalog[0] : null);
+        const fallbackCourseKey = getCourseRouteKey(fallbackCourse);
+        const nextCourse =
+          routeCourse ||
+          (fallbackCourseKey ? await getCourseBySlug(fallbackCourseKey) : null) ||
+          fallbackCourse ||
+          null;
         const nextLessons = nextCourse ? buildLessonsFromCourse(nextCourse) : [];
-        const nextOwnedCourseIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
 
         if (active) {
           setCurrentCourse(nextCourse);
           setLessons(nextLessons);
+          setAvailableCourses(accessibleCourses);
           setSelectedLessonId((previousLessonId) => {
             if (lessonId && nextLessons.some((lesson) => lesson.id === lessonId)) {
               return lessonId;
@@ -486,6 +663,7 @@ export default function LearningPage() {
           setLessons([]);
           setSelectedLessonId('');
           setPurchasedCourses([]);
+          setAvailableCourses([]);
         }
       } finally {
         if (active) {
@@ -499,7 +677,7 @@ export default function LearningPage() {
     return () => {
       active = false;
     };
-  }, [auth.ready, auth.user?.id, routeCourseKey]);
+  }, [auth.ready, auth.user?.id, currentRole, routeCourseKey]);
 
   useEffect(() => {
     if (!lessons.length) {
@@ -595,9 +773,32 @@ export default function LearningPage() {
   }, [auth.user?.id, auth.user?.email, currentCourse?.id, lessons]);
 
   const currentLesson = lessons.find((lesson) => lesson.id === selectedLessonId) || lessons[0] || null;
+  const currentLessonExercises = Array.isArray(currentLesson?.exercises) ? currentLesson.exercises : [];
   const lessonIndex = useMemo(() => lessons.findIndex((lesson) => lesson.id === selectedLessonId), [selectedLessonId]);
   const currentCourseId = currentCourse?.id || routeCourseKey || '';
   const lessonStorageId = currentCourseId && selectedLessonId ? `${currentCourseId}:${selectedLessonId}` : '';
+  const studyCourseOptions = useMemo(() => {
+    if (currentRole === 'teacher' || currentRole === 'admin') {
+      return [];
+    }
+
+    const optionMap = new Map();
+    availableCourses.forEach((course) => {
+      const courseKey = getCourseRouteKey(course);
+      if (courseKey) {
+        optionMap.set(String(courseKey).toLowerCase(), course);
+      }
+    });
+
+    if (currentCourse) {
+      const currentKey = getCourseRouteKey(currentCourse);
+      if (currentKey && !optionMap.has(String(currentKey).toLowerCase())) {
+        optionMap.set(String(currentKey).toLowerCase(), currentCourse);
+      }
+    }
+
+    return Array.from(optionMap.values());
+  }, [availableCourses, currentCourse, currentRole]);
   const teacherCourseOptions =
     currentCourse && !courseOptions.some((course) => course.key === currentCourseId)
       ? [{ key: currentCourseId, title: currentCourse.title }, ...courseOptions]
@@ -625,6 +826,11 @@ export default function LearningPage() {
   const isCurrentLessonCompleted = currentLesson
     ? Boolean(lessonProgressMap[currentLesson.id]?.completed || currentLesson.status === 'done')
     : false;
+  const currentLessonStatusLabel = isCurrentLessonCompleted
+    ? 'Đã xong'
+    : currentLesson?.status === 'locked'
+      ? 'Đang khóa'
+      : 'Đang học';
   const lessonPagination = usePagination(lessons, {
     pageSize: 8,
     resetKey: currentCourseId
@@ -924,6 +1130,15 @@ export default function LearningPage() {
     }
   }
 
+  function handleSelectStudyCourse(event) {
+    const nextCourseKey = event.target.value;
+    if (!nextCourseKey || nextCourseKey === currentCourseId) {
+      return;
+    }
+
+    navigate(`/learn/${nextCourseKey}`);
+  }
+
   function handleSelectLesson(nextLessonId) {
     const nextLesson = lessons.find((lesson) => lesson.id === nextLessonId);
     if (auth.user?.id && nextLesson) {
@@ -1012,11 +1227,11 @@ export default function LearningPage() {
               onClick={() => handleSelectLesson(lesson.id)}
             >
               <span className="lesson-item__icon" aria-hidden="true">
-                {lessonProgressMap[lesson.id]?.completed || lesson.status === 'done' ? 'OK' : lesson.status === 'active' ? 'HỌC' : 'KHÓA'}
+                {lesson.lessonNumber || lessonPagination.startItem + lessonPagination.pageItems.indexOf(lesson)}
               </span>
               <span className="lesson-item__copy">
                 <strong>{lesson.title}</strong>
-                <span>{lesson.note}</span>
+                <span>{[lesson.exerciseType, lesson.questionCount ? `${lesson.questionCount} câu` : '', lessonProgressMap[lesson.id]?.completed || lesson.status === 'done' ? 'Đã xong' : lesson.status === 'locked' ? 'Đang khóa' : 'Đang học'].filter(Boolean).join(' · ')}</span>
               </span>
             </button>
           ))}
@@ -1024,6 +1239,28 @@ export default function LearningPage() {
         </aside>
 
         <div className="learning-stage">
+          {!isTeacher && studyCourseOptions.length > 1 ? (
+            <section className="content-card content-card--enterprise today-course-strip">
+              <div>
+                <span className="eyebrow">Học hôm nay</span>
+                <strong>Chọn khóa muốn học</strong>
+              </div>
+              <label className="today-course-strip__select">
+                <span>Khóa học</span>
+                <select value={currentCourseId} onChange={handleSelectStudyCourse}>
+                  {studyCourseOptions.map((course) => {
+                    const courseKey = getCourseRouteKey(course);
+                    return (
+                      <option key={courseKey} value={courseKey}>
+                        {course.title}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            </section>
+          ) : null}
+
           {isTeacher ? (
             <section className="content-card content-card--enterprise teacher-lesson-bar">
               <div className="teacher-lesson-bar__copy">
@@ -1042,8 +1279,8 @@ export default function LearningPage() {
                   Tài liệu
                 </span>
                 <span>
-                  <b>{generatedExercises.length}</b>
-                  Câu OCR
+                  <b>{currentLessonExercises.length || generatedExercises.length}</b>
+                  Câu bài
                 </span>
                 <span>
                   <b>{visibleAssignments.length}</b>
@@ -1065,48 +1302,7 @@ export default function LearningPage() {
                 </label>
               </div>
             </section>
-          ) : (
-            <section className="content-card content-card--enterprise learning-hero">
-              <div className="learning-hero__copy">
-                <span className="eyebrow">Bài học hiện tại</span>
-                <h1>{currentLesson.title}</h1>
-                <p>{currentLesson.note}</p>
-
-                <div className="learning-flow">
-                  <PracticeBadge title="1. Nghe" text="Sử dụng audio do giảng viên tải lên hoặc bản ghi được cung cấp." />
-                  <PracticeBadge title="2. Luyện tập" text="Transcript, ghi chú và từ vựng được đặt ngay bên dưới." />
-                  <PracticeBadge title="3. Nộp bài" text="Giảng viên có thể giao cho học viên được chọn hoặc toàn bộ người mua khóa." />
-                </div>
-              </div>
-
-              <div className="learning-hero__panel">
-                <div className="learning-status">
-                  <span>Quyền truy cập</span>
-                  <strong>{hasLessonAccess ? 'Đã mở khóa' : 'Đang khóa'}</strong>
-                  <p>{hasLessonAccess ? 'Bạn có thể học bài này ngay.' : 'Cần mua khóa học hoặc được giảng viên cấp quyền.'}</p>
-                </div>
-
-                <div className="learning-stat-grid">
-                  <article>
-                    <span>Âm thanh</span>
-                    <strong>{lessonAudio ? 'Sẵn sàng' : 'Chưa có'}</strong>
-                  </article>
-                  <article>
-                    <span>Tài liệu</span>
-                    <strong>{lessonFile ? 'Sẵn sàng' : 'Chưa có'}</strong>
-                  </article>
-                  <article>
-                    <span>Quyền học</span>
-                    <strong>{hasLessonAccess ? 'Mở' : 'Khóa'}</strong>
-                  </article>
-                  <article>
-                    <span>Nhiệm vụ</span>
-                    <strong>{visibleAssignments.length}</strong>
-                  </article>
-                </div>
-              </div>
-            </section>
-          )}
+          ) : null}
 
           {hasLessonAccess ? (
             <>
@@ -1376,77 +1572,11 @@ export default function LearningPage() {
                     </div>
                   </div>
                 </section>
+              ) : null}
+
+              {currentLessonExercises.length ? (
+                <LessonExercisePreview lesson={currentLesson} isTeacher={isTeacher} />
               ) : (
-                <section className="content-card content-card--enterprise learning-media">
-                  <div className="section-head">
-                    <div>
-                      <span className="eyebrow">Học liệu</span>
-                      <h2>Tài nguyên học tập trong một không gian</h2>
-                    </div>
-                  </div>
-
-                  <div className="learning-media__grid">
-                    <div className="lesson-upload-box">
-                      <strong>File nghe</strong>
-                      <p>
-                        {lessonAudio
-                          ? `File đã tải lên: ${lessonAudio.name}`
-                          : 'Chưa có audio. Giảng viên có thể tải file ở khu vực bên dưới.'}
-                      </p>
-                      {lessonAudio?.url ? <audio controls src={lessonAudio.url} className="lesson-audio" /> : null}
-                    </div>
-
-                    <div className="lesson-upload-box">
-                      <strong>Bản chép lời / tài liệu đính kèm</strong>
-                      <p>
-                        {lessonFile
-                          ? `Tài liệu đã đính kèm: ${lessonFile.name}`
-                          : 'Chưa có tài liệu. Khu vực này dùng cho PDF, transcript hoặc worksheet.'}
-                      </p>
-                      {lessonFile?.url ? (
-                        <a className="auth-link" href={lessonFile.url} download={lessonFile.name}>
-                          Tải tài liệu
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="lesson-notes-grid">
-                    <article className="lesson-note-card">
-                      <strong>Bản chép lời</strong>
-                      <p>Giảng viên có thể dán bản chép lời hoặc đồng bộ từ PDF / xử lý audio ở bước sau.</p>
-                    </article>
-                    <article className="lesson-note-card">
-                      <strong>Ghi chú</strong>
-                      <p>Làm nổi bật phát âm, cụm từ trọng tâm và nội dung học viên cần luyện nói lại.</p>
-                    </article>
-                    <article className="lesson-note-card">
-                      <strong>Bài tập về nhà</strong>
-                      <p>Yêu cầu học viên ghi âm phản hồi, nộp đáp án hoặc hoàn thành bài nối cặp.</p>
-                    </article>
-                  </div>
-
-                  <div className="lesson-completion-card">
-                    <div>
-                      <strong>{isCurrentLessonCompleted ? 'Bài học đã hoàn thành' : 'Lưu tiến độ bài học'}</strong>
-                      <p>
-                        {isCurrentLessonCompleted
-                          ? 'Tiến độ đã được lưu cho tài khoản học viên này.'
-                          : 'Đánh dấu hoàn thành khi bạn đã học xong tài liệu và bài luyện của bài này.'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={handleMarkLessonComplete}
-                      disabled={progressSaving || isCurrentLessonCompleted}
-                    >
-                      {progressSaving ? 'Đang lưu...' : isCurrentLessonCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
-                    </button>
-                  </div>
-                </section>
-              )}
-
               <section className="content-card content-card--enterprise">
                 <div className="section-head">
                   <div>
@@ -1576,6 +1706,29 @@ export default function LearningPage() {
                   ) : null}
                 </div>
               </section>
+              )}
+
+              {!isTeacher ? (
+                <section className="content-card content-card--enterprise lesson-action-strip">
+                  <div>
+                    <span className="eyebrow">Tiến độ</span>
+                    <strong>{isCurrentLessonCompleted ? 'Bài học đã hoàn thành' : currentLessonStatusLabel}</strong>
+                    <p>
+                      {isCurrentLessonCompleted
+                        ? 'Tiến độ đã được lưu cho tài khoản học viên này.'
+                        : 'Hoàn thành bài luyện rồi lưu tiến độ tại đây.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={handleMarkLessonComplete}
+                    disabled={progressSaving || isCurrentLessonCompleted}
+                  >
+                    {progressSaving ? 'Đang lưu...' : isCurrentLessonCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
+                  </button>
+                </section>
+              ) : null}
             </>
           ) : (
             <section className="content-card content-card--enterprise lesson-lock">

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCourseCatalog, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
+import { confirmCoursePayment, getCourseCatalog, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { PaymentInstructions } from '../components/PaymentInstructions';
 
 const initialFilters = {
   search: '',
@@ -48,15 +49,15 @@ function matchesPriceTier(course, priceTier) {
     return true;
   }
 
-  if (priceTier === 'under-60') {
-    return course.priceValue < 60;
+  if (priceTier === 'under-600') {
+    return course.priceValue < 600000;
   }
 
-  if (priceTier === '60-89') {
-    return course.priceValue >= 60 && course.priceValue < 90;
+  if (priceTier === '600-899') {
+    return course.priceValue >= 600000 && course.priceValue < 900000;
   }
 
-  return course.priceValue >= 90;
+  return course.priceValue >= 900000;
 }
 
 function sortCourses(courses, sortKey) {
@@ -94,6 +95,8 @@ export default function CoursesPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [loading, setLoading] = useState(true);
   const [purchasingCourseId, setPurchasingCourseId] = useState('');
+  const [activePaymentOrder, setActivePaymentOrder] = useState(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState('');
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
@@ -191,19 +194,41 @@ export default function CoursesPage() {
       const result = await purchaseCourse({
         course,
         userId: auth.user?.id,
-        accessToken: auth.session?.access_token
+        accessToken: auth.session?.access_token,
+        user: auth.user
       });
 
       setOwnedCourseIds(result.ownedCourseIds);
+      setActivePaymentOrder(result.order || null);
       setFeedback(
-        result.mode === 'supabase'
-          ? `${course.title} đã được thêm vào thư viện học tập của học viên.`
-          : `${course.title} đã được kích hoạt trong thư viện khóa học.`
+        result.requiresPayment
+          ? `Đã tạo yêu cầu thanh toán cho ${course.title}. Vui lòng quét QR và bấm xác nhận sau khi chuyển khoản.`
+          : `${course.title} đã được ghi nhận.`
       );
     } catch (error) {
       setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
     } finally {
       setPurchasingCourseId('');
+    }
+  }
+
+  async function handleConfirmPayment() {
+    if (!activePaymentOrder) return;
+
+    setFeedback('');
+    setConfirmingOrderId(activePaymentOrder.id);
+
+    try {
+      const nextOrder = await confirmCoursePayment({
+        order: activePaymentOrder,
+        accessToken: auth.session?.access_token
+      });
+      setActivePaymentOrder(nextOrder);
+      setFeedback('Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.');
+    } catch (error) {
+      setFeedback(error?.message || 'Chưa thể gửi xác nhận thanh toán.');
+    } finally {
+      setConfirmingOrderId('');
     }
   }
 
@@ -330,16 +355,16 @@ export default function CoursesPage() {
                 Tất cả mức giá
               </FilterButton>
               <FilterButton
-                active={filters.price === 'under-60'}
-                onClick={() => setFilters((previous) => ({ ...previous, price: 'under-60' }))}
+                active={filters.price === 'under-600'}
+                onClick={() => setFilters((previous) => ({ ...previous, price: 'under-600' }))}
               >
-                Dưới $60
+                Dưới 600.000 đ
               </FilterButton>
-              <FilterButton active={filters.price === '60-89'} onClick={() => setFilters((previous) => ({ ...previous, price: '60-89' }))}>
-                $60 - $89
+              <FilterButton active={filters.price === '600-899'} onClick={() => setFilters((previous) => ({ ...previous, price: '600-899' }))}>
+                600.000 - 899.000 đ
               </FilterButton>
               <FilterButton active={filters.price === '90-plus'} onClick={() => setFilters((previous) => ({ ...previous, price: '90-plus' }))}>
-                Từ $90
+                Từ 900.000 đ
               </FilterButton>
             </div>
           </div>
@@ -352,7 +377,7 @@ export default function CoursesPage() {
               <h2>{filters.status === 'owned' ? 'Khóa học đã sở hữu' : 'Khóa học sẵn sàng đăng ký'}</h2>
               <p>
                 {auth.session
-                  ? 'Học viên đã đăng nhập có thể mua khóa học và thấy trạng thái sở hữu được cập nhật ngay.'
+                  ? 'Học viên đã đăng nhập có thể tạo yêu cầu thanh toán, sau đó chờ admin mở khóa sau khi kế toán kiểm tra.'
                   : 'Bạn có thể xem danh mục công khai. Hãy đăng nhập tài khoản học viên khi cần mua khóa học.'}
               </p>
             </div>
@@ -393,6 +418,12 @@ export default function CoursesPage() {
               </div>
             </section>
           ) : null}
+
+          <PaymentInstructions
+            order={activePaymentOrder}
+            confirming={confirmingOrderId === activePaymentOrder?.id}
+            onConfirm={handleConfirmPayment}
+          />
 
           <div className="marketplace-results__meta">
             <span>{filteredCourses.length} khóa học phù hợp</span>

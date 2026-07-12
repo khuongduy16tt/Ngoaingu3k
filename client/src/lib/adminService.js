@@ -1,5 +1,13 @@
 import { featuredCourses } from '../data/mock';
 import { isSupabaseReady, supabase } from './supabase';
+import { apiFetch } from './api';
+import { normalizeVndAmount } from './money';
+import {
+  approveManualPaymentOrder,
+  readPaymentOrders,
+  upsertPaymentOrder
+} from './paymentService';
+import { grantPurchasedCourseId } from './purchaseStorage';
 
 const adminStorageKey = 'admin-dashboard-state-v1';
 
@@ -140,7 +148,7 @@ function createDefaultState() {
         userId: 'local-student-1',
         courseId: 'english-foundation',
         status: 'paid',
-        amount: 49,
+        amount: 490000,
         createdAt: '2026-07-04T08:00:00.000Z'
       }
     ],
@@ -210,7 +218,7 @@ function normalizeCourse(course) {
     slug: course.slug || course.id,
     title: course.title || 'Khóa học chưa đặt tên',
     description: course.description || course.summary || '',
-    price: Number(course.price || 0),
+    price: normalizeVndAmount(course.price),
     status: course.status || 'draft',
     teacherId: course.teacher_id || course.teacherId || '',
     bannerUrl: course.banner_url || course.bannerUrl || '',
@@ -244,9 +252,18 @@ function normalizeOrder(order) {
     id: order.id,
     userId: order.user_id || order.userId,
     courseId: order.course_id || order.courseId,
+    localCourseId: order.localCourseId || order.local_course_id || '',
+    courseTitle: order.courseTitle || order.course_title || '',
+    studentEmail: order.studentEmail || order.student_email || '',
+    studentName: order.studentName || order.student_name || '',
+    transferCode: order.transferCode || order.transfer_code || '',
+    provider: order.provider || 'manual-bank-transfer',
     status: order.status || 'pending',
-    amount: Number(order.amount || 0),
-    createdAt: order.created_at || order.createdAt || ''
+    amount: normalizeVndAmount(order.amount),
+    createdAt: order.created_at || order.createdAt || '',
+    confirmedAt: order.confirmed_at || order.confirmedAt || '',
+    approvedAt: order.approved_at || order.approvedAt || '',
+    adminEmailSent: Boolean(order.adminEmailSent || order.admin_email_sent)
   };
 }
 
@@ -272,6 +289,18 @@ function normalizeRolePermission(row) {
   };
 }
 
+function mergeOrders(primaryOrders = [], extraOrders = []) {
+  const orderLookup = new Map();
+  [...primaryOrders, ...extraOrders].forEach((order) => {
+    if (order?.id) {
+      orderLookup.set(order.id, normalizeOrder(order));
+    }
+  });
+  return Array.from(orderLookup.values()).sort(
+    (left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)
+  );
+}
+
 async function maybeSelect(table, query) {
   const { data, error } = await query(supabase.from(table));
   if (error) {
@@ -282,9 +311,14 @@ async function maybeSelect(table, query) {
 
 export async function getAdminDashboardData() {
   const localState = readStoredState();
+  const localPaymentOrders = readPaymentOrders();
 
   if (!isSupabaseReady()) {
-    return { ...localState, mode: 'local' };
+    return {
+      ...localState,
+      orders: mergeOrders(localState.orders, localPaymentOrders),
+      mode: 'local'
+    };
   }
 
   const [profiles, courses, chapters, lessons, orders, progress, assignments, rolePermissions] = await Promise.all([
@@ -301,7 +335,7 @@ export async function getAdminDashboardData() {
       query.select('id, chapter_id, title, video_url, content, position, is_preview, created_at').order('position', { ascending: true })
     ),
     maybeSelect('orders', (query) =>
-      query.select('id, user_id, course_id, status, amount, created_at').order('created_at', { ascending: false })
+      query.select('id, user_id, course_id, status, amount, provider, created_at').order('created_at', { ascending: false })
     ),
     maybeSelect('progress', (query) =>
       query.select('user_id, lesson_id, completed, updated_at')
@@ -340,7 +374,7 @@ export async function getAdminDashboardData() {
     profiles: profiles ? profiles.map(normalizeProfile) : [],
     courses: courses ? courses.map(normalizeCourse) : [],
     lessons: lessons ? lessons.map((lesson) => normalizeLesson(lesson, chapterLookup)) : [],
-    orders: orders ? orders.map(normalizeOrder) : [],
+    orders: mergeOrders(orders || [], localPaymentOrders),
     progress: progress ? progress.map(normalizeProgress) : [],
     assignments: assignments || [],
     rolePermissions: rolePermissions?.length
@@ -629,9 +663,10 @@ const fallbackOrders = [];
  */
 export async function getUsersWithPurchaseInfo() {
   const state = readStoredState();
+  const localPaymentOrders = readPaymentOrders();
 
   if (!isSupabaseReady()) {
-    return { profiles: state.profiles || fallbackProfiles, orders: fallbackOrders };
+    return { profiles: state.profiles || fallbackProfiles, orders: mergeOrders(state.orders || fallbackOrders, localPaymentOrders) };
   }
 
   try {
@@ -642,7 +677,7 @@ export async function getUsersWithPurchaseInfo() {
         .order('created_at', { ascending: false }),
       supabase
         .from('orders')
-        .select('id, user_id, course_id, status, amount, created_at'),
+        .select('id, user_id, course_id, status, amount, provider, created_at'),
     ]);
 
     const profiles = (profilesRes.data || []).map((p) => ({
@@ -656,18 +691,44 @@ export async function getUsersWithPurchaseInfo() {
       source: 'supabase',
     }));
 
-    const orders = (ordersRes.data || []).map((o) => ({
-      id: o.id,
-      userId: o.user_id,
-      courseId: o.course_id,
-      status: o.status,
-      amount: o.amount,
-      createdAt: o.created_at,
-    }));
+    const orders = mergeOrders(ordersRes.data || [], localPaymentOrders);
 
     return { profiles, orders };
   } catch (err) {
     console.warn('[getUsersWithPurchaseInfo]', err.message);
-    return { profiles: state.profiles || fallbackProfiles, orders: fallbackOrders };
+    return { profiles: state.profiles || fallbackProfiles, orders: mergeOrders(state.orders || fallbackOrders, localPaymentOrders) };
   }
+}
+
+export async function approvePaymentOrder(order, accessToken) {
+  if (!order?.id) {
+    throw new Error('Thiếu thông tin đơn hàng.');
+  }
+
+  let approvedOrder = null;
+
+  if (isSupabaseReady() && accessToken && !String(order.id).startsWith('local-payment-')) {
+    const response = await apiFetch(`/api/payments/${order.id}/approve`, {
+      method: 'POST',
+      token: accessToken,
+      body: {}
+    });
+
+    approvedOrder = upsertPaymentOrder({
+      ...order,
+      status: response.status || 'paid',
+      approvedAt: response.approvedAt || new Date().toISOString()
+    });
+  } else {
+    approvedOrder = approveManualPaymentOrder(order.id);
+  }
+
+  const nextOrder = approvedOrder || upsertPaymentOrder({
+    ...order,
+    status: 'paid',
+    approvedAt: new Date().toISOString()
+  });
+
+  grantPurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
+  return nextOrder;
 }
