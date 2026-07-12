@@ -131,6 +131,10 @@ function isUuid(value) {
   );
 }
 
+function getTeacherIdForCourseStorage(teacherId) {
+  return isUuid(teacherId) ? teacherId : null;
+}
+
 function defaultWhatYouGet(course) {
   return [
     `${course.lessonsCount} bài học có cấu trúc`,
@@ -192,6 +196,47 @@ function createFallbackSections() {
 
 function dedupeStrings(values) {
   return Array.from(new Set((values || []).filter(Boolean)));
+}
+
+export function buildCourseRecordPayload(course, options = {}) {
+  const title = course?.title || 'Khóa học chưa đặt tên';
+  const slug = createCourseSlug(title);
+  const normalizedPrice = Number(course?.priceValue ?? course?.price ?? 0);
+
+  return {
+    slug,
+    title,
+    description: course?.summary || course?.description || '',
+    price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
+    status: course?.status || 'draft',
+    teacher_id: getTeacherIdForCourseStorage(options.teacherId || course?.teacherId || null),
+    banner_url: course?.bannerUrl || course?.banner_url || null
+  };
+}
+
+export async function saveCourseToSupabase(course, options = {}) {
+  if (!isSupabaseReady()) {
+    return null;
+  }
+
+  const payload = buildCourseRecordPayload(course, options);
+  const { data, error } = await supabase
+    .from('courses')
+    .upsert(
+      {
+        ...(course?.databaseId ? { id: course.databaseId } : {}),
+        ...payload
+      },
+      { onConflict: 'id' }
+    )
+    .select('id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
 export function getStoredPurchasedCourseIds(userId = 'local') {

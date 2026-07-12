@@ -15,7 +15,13 @@ import {
   saveAdminProfile,
   saveRolePermissions
 } from '../lib/adminService';
-import { getCourseCatalog, getOwnedCourseIds, readTeacherManagedCourses, writeTeacherManagedCourses } from '../lib/courseService';
+import {
+  getCourseCatalog,
+  getOwnedCourseIds,
+  readTeacherManagedCourses,
+  saveCourseToSupabase,
+  writeTeacherManagedCourses
+} from '../lib/courseService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getActivityLogs } from '../lib/activityService';
 import {
@@ -998,7 +1004,7 @@ export function TeacherDashboardPage() {
     setImportMessage({ type: 'success', text: `Đã tạo ${lessonLines.length} bài học thủ công để xem trước.` });
   }
 
-  function handlePublishCourse(event) {
+  async function handlePublishCourse(event) {
     event.preventDefault();
     setMessage({ type: '', text: '' });
 
@@ -1013,37 +1019,58 @@ export function TeacherDashboardPage() {
     }
 
     setSaving(true);
-    const existingCourse = teacherCourses.find((course) => course.id === editingCourseId);
-    const slug = createCourseSlug(courseDraft.title);
-    const nextCourse = normalizeManagedCourse({
-      ...(existingCourse || {}),
-      id: existingCourse?.id || `${slug}-${Date.now()}`,
-      ...courseDraft,
-      lessonsCount: Number(courseDraft.lessonsCount) || 1,
-      price: normalizeVndAmount(courseDraft.price),
-      status: 'published',
-      publishedAt: existingCourse ? 'Vừa cập nhật' : 'Vừa đăng'
-    });
-    const nextCourses = existingCourse
-      ? teacherCourses.map((course) => (course.id === existingCourse.id ? nextCourse : course))
-      : [nextCourse, ...teacherCourses];
-    persistCourses(nextCourses);
-    if (existingCourse) {
-      setCourseDraft((previous) => ({
-        ...previous,
-        lessonsCount: String(nextCourse.lessonsCount)
-      }));
-      setMessage({ type: 'success', text: `Đã cập nhật khóa học "${nextCourse.title}" thành công.` });
-    } else {
-      setCourseDraft(createEmptyCourseDraft());
-      setManualLessonDraft({ sectionTitle: 'Nội dung chính', lessonsText: '' });
-      setImportDriveLink('');
-      setImportMessage({ type: '', text: '' });
-      setSelectedDraftLessonId('');
-      setStudentPreviewLessonId('');
-      setMessage({ type: 'success', text: `Đã đăng khóa học "${nextCourse.title}" thành công.` });
+    try {
+      const existingCourse = teacherCourses.find((course) => course.id === editingCourseId);
+      const slug = createCourseSlug(courseDraft.title);
+      const nextCourse = normalizeManagedCourse({
+        ...(existingCourse || {}),
+        id: existingCourse?.id || `${slug}-${Date.now()}`,
+        ...courseDraft,
+        lessonsCount: Number(courseDraft.lessonsCount) || 1,
+        price: normalizeVndAmount(courseDraft.price),
+        status: 'published',
+        publishedAt: existingCourse ? 'Vừa cập nhật' : 'Vừa đăng'
+      });
+
+      const savedCourseRecord = await saveCourseToSupabase(nextCourse, { teacherId: auth.user?.id || null });
+      const persistedCourse = {
+        ...nextCourse,
+        databaseId: savedCourseRecord?.id || nextCourse.databaseId || nextCourse.id,
+        id: savedCourseRecord?.slug || nextCourse.id,
+        slug: savedCourseRecord?.slug || nextCourse.slug,
+        title: savedCourseRecord?.title || nextCourse.title,
+        summary: savedCourseRecord?.description || nextCourse.summary,
+        priceValue: Number(savedCourseRecord?.price ?? nextCourse.priceValue ?? 0),
+        price: formatVnd(Number(savedCourseRecord?.price ?? nextCourse.priceValue ?? 0)),
+        status: savedCourseRecord?.status || nextCourse.status,
+        instructor: auth.user?.user_metadata?.full_name || nextCourse.instructor
+      };
+
+      const nextCourses = existingCourse
+        ? teacherCourses.map((course) => (course.id === existingCourse.id ? persistedCourse : course))
+        : [persistedCourse, ...teacherCourses];
+      persistCourses(nextCourses);
+      if (existingCourse) {
+        setCourseDraft((previous) => ({
+          ...previous,
+          lessonsCount: String(persistedCourse.lessonsCount)
+        }));
+        setMessage({ type: 'success', text: `Đã cập nhật khóa học "${persistedCourse.title}" thành công.` });
+      } else {
+        setCourseDraft(createEmptyCourseDraft());
+        setManualLessonDraft({ sectionTitle: 'Nội dung chính', lessonsText: '' });
+        setImportDriveLink('');
+        setImportMessage({ type: '', text: '' });
+        setSelectedDraftLessonId('');
+        setStudentPreviewLessonId('');
+        setMessage({ type: 'success', text: `Đã đăng khóa học "${persistedCourse.title}" thành công.` });
+      }
+    } catch (error) {
+      console.error('[handlePublishCourse]', error);
+      setMessage({ type: 'error', text: error?.message || 'Không thể lưu khóa học vào Supabase.' });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   function toggleCourseStatus(courseId) {
