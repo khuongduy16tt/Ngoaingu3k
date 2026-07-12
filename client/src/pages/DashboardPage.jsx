@@ -33,7 +33,7 @@ import { uploadLessonVideo, validateVideoFile } from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { average, buildStudentProgressRows } from '../lib/studentProgressService';
 import { formatVnd, normalizeVndAmount } from '../lib/money';
-import { parseExcelCourseFile } from '../lib/excelCourseParser';
+import { parseExcelCourseFile, parseExcelQuestionFile } from '../lib/excelCourseParser';
 import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 
 const exerciseTypeLabels = {
@@ -43,6 +43,8 @@ const exerciseTypeLabels = {
   blank: 'Điền khuyết',
   flash: 'Thẻ ghi nhớ'
 };
+
+const DRAFT_OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
 const defaultExerciseConfig = {
   type: 'mcq',
@@ -881,6 +883,127 @@ export function TeacherDashboardPage() {
     updateDraftQuestion(sectionIndex, lessonIndex, questionIndex, { options });
   }
 
+  function createDraftLessonQuestion(lesson, index = 0) {
+    return {
+      id: `${lesson?.id || 'lesson'}-manual-question-${Date.now()}-${index}`,
+      number: String(index + 1),
+      prompt: '',
+      options: DRAFT_OPTION_LABELS.map((label) => ({ label, text: '' })),
+      answer: 'A',
+      correctAnswer: 'A',
+      note: ''
+    };
+  }
+
+  function appendDraftLessonQuestions(sectionIndex, lessonIndex, questionsToAdd = []) {
+    setCourseDraft((previous) => {
+      const nextSections = previous.sections.map((section, currentSectionIndex) => {
+        if (currentSectionIndex !== sectionIndex) return section;
+
+        return {
+          ...section,
+          lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
+            if (currentLessonIndex !== lessonIndex) return lesson;
+            const questions = Array.isArray(lesson.exercises) ? lesson.exercises : Array.isArray(lesson.questions) ? lesson.questions : [];
+            const nextQuestions = [
+              ...questions,
+              ...questionsToAdd.map((question, questionIndex) => ({
+                ...question,
+                id: question.id || `${lesson.id || 'lesson'}-question-${Date.now()}-${questionIndex}`,
+                number: String(questions.length + questionIndex + 1),
+                options: Array.isArray(question.options) && question.options.length
+                  ? question.options.map((option, optionIndex) => ({
+                      label: option.label || DRAFT_OPTION_LABELS[optionIndex] || String(optionIndex + 1),
+                      text: option.text || option.value || ''
+                    }))
+                  : DRAFT_OPTION_LABELS.map((label) => ({ label, text: '' })),
+                answer: question.correctAnswer || question.answer || 'A',
+                correctAnswer: question.correctAnswer || question.answer || 'A',
+                note: question.note || question.explanation || ''
+              }))
+            ];
+
+            return {
+              ...lesson,
+              questions: nextQuestions,
+              exercises: nextQuestions,
+              questionCount: nextQuestions.length
+            };
+          })
+        };
+      });
+
+      return {
+        ...previous,
+        sections: nextSections
+      };
+    });
+  }
+
+  function addDraftLessonQuestion(sectionIndex, lessonIndex) {
+    const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
+    const questions = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
+    appendDraftLessonQuestions(sectionIndex, lessonIndex, [createDraftLessonQuestion(lesson, questions.length)]);
+    setImportMessage({ type: 'success', text: 'Đã thêm một câu hỏi thủ công cho bài học.' });
+  }
+
+  function deleteDraftQuestion(sectionIndex, lessonIndex, questionIndex) {
+    setCourseDraft((previous) => {
+      const nextSections = previous.sections.map((section, currentSectionIndex) => {
+        if (currentSectionIndex !== sectionIndex) return section;
+
+        return {
+          ...section,
+          lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
+            if (currentLessonIndex !== lessonIndex) return lesson;
+            const questions = Array.isArray(lesson.exercises) ? lesson.exercises : Array.isArray(lesson.questions) ? lesson.questions : [];
+            const nextQuestions = questions
+              .filter((_, currentQuestionIndex) => currentQuestionIndex !== questionIndex)
+              .map((question, currentQuestionIndex) => ({
+                ...question,
+                number: String(currentQuestionIndex + 1)
+              }));
+
+            return {
+              ...lesson,
+              questions: nextQuestions,
+              exercises: nextQuestions,
+              questionCount: nextQuestions.length
+            };
+          })
+        };
+      });
+
+      return {
+        ...previous,
+        sections: nextSections
+      };
+    });
+    setImportMessage({ type: 'success', text: 'Đã xóa câu hỏi khỏi bài học.' });
+  }
+
+  async function handleDraftLessonQuestionFile(sectionIndex, lessonIndex, file) {
+    if (!file) return;
+
+    try {
+      if (!/\.(xls|xlsx)$/i.test(file.name)) {
+        setImportMessage({ type: 'error', text: 'Vui lòng chọn file Excel .xls hoặc .xlsx cho bài tập.' });
+        return;
+      }
+
+      const questions = await parseExcelQuestionFile(file);
+      if (!questions.length) {
+        setImportMessage({ type: 'error', text: 'File Excel chưa có câu hỏi hợp lệ cho bài tập dưới video.' });
+        return;
+      }
+
+      appendDraftLessonQuestions(sectionIndex, lessonIndex, questions);
+      setImportMessage({ type: 'success', text: `Đã thêm ${questions.length} câu hỏi từ ${file.name} cho bài học.` });
+    } catch {
+      setImportMessage({ type: 'error', text: 'Không thể đọc file Excel bài tập. Hãy kiểm tra lại cấu trúc file.' });
+    }
+  }
+
   function handleDraftLessonAsset(sectionIndex, lessonIndex, type, file) {
     if (!file) return;
     const isAudio = type === 'audio';
@@ -1609,6 +1732,39 @@ export function TeacherDashboardPage() {
                     </div>
 
                     <div className="lesson-question-editor">
+                      <div className="lesson-question-editor__toolbar">
+                        <div>
+                          <span className="eyebrow">Bài vận dụng dưới video</span>
+                          <strong>
+                            {(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).length} câu
+                          </strong>
+                        </div>
+                        <div className="lesson-question-editor__actions">
+                          <label className="button-ghost video-question-file-button">
+                            Nhập Excel
+                            <input
+                              type="file"
+                              accept=".xls,.xlsx"
+                              onChange={(event) => {
+                                void handleDraftLessonQuestionFile(
+                                  selectedDraftLesson.sectionIndex,
+                                  selectedDraftLesson.lessonIndex,
+                                  event.target.files?.[0]
+                                );
+                                event.target.value = '';
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="button-ghost"
+                            onClick={() => addDraftLessonQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex)}
+                          >
+                            Thêm thủ công
+                          </button>
+                        </div>
+                      </div>
+
                       {(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).map(
                         (question, questionIndex) => (
                           <article key={question.id || `${selectedDraftLesson.id}-q-${questionIndex}`} className="lesson-question-editor__item">
@@ -1633,6 +1789,19 @@ export function TeacherDashboardPage() {
                                   ))}
                                 </select>
                               </label>
+                              <button
+                                type="button"
+                                className="button-ghost video-question-card__delete"
+                                onClick={() =>
+                                  deleteDraftQuestion(
+                                    selectedDraftLesson.sectionIndex,
+                                    selectedDraftLesson.lessonIndex,
+                                    questionIndex
+                                  )
+                                }
+                              >
+                                Xóa câu
+                              </button>
                             </div>
 
                             <label className="auth-field auth-field--full">

@@ -21,6 +21,7 @@ import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { parseExcelQuestionFile } from '../lib/excelCourseParser';
 import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 
 const fallbackLessons = [
@@ -676,11 +677,13 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
   );
   const [pasteText, setPasteText] = useState('');
   const [pasteStatus, setPasteStatus] = useState('');
+  const [importStatus, setImportStatus] = useState('');
 
   useEffect(() => {
     setDraftQuestions((lesson?.exercises || []).map(normalizeVideoQuestionDraft));
     setPasteText('');
     setPasteStatus('');
+    setImportStatus('');
   }, [lesson?.id, lessonQuestionsKey]);
 
   function updateQuestion(questionId, patch) {
@@ -770,6 +773,41 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
     setPasteStatus(`Đã thêm ${parsedQuestions.length} câu hỏi từ nội dung dán.`);
   }
 
+  async function handleExcelQuestionsFile(file) {
+    if (!file) return;
+    setImportStatus('');
+
+    try {
+      if (!/\.(xls|xlsx)$/i.test(file.name)) {
+        setImportStatus('Vui lÃ²ng chá»n file Excel .xls hoáº·c .xlsx.');
+        return;
+      }
+
+      const parsedQuestions = await parseExcelQuestionFile(file);
+
+      if (!parsedQuestions.length) {
+        setImportStatus('File Excel chÆ°a cÃ³ cÃ¢u há»i há»£p lá»‡. DÃ¹ng cá»™t CÃ¢u há»i, A, B, C, D, ÄÃ¡p Ã¡n, Giáº£i thÃ­ch.');
+        return;
+      }
+
+      const nextQuestions = parsedQuestions.map((question, index) =>
+        normalizeVideoQuestionDraft(
+          {
+            ...question,
+            id: `video-question-excel-${Date.now()}-${index}`,
+            explanation: question.explanation || question.note || ''
+          },
+          index
+        )
+      );
+
+      setDraftQuestions((previous) => [...previous, ...nextQuestions]);
+      setImportStatus(`ÄÃ£ thÃªm ${nextQuestions.length} cÃ¢u há»i tá»« ${file.name}.`);
+    } catch {
+      setImportStatus('KhÃ´ng thá»ƒ Ä‘á»c file Excel. HÃ£y kiá»ƒm tra láº¡i cáº¥u trÃºc file.');
+    }
+  }
+
   function handleSave() {
     const nextQuestions = prepareVideoQuestionsForSave(draftQuestions);
     setDraftQuestions(nextQuestions.map(normalizeVideoQuestionDraft));
@@ -785,6 +823,17 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
           <p>Giảng viên có thể thêm, dán, sửa hoặc xóa toàn bộ câu hỏi. Khi lưu, dữ liệu được cập nhật vào Supabase cho riêng bài học hiện tại.</p>
         </div>
         <div className="video-question-panel__toolbar">
+          <label className="button-ghost video-question-file-button">
+            Nháº­p Excel
+            <input
+              type="file"
+              accept=".xls,.xlsx"
+              onChange={(event) => {
+                void handleExcelQuestionsFile(event.target.files?.[0]);
+                event.target.value = '';
+              }}
+            />
+          </label>
           <button type="button" className="button-ghost" onClick={addQuestion}>
             Thêm câu hỏi
           </button>
@@ -814,6 +863,7 @@ Giải thích: Hello nghĩa là xin chào.`}
           Tách câu hỏi từ nội dung dán
         </button>
         {pasteStatus ? <div className="exercise-feedback">{pasteStatus}</div> : null}
+        {importStatus ? <div className="exercise-feedback">{importStatus}</div> : null}
       </div>
 
       {draftQuestions.length ? (
@@ -2139,12 +2189,12 @@ export default function LearningPage() {
                 </section>
               ) : null}
 
-              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} />
-
               <div className="learning-lesson-title-row">
                 <h1>{currentLesson.title}</h1>
                 {currentLesson.note ? <p>{currentLesson.note}</p> : null}
               </div>
+
+              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} />
 
               {isTeacher ? (
                 <VideoQuestionEditor

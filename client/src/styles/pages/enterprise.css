@@ -2286,11 +2286,20 @@ textarea:focus-visible {
 
 .video-question-panel__toolbar .button,
 .video-question-panel__toolbar .button-ghost,
+.video-question-file-button,
 .video-question-panel__paste .button-ghost,
 .video-question-options__head .button-ghost {
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px !important;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.video-question-file-button input {
+  display: none;
 }
 
 .video-question-panel__paste {
@@ -2305,6 +2314,39 @@ textarea:focus-visible {
 .video-question-list {
   display: grid;
   gap: 14px;
+}
+
+.lesson-question-editor__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.lesson-question-editor__toolbar > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.lesson-question-editor__toolbar strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.lesson-question-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lesson-question-editor__actions .button-ghost,
+.lesson-question-editor__actions .video-question-file-button {
+  min-height: 40px;
 }
 
 .video-question-card {
@@ -2465,9 +2507,19 @@ textarea:focus-visible {
 
   .video-question-panel__toolbar .button,
   .video-question-panel__toolbar .button-ghost,
+  .video-question-file-button,
   .video-question-panel__paste .button-ghost,
   .video-question-options__head .button-ghost {
     width: 100%;
+  }
+
+  .lesson-question-editor__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lesson-question-editor__actions {
+    justify-content: stretch;
   }
 
   .video-question-option {
