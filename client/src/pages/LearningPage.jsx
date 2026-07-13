@@ -1617,7 +1617,7 @@ export default function LearningPage() {
     setTeacherSaving(true);
 
     try {
-      await createAssignment({
+      const createdId = await createAssignment({
         teacherId: auth.user.id,
         accessToken: auth.session?.access_token,
         assignment: {
@@ -1650,8 +1650,7 @@ export default function LearningPage() {
         recipients
       });
 
-      const nextTeacherAssignments = await getAssignmentsForTeacher(auth.user.id);
-      setTeacherAssignments(nextTeacherAssignments);
+      // Hiện thông báo thành công ngay khi server trả về id
       setTeacherSaveStatus({
         type: 'success',
         text:
@@ -1659,6 +1658,14 @@ export default function LearningPage() {
             ? 'Đã giao bài cho học viên đã mua khóa.'
             : `Đã giao bài cho ${recipients.length} học sinh được chọn.`
       });
+
+      // Load lại danh sách giao bài ở background; lỗi ở bước này không ghi đè thông báo thành công
+      try {
+        const nextTeacherAssignments = await getAssignmentsForTeacher(auth.user.id);
+        setTeacherAssignments(nextTeacherAssignments);
+      } catch (err) {
+        console.warn('Không thể load lại danh sách giao bài:', err?.message || err);
+      }
     } catch (submissionError) {
       setTeacherSaveStatus({
         type: 'error',
