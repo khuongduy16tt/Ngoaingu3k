@@ -166,16 +166,20 @@ function parseLessonContent(content) {
 
 function normalizeRemoteLesson(lesson) {
   const metadata = parseLessonContent(lesson.content);
-  const exercises = getLessonExercises(metadata);
-  const questionCount = Number(metadata.questionCount ?? exercises.length ?? 0);
+  const metadataExercises = getLessonExercises(metadata);
+  const directExercises = getLessonExercises(lesson);
+  const exercises = metadataExercises.length ? metadataExercises : directExercises;
+  const questionCount = Number(
+    metadata.questionCount ?? lesson.questionCount ?? exercises.length ?? 0
+  );
 
   return {
     id: lesson.id,
-    databaseId: lesson.id,
+    databaseId: lesson.databaseId || lesson.id,
     title: lesson.title,
     position: lesson.position,
-    status: lesson.is_preview ? 'active' : undefined,
-    videoUrl: lesson.video_url || metadata.videoUrl || metadata.videoEmbedUrl || '',
+    status: lesson.is_preview ? 'active' : lesson.status,
+    videoUrl: lesson.video_url || lesson.videoUrl || metadata.videoUrl || metadata.videoEmbedUrl || '',
     videoTitle: metadata.videoTitle || lesson.title,
     lessonNumber: metadata.lessonNumber || String(lesson.position || ''),
     exerciseType: metadata.exerciseType || metadata.type || 'Bài học',
@@ -188,6 +192,35 @@ function normalizeRemoteLesson(lesson) {
     imageUrl: metadata.imageUrl || '',
     exercises
   };
+}
+
+function normalizeRemoteSections(sections = []) {
+  return (Array.isArray(sections) ? sections : []).map((section) => ({
+    title: section.title || 'Nội dung khóa học',
+    lessons: (Array.isArray(section.lessons) ? section.lessons : []).map(normalizeRemoteLesson)
+  }));
+}
+
+async function getCourseBySlugFromApi(courseSlug) {
+  try {
+    const response = await apiFetch(`/api/courses/${encodeURIComponent(courseSlug)}`);
+    const remoteCourse = response?.data;
+
+    if (!remoteCourse || typeof remoteCourse !== 'object') {
+      return null;
+    }
+
+    const normalizedCourse = normalizeCourse(remoteCourse);
+
+    return {
+      ...normalizedCourse,
+      hero: normalizedCourse.hero || defaultHero(normalizedCourse),
+      sections: normalizeRemoteSections(remoteCourse.sections)
+    };
+  } catch (error) {
+    console.warn('[getCourseBySlugFromApi]', error.message);
+    return null;
+  }
 }
 
 function getTeacherIdForCourseStorage(teacherId) {
@@ -537,16 +570,37 @@ export async function getCourseBySlug(courseSlug) {
 
   const localTeacherCourses = readAllTeacherManagedCourses();
   const localCourse = localTeacherCourses.find((course) => course.id === courseSlug || course.slug === courseSlug || course.databaseId === courseSlug);
+  let normalizedLocalCourse = null;
   if (localCourse) {
-    const normalizedCourse = normalizeCourse(localCourse);
-    return {
-      ...normalizedCourse,
-      hero: normalizedCourse.hero || defaultHero(normalizedCourse),
-      sections: Array.isArray(normalizedCourse.sections) ? normalizedCourse.sections : []
+    const baseLocalCourse = normalizeCourse(localCourse);
+    const normalizedCourse = {
+      ...baseLocalCourse,
+      hero: baseLocalCourse.hero || defaultHero(baseLocalCourse),
+      sections: Array.isArray(localCourse.sections) ? localCourse.sections : []
     };
+    const localLessonCount = normalizedCourse.sections.reduce(
+      (count, section) => count + ((Array.isArray(section.lessons) ? section.lessons.length : 0) || 0),
+      0
+    );
+
+    normalizedLocalCourse = normalizedCourse;
+
+    if (localLessonCount > 0) {
+      return {
+        ...normalizedCourse,
+        sections: normalizeRemoteSections(normalizedCourse.sections)
+      };
+    }
   }
 
   if (!isSupabaseReady()) {
+    if (normalizedLocalCourse) {
+      return {
+        ...normalizedLocalCourse,
+        sections: normalizeRemoteSections(normalizedLocalCourse.sections)
+      };
+    }
+
     const fallbackCourse =
       mockCourses.find((course) => course.id === courseSlug || course.slug === courseSlug) || mockCourses[0];
     const normalizedFallback = normalizeCourse(fallbackCourse);
@@ -556,6 +610,11 @@ export async function getCourseBySlug(courseSlug) {
       hero: normalizedFallback.hero || defaultHero(normalizedFallback),
       sections: createFallbackSections()
     };
+  }
+
+  const apiCourse = await getCourseBySlugFromApi(courseSlug);
+  if (apiCourse) {
+    return apiCourse;
   }
 
   let courseQuery = supabase
@@ -600,10 +659,10 @@ export async function getCourseBySlug(courseSlug) {
       });
     }
 
-    normalizedChapters = chapters.map((chapter) => ({
+    normalizedChapters = normalizeRemoteSections(chapters.map((chapter) => ({
       title: chapter.title,
       lessons: lessonsByChapter.get(chapter.id) || []
-    }));
+    })));
   }
 
   return {
