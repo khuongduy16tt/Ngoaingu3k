@@ -10,6 +10,7 @@ import authRouter from './routes/auth.js';
 import progressRouter from './routes/progress.js';
 import paymentsRouter from './routes/payments.js';
 import adminRouter from './routes/admin.js';
+import assignmentsRouter from './routes/assignments.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +34,7 @@ function registerApiRoutes(app) {
   app.use('/api/students', progressRouter);
   app.use('/api/payments', paymentsRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/assignments', assignmentsRouter);
 
   app.use('/api', (_request, response) => {
     response.status(404).json({ message: 'API route không tồn tại.' });

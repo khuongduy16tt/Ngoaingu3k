@@ -1,5 +1,6 @@
 import { getStoredPurchasedCourseIds, readAllTeacherManagedCourses, readTeacherManagedCourses } from './courseService';
 import { isSupabaseReady, supabase } from './supabase';
+import { apiFetch } from './api';
 
 export const assignmentFallbackCourses = [
   { key: 'english-foundation', title: 'Tiếng Anh nền tảng A1-A2' },
@@ -185,7 +186,14 @@ export async function getAssignmentsForStudent(studentEmail, ownedCourseIds = ge
     .filter((assignment) => isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet));
 }
 
-export async function createAssignment({ teacherId, assignment, recipients }) {
+export async function createAssignment({ teacherId, assignment, recipients, accessToken } = {}) {
+  // Nếu có accessToken (người dùng đã xác thực), gọi endpoint server dùng service role
+  if (accessToken) {
+    const payload = { teacherId, assignment, recipients };
+    const result = await apiFetch('/api/assignments', { method: 'POST', token: accessToken, body: payload });
+    return result?.id;
+  }
+
   if (!isSupabaseReady() || !teacherId) {
     throw new Error('Hệ thống chưa sẵn sàng.');
   }

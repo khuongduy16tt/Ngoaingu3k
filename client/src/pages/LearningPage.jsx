@@ -1619,6 +1619,7 @@ export default function LearningPage() {
     try {
       await createAssignment({
         teacherId: auth.user.id,
+        accessToken: auth.session?.access_token,
         assignment: {
           courseKey: teacherDraft.courseKey,
           courseTitle: teacherDraft.courseTitle,
