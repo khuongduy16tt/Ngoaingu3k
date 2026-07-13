@@ -56,6 +56,12 @@ const storageKeys = {
   purchasedCourses: PURCHASED_COURSES_STORAGE_KEY
 };
 
+const learningRoomCachePrefix = 'learning-room-cache-v1';
+
+function getLearningRoomCacheKey(courseKey = 'default', scope = 'global') {
+  return `${learningRoomCachePrefix}:${String(scope || 'global').toLowerCase()}:${String(courseKey || 'default').toLowerCase()}`;
+}
+
 function readStoredJson(key, fallback) {
   try {
     const value = localStorage.getItem(key);
@@ -69,6 +75,28 @@ function readStoredJson(key, fallback) {
 function writeStoredJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function readLearningRoomCache(courseKey, scope = 'global') {
+  try {
+    const rawValue = localStorage.getItem(getLearningRoomCacheKey(courseKey, scope));
+    if (!rawValue) return null;
+    const parsedValue = JSON.parse(rawValue);
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLearningRoomCache(courseKey, scope = 'global', snapshot) {
+  try {
+    localStorage.setItem(getLearningRoomCacheKey(courseKey, scope), JSON.stringify({
+      ...snapshot,
+      savedAt: new Date().toISOString()
+    }));
   } catch {
     // ignore storage failures
   }
@@ -1078,15 +1106,17 @@ export default function LearningPage() {
   const currentEmail = auth.user?.email || '';
   const routeCourseKey = courseId || '';
   const courseOptions = useMemo(() => getCourseOptions(), []);
+  const learningRoomScope = `${auth.user?.id || 'anon'}:${currentRole || 'roleless'}`;
+  const cachedRoomState = readLearningRoomCache(routeCourseKey, learningRoomScope);
 
-  const [currentCourse, setCurrentCourse] = useState(null);
-  const [lessons, setLessons] = useState([]);
-  const [selectedLessonId, setSelectedLessonId] = useState(lessonId || '');
-  const [loadingCourse, setLoadingCourse] = useState(true);
+  const [currentCourse, setCurrentCourse] = useState(() => cachedRoomState?.currentCourse || null);
+  const [lessons, setLessons] = useState(() => cachedRoomState?.lessons || []);
+  const [selectedLessonId, setSelectedLessonId] = useState(() => cachedRoomState?.selectedLessonId || lessonId || '');
+  const [loadingCourse, setLoadingCourse] = useState(() => !cachedRoomState);
   const [audioMap, setAudioMap] = useState(() => readStoredJson(storageKeys.audioByLesson, {}));
   const [fileMap, setFileMap] = useState(() => readStoredJson(storageKeys.filesByLesson, {}));
   const [purchasedCourses, setPurchasedCourses] = useState(() => readStoredJson(storageKeys.purchasedCourses, []));
-  const [availableCourses, setAvailableCourses] = useState([]);
+  const [availableCourses, setAvailableCourses] = useState(() => cachedRoomState?.availableCourses || []);
   const [teacherAssignments, setTeacherAssignments] = useState([]);
   const [studentAssignments, setStudentAssignments] = useState([]);
   const [assignmentAttempts, setAssignmentAttempts] = useState({});
@@ -1119,6 +1149,29 @@ export default function LearningPage() {
   }, [purchasedCourses]);
 
   useEffect(() => {
+    const nextCachedRoomState = readLearningRoomCache(routeCourseKey, learningRoomScope);
+
+    if (nextCachedRoomState) {
+      if (nextCachedRoomState.currentCourse) {
+        setCurrentCourse(nextCachedRoomState.currentCourse);
+      }
+      setLessons(Array.isArray(nextCachedRoomState.lessons) ? nextCachedRoomState.lessons : []);
+      setAvailableCourses(Array.isArray(nextCachedRoomState.availableCourses) ? nextCachedRoomState.availableCourses : []);
+      setSelectedLessonId(
+        nextCachedRoomState.selectedLessonId || lessonId || nextCachedRoomState.lessons?.[0]?.id || ''
+      );
+      setLoadingCourse(false);
+      return;
+    }
+
+    setCurrentCourse(null);
+    setLessons([]);
+    setAvailableCourses([]);
+    setSelectedLessonId(lessonId || '');
+    setLoadingCourse(true);
+  }, [lessonId, learningRoomScope, routeCourseKey]);
+
+  useEffect(() => {
     if (!auth.ready) {
       return undefined;
     }
@@ -1126,18 +1179,23 @@ export default function LearningPage() {
     let active = true;
 
     async function loadCourse() {
-      setLoadingCourse(true);
+      const nextCachedRoomState = readLearningRoomCache(routeCourseKey, learningRoomScope);
+      if (!nextCachedRoomState) {
+        setLoadingCourse(true);
+      }
 
       try {
         const canBrowseAllCourses = currentRole === 'teacher' || currentRole === 'admin';
-        const catalog = await getCourseCatalog();
+        const [catalog, routeCourse] = await Promise.all([
+          getCourseCatalog(),
+          routeCourseKey ? getCourseBySlug(routeCourseKey) : Promise.resolve(null)
+        ]);
         const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, catalog);
         const ownedCourseKeySet = new Set(nextOwnedCourseIds.map((courseKey) => String(courseKey).toLowerCase()));
         const ownedCourses = catalog.filter((course) =>
           getCourseAccessKeys(course).some((courseKey) => ownedCourseKeySet.has(courseKey))
         );
         const accessibleCourses = canBrowseAllCourses ? catalog : ownedCourses;
-        const routeCourse = routeCourseKey ? await getCourseBySlug(routeCourseKey) : null;
         const fallbackCourse = accessibleCourses[0] || (canBrowseAllCourses ? catalog[0] : null);
         const fallbackCourseKey = getCourseRouteKey(fallbackCourse);
         const nextCourse =
@@ -1160,9 +1218,24 @@ export default function LearningPage() {
               return previousLessonId;
             }
 
+            if (nextCachedRoomState?.selectedLessonId && nextLessons.some((lesson) => lesson.id === nextCachedRoomState.selectedLessonId)) {
+              return nextCachedRoomState.selectedLessonId;
+            }
+
             return nextLessons.find((lesson) => lesson.status === 'active')?.id || nextLessons[0]?.id || '';
           });
           setPurchasedCourses(nextOwnedCourseIds);
+          writeLearningRoomCache(routeCourseKey, learningRoomScope, {
+            currentCourse: nextCourse,
+            lessons: nextLessons,
+            selectedLessonId:
+              lessonId && nextLessons.some((lesson) => lesson.id === lessonId)
+                ? lessonId
+                : nextCachedRoomState?.selectedLessonId && nextLessons.some((lesson) => lesson.id === nextCachedRoomState.selectedLessonId)
+                  ? nextCachedRoomState.selectedLessonId
+                  : nextLessons.find((lesson) => lesson.status === 'active')?.id || nextLessons[0]?.id || '',
+            availableCourses: accessibleCourses
+          });
           if (nextCourse) {
             setTeacherDraft((previous) => ({
               ...previous,
@@ -1173,11 +1246,13 @@ export default function LearningPage() {
         }
       } catch {
         if (active) {
-          setCurrentCourse(null);
-          setLessons([]);
-          setSelectedLessonId('');
-          setPurchasedCourses([]);
-          setAvailableCourses([]);
+          if (!nextCachedRoomState) {
+            setCurrentCourse(null);
+            setLessons([]);
+            setSelectedLessonId('');
+            setPurchasedCourses([]);
+            setAvailableCourses([]);
+          }
         }
       } finally {
         if (active) {
@@ -1191,7 +1266,20 @@ export default function LearningPage() {
     return () => {
       active = false;
     };
-  }, [auth.ready, auth.user?.id, currentRole, routeCourseKey]);
+  }, [auth.ready, auth.user?.id, currentRole, learningRoomScope, routeCourseKey]);
+
+  useEffect(() => {
+    if (!routeCourseKey || loadingCourse || !currentCourse) {
+      return;
+    }
+
+    writeLearningRoomCache(routeCourseKey, learningRoomScope, {
+      currentCourse,
+      lessons,
+      selectedLessonId,
+      availableCourses
+    });
+  }, [availableCourses, currentCourse, lessons, learningRoomScope, loadingCourse, routeCourseKey, selectedLessonId]);
 
   useEffect(() => {
     if (!lessons.length) {
