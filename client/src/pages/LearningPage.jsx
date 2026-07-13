@@ -1160,15 +1160,7 @@ export default function LearningPage() {
       setSelectedLessonId(
         nextCachedRoomState.selectedLessonId || lessonId || nextCachedRoomState.lessons?.[0]?.id || ''
       );
-      setLoadingCourse(false);
-      return;
     }
-
-    setCurrentCourse(null);
-    setLessons([]);
-    setAvailableCourses([]);
-    setSelectedLessonId(lessonId || '');
-    setLoadingCourse(true);
   }, [lessonId, learningRoomScope, routeCourseKey]);
 
   useEffect(() => {
@@ -1827,7 +1819,9 @@ export default function LearningPage() {
     }
   }
 
-  if (!auth.ready || loadingCourse) {
+  const showBlockingLoading = loadingCourse && !currentCourse;
+
+  if (!auth.ready || showBlockingLoading) {
     return <LearningEmptyState isTeacher={isTeacher} loading />;
   }
 
