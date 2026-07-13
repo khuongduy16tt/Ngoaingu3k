@@ -98,7 +98,7 @@ export default function CoursesPage() {
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [confirmingOrderId, setConfirmingOrderId] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState({ courseId: '', text: '' });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [coursePageSize, setCoursePageSize] = useState(6);
 
@@ -190,7 +190,7 @@ export default function CoursesPage() {
       return;
     }
 
-    setFeedback('');
+    setFeedback({ courseId: '', text: '' });
     setPurchasingCourseId(course.id);
 
     try {
@@ -206,13 +206,14 @@ export default function CoursesPage() {
       if (result.requiresPayment && result.order) {
         setPaymentScreenOpen(true);
       }
-      setFeedback(
-        result.requiresPayment
+      setFeedback({
+        courseId: course.id,
+        text: result.requiresPayment
           ? `Đã tạo yêu cầu thanh toán cho ${course.title}. Vui lòng quét QR và bấm xác nhận sau khi chuyển khoản.`
           : `${course.title} đã được ghi nhận.`
-      );
+      });
     } catch (error) {
-      setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
+      setFeedback({ courseId: course.id, text: error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.' });
     } finally {
       setPurchasingCourseId('');
     }
@@ -221,7 +222,7 @@ export default function CoursesPage() {
   async function handleConfirmPayment() {
     if (!activePaymentOrder) return;
 
-    setFeedback('');
+    setFeedback({ courseId: '', text: '' });
     setConfirmingOrderId(activePaymentOrder.id);
 
     try {
@@ -231,9 +232,15 @@ export default function CoursesPage() {
       });
       setActivePaymentOrder(nextOrder);
       setPaymentScreenOpen(true);
-      setFeedback('Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.');
+      setFeedback({
+        courseId: activePaymentOrder.localCourseId || activePaymentOrder.courseId || '',
+        text: 'Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.'
+      });
     } catch (error) {
-      setFeedback(error?.message || 'Chưa thể gửi xác nhận thanh toán.');
+      setFeedback({
+        courseId: activePaymentOrder.localCourseId || activePaymentOrder.courseId || '',
+        text: error?.message || 'Chưa thể gửi xác nhận thanh toán.'
+      });
     } finally {
       setConfirmingOrderId('');
     }
@@ -288,13 +295,6 @@ export default function CoursesPage() {
           <MarketplaceStat label="Nhóm" value={categories.length - 1 || 0} note="năng lực" />
         </div>
       </section>
-
-      {feedback ? (
-        <section className="content-card content-card--enterprise marketplace-feedback">
-          <strong>Cập nhật danh mục</strong>
-          <p>{feedback}</p>
-        </section>
-      ) : null}
 
       <section className={`catalog-layout marketplace-layout ${filtersOpen ? 'marketplace-layout--filters-open' : 'marketplace-layout--filters-closed'}`}>
         <aside
@@ -572,6 +572,12 @@ export default function CoursesPage() {
                           )}
                         </div>
                       </div>
+
+                      {feedback.text && feedback.courseId === course.id ? (
+                        <div className="inline-feedback marketplace-card__feedback">
+                          {feedback.text}
+                        </div>
+                      ) : null}
                     </div>
                   </article>
                 );

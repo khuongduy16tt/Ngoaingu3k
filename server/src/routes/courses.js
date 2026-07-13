@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomUUID } from 'crypto';
 import { supabaseAdmin, isSupabaseAdminReady } from '../config/supabase.js';
 import { mockCourses } from '../data/mock.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
@@ -47,8 +48,10 @@ function buildLessonContent(lesson, position) {
       ? lesson.questions
       : [];
 
-  return JSON.stringify({
+  return {
     version: LESSON_CONTENT_VERSION,
+    videoUrl: lesson?.videoUrl || lesson?.video_url || '',
+    videoEmbedUrl: lesson?.videoEmbedUrl || '',
     note: lesson?.note || '',
     lessonNumber: lesson?.lessonNumber || String(position),
     exerciseType: lesson?.exerciseType || lesson?.type || 'Bài học',
@@ -60,7 +63,7 @@ function buildLessonContent(lesson, position) {
     imageName: lesson?.imageName || '',
     imageUrl: lesson?.imageUrl || '',
     exercises
-  });
+  };
 }
 
 function parseLessonContent(content) {
@@ -68,8 +71,19 @@ function parseLessonContent(content) {
     return {};
   }
 
+  if (typeof content === 'object') {
+    return content;
+  }
+
+  if (typeof content !== 'string') {
+    return {};
+  }
+
   try {
     const parsed = JSON.parse(content);
+    if (typeof parsed === 'string') {
+      return parseLessonContent(parsed);
+    }
     return parsed && typeof parsed === 'object' ? parsed : { content };
   } catch {
     return { content };
@@ -147,6 +161,41 @@ function normalizeLessonRecord(savedLesson, draftLesson, position) {
   };
 }
 
+function shouldRetrySerializedContent(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return Boolean(message && (message.includes('content') || message.includes('json') || message.includes('text')));
+}
+
+async function writeLessonPayloads(payloads) {
+  const selectColumns = 'id, chapter_id, title, video_url, content, position, is_preview, created_at';
+  const writePayload = async (nextPayloads) => {
+    if (!nextPayloads.length) {
+      return { data: [], error: null };
+    }
+
+    return supabaseAdmin
+      .from('lessons')
+      .upsert(nextPayloads, { onConflict: 'id' })
+      .select(selectColumns)
+      .order('position', { ascending: true });
+  };
+
+  let result = await writePayload(payloads);
+
+  if (result.error && payloads.some((payload) => typeof payload.content !== 'string') && shouldRetrySerializedContent(result.error)) {
+    result = await writePayload(payloads.map((payload) => ({
+      ...payload,
+      content: typeof payload.content === 'string' ? payload.content : JSON.stringify(payload.content)
+    })));
+  }
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data || [];
+}
+
 async function saveCourseRecord(course, user) {
   const teacherId = user.id;
   const localCourseId = course?.databaseId || course?.id;
@@ -211,6 +260,7 @@ async function saveCourseRecord(course, user) {
 }
 
 async function syncChapterLessons(chapterId, lessons = []) {
+  const safeLessons = Array.isArray(lessons) ? lessons : [];
   const { data: existingLessons, error: existingError } = await supabaseAdmin
     .from('lessons')
     .select('id, position')
@@ -224,34 +274,36 @@ async function syncChapterLessons(chapterId, lessons = []) {
   const existingByPosition = new Map((existingLessons || []).map((lesson) => [Number(lesson.position), lesson]));
   const touchedLessonIds = new Set();
   const syncedLessons = [];
-
-  for (const [lessonIndex, lesson] of lessons.entries()) {
+  const lessonDraftRows = safeLessons.map((lesson, lessonIndex) => {
     const position = lessonIndex + 1;
     const draftLessonId = lesson?.databaseId || lesson?.id;
     const existingLessonId = isUuid(draftLessonId)
       ? draftLessonId
       : existingByPosition.get(position)?.id;
-    const payload = {
-      chapter_id: chapterId,
-      title: String(lesson?.title || `Bài ${position}`).trim(),
-      video_url: lesson?.videoUrl || lesson?.videoEmbedUrl || null,
-      content: buildLessonContent(lesson, position),
+
+    return {
+      lesson,
       position,
-      is_preview: Boolean(lesson?.isPreview ?? lesson?.is_preview ?? position === 1)
+      payload: {
+        id: existingLessonId || randomUUID(),
+        chapter_id: chapterId,
+        title: String(lesson?.title || `Bài ${position}`).trim(),
+        video_url: lesson?.videoUrl || lesson?.videoEmbedUrl || null,
+        content: buildLessonContent(lesson, position),
+        position,
+        is_preview: Boolean(lesson?.isPreview ?? lesson?.is_preview ?? position === 1)
+      }
     };
+  });
 
-    const query = existingLessonId
-      ? supabaseAdmin.from('lessons').update(payload).eq('id', existingLessonId)
-      : supabaseAdmin.from('lessons').insert(payload);
+  const savedLessons = await writeLessonPayloads(lessonDraftRows.map(({ payload }) => payload));
+  const savedById = new Map(savedLessons.map((lesson) => [lesson.id, lesson]));
 
-    const { data: savedLesson, error } = await query
-      .select('id, chapter_id, title, video_url, content, position, is_preview, created_at')
-      .single();
-
-    if (error) {
-      throw error;
+  for (const { lesson, position, payload } of lessonDraftRows) {
+    const savedLesson = savedById.get(payload.id);
+    if (!savedLesson) {
+      throw new Error(`Không thể đồng bộ bài học vị trí ${position}.`);
     }
-
     touchedLessonIds.add(savedLesson.id);
     syncedLessons.push(normalizeLessonRecord(savedLesson, lesson, position));
   }
@@ -476,28 +528,37 @@ router.patch('/lessons/:lessonId/questions', requireAuth, requireRole('teacher',
       .map(normalizeLessonQuestion)
       .filter((question) => question.prompt);
     const metadata = parseLessonContent(lesson.content);
-    const nextContent = JSON.stringify({
+    const nextContent = {
       ...metadata,
       version: LESSON_CONTENT_VERSION,
       questionCount: questions.length,
       exerciseType: metadata.exerciseType || 'Bài luyện video',
       exercises: questions
-    });
+    };
 
-    const { data: updatedLesson, error: updateError } = await supabaseAdmin
+    let updateResult = await supabaseAdmin
       .from('lessons')
       .update({ content: nextContent })
       .eq('id', lessonId)
       .select('id, title, content')
       .single();
 
-    if (updateError) {
-      throw updateError;
+    if (updateResult.error && shouldRetrySerializedContent(updateResult.error)) {
+      updateResult = await supabaseAdmin
+        .from('lessons')
+        .update({ content: JSON.stringify(nextContent) })
+        .eq('id', lessonId)
+        .select('id, title, content')
+        .single();
+    }
+
+    if (updateResult.error) {
+      throw updateResult.error;
     }
 
     return res.json({
       data: {
-        lessonId: updatedLesson.id,
+        lessonId: updateResult.data.id,
         questions,
         questionCount: questions.length
       },

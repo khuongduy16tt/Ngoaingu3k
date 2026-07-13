@@ -228,6 +228,44 @@ function normalizeCourse(course) {
   };
 }
 
+function formatLessonContentForAdmin(content) {
+  if (!content) {
+    return '';
+  }
+
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (typeof content === 'object') {
+    if (typeof content.note === 'string' && content.note.trim()) {
+      return content.note;
+    }
+
+    if (typeof content.content === 'string') {
+      return content.content;
+    }
+
+    return JSON.stringify(content, null, 2);
+  }
+
+  return String(content);
+}
+
+function buildLessonContentPayload(content) {
+  const value = String(content || '').trim();
+  if (!value) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : { content: value };
+  } catch {
+    return { content: value };
+  }
+}
+
 function normalizeLesson(lesson, chapterLookup = new Map()) {
   const chapter = chapterLookup.get(lesson.chapter_id || lesson.chapterId) || {};
 
@@ -238,7 +276,7 @@ function normalizeLesson(lesson, chapterLookup = new Map()) {
     chapterId: lesson.chapter_id || lesson.chapterId || '',
     chapterTitle: chapter.title || lesson.chapterTitle || '',
     title: lesson.title || 'Bài học chưa đặt tên',
-    content: lesson.content || '',
+    content: formatLessonContentForAdmin(lesson.content),
     videoUrl: lesson.video_url || lesson.videoUrl || '',
     position: Number(lesson.position || 0),
     isPreview: Boolean(lesson.is_preview ?? lesson.isPreview),
@@ -564,7 +602,7 @@ export async function saveAdminLesson(lesson) {
       .update({
         title: nextLesson.title,
         video_url: nextLesson.videoUrl || null,
-        content: nextLesson.content,
+        content: buildLessonContentPayload(nextLesson.content),
         position: nextLesson.position,
         is_preview: nextLesson.isPreview
       })
@@ -581,7 +619,7 @@ export async function saveAdminLesson(lesson) {
         chapter_id: chapterId,
         title: nextLesson.title,
         video_url: nextLesson.videoUrl || null,
-        content: nextLesson.content,
+        content: buildLessonContentPayload(nextLesson.content),
         position: nextLesson.position,
         is_preview: nextLesson.isPreview
       })

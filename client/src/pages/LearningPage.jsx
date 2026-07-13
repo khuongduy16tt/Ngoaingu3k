@@ -22,7 +22,7 @@ import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { parseExcelQuestionFile } from '../lib/excelCourseParser';
-import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
+import { getEmbeddableVideoUrl, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 
 const fallbackLessons = [
   { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
@@ -474,7 +474,6 @@ function LessonVideoPlayer({ lesson, isTeacher }) {
   const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
   const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
   const videoIssue = getVideoEmbedIssue(rawVideoUrl);
-  const videoAccessHint = getVideoAccessHint(rawVideoUrl);
 
   if (!videoUrl) {
     return (
@@ -510,17 +509,6 @@ function LessonVideoPlayer({ lesson, isTeacher }) {
         </div>
         <span className="pill">{getVideoSourceLabel(rawVideoUrl)}</span>
       </div>
-      {videoAccessHint ? (
-        <div className="lesson-video-panel__notice">
-          <div>
-            <strong>Video Google Drive</strong>
-            <p>{videoAccessHint}</p>
-          </div>
-          <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
-            Mở link gốc
-          </a>
-        </div>
-      ) : null}
       <div className="lesson-video-panel__frame">
         <iframe
           src={videoUrl}

@@ -204,6 +204,12 @@ export default function CourseDetailPage() {
           <Link className="button-ghost" to="/courses">
             Quay lại danh mục
           </Link>
+
+          {feedback ? (
+            <div className="inline-feedback course-detail__feedback">
+              {feedback}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -215,13 +221,6 @@ export default function CourseDetailPage() {
         open={paymentScreenOpen}
         onClose={() => setPaymentScreenOpen(false)}
       />
-
-      {feedback ? (
-        <section className="content-card content-card--enterprise marketplace-feedback">
-          <strong>Cập nhật khóa học</strong>
-          <p>{feedback}</p>
-        </section>
-      ) : null}
 
       <section className="section split-layout">
         <div className="content-card content-card--enterprise">

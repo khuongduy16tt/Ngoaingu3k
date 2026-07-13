@@ -43,7 +43,7 @@ create table if not exists public.lessons (
   chapter_id uuid not null references public.chapters(id) on delete cascade,
   title text not null,
   video_url text,
-  content text,
+  content jsonb not null default '{}'::jsonb,
   position int not null default 0,
   is_preview boolean not null default false,
   created_at timestamptz not null default now()

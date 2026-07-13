@@ -145,8 +145,19 @@ function parseLessonContent(content) {
     return {};
   }
 
+  if (typeof content === 'object') {
+    return content?.version === LESSON_CONTENT_VERSION ? content : { ...content };
+  }
+
+  if (typeof content !== 'string') {
+    return {};
+  }
+
   try {
     const parsed = JSON.parse(content);
+    if (typeof parsed === 'string') {
+      return parseLessonContent(parsed);
+    }
     return parsed?.version === LESSON_CONTENT_VERSION ? parsed : { content };
   } catch {
     return { content };
@@ -164,7 +175,7 @@ function normalizeRemoteLesson(lesson) {
     title: lesson.title,
     position: lesson.position,
     status: lesson.is_preview ? 'active' : undefined,
-    videoUrl: lesson.video_url || metadata.videoUrl || '',
+    videoUrl: lesson.video_url || metadata.videoUrl || metadata.videoEmbedUrl || '',
     videoTitle: metadata.videoTitle || lesson.title,
     lessonNumber: metadata.lessonNumber || String(lesson.position || ''),
     exerciseType: metadata.exerciseType || metadata.type || 'Bài học',
@@ -263,7 +274,15 @@ export function buildCourseRecordPayload(course, options = {}) {
 }
 
 export async function saveCourseToSupabase(course, options = {}) {
+  const hasCourseLessons = Array.isArray(course?.sections) && course.sections.some(
+    (section) => Array.isArray(section?.lessons) && section.lessons.length > 0
+  );
+
   if (!isSupabaseReady()) {
+    if (hasCourseLessons) {
+      throw new Error('Supabase chưa được cấu hình nên chưa thể đăng khóa học có bài/video.');
+    }
+
     return null;
   }
 
@@ -275,6 +294,10 @@ export async function saveCourseToSupabase(course, options = {}) {
     });
 
     return response?.data || null;
+  }
+
+  if (hasCourseLessons) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để đồng bộ khóa học, video và câu hỏi lên Supabase.');
   }
 
   const payload = buildCourseRecordPayload(course, options);

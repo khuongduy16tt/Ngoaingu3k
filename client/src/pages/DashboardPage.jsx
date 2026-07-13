@@ -486,10 +486,10 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
             <div className="lesson-video-panel__notice">
               <div>
                 <strong>Video Google Drive</strong>
-                <p>{videoAccessHint}</p>
+                <p>{videoAccessHint} Nếu video vẫn trắng, hãy mở preview để kiểm tra file đã được Google xử lý xong chưa.</p>
               </div>
-              <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
-                Mở link gốc
+              <a className="button-ghost" href={videoUrl} target="_blank" rel="noreferrer">
+                Mở preview
               </a>
             </div>
           ) : null}
@@ -717,10 +717,10 @@ export function TeacherDashboardPage() {
   const hasDraftImage = draftLessons.some((lesson) => lesson.imageUrl || lesson.imageName);
   const hasDraftVideo = draftLessons.some((lesson) => lesson.videoUrl);
   const importSteps = [
-    { label: '1. Tạo bài học', done: courseDraft.sections.length > 0 },
+    { label: '1. Tạo bài học', done: draftLessons.length > 0 },
     { label: '2. Link video Drive', done: hasDraftVideo },
     { label: '3. Tài nguyên phụ', done: hasDraftAudio || hasDraftImage, optional: true },
-    { label: '4. Confirm & đăng', done: courseDraft.sections.length > 0 && courseDraft.title.trim() }
+    { label: '4. Confirm & đăng', done: draftLessons.length > 0 && courseDraft.title.trim() }
   ];
 
   useEffect(() => {
@@ -1161,7 +1161,7 @@ export function TeacherDashboardPage() {
       return;
     }
 
-    if (!courseDraft.sections.length) {
+    if (!draftLessons.length) {
       setMessage({ type: 'error', text: 'Hãy tạo bài học bằng Drive, Excel hoặc nhập thủ công trước khi đăng.' });
       return;
     }
@@ -1285,6 +1285,12 @@ export function TeacherDashboardPage() {
               </button>
             ) : null}
 
+            {message.text && !coursePublisherOpen ? (
+              <div className={`auth-message teacher-action-feedback ${message.type === 'success' ? 'auth-message--success' : ''}`}>
+                {message.text}
+              </div>
+            ) : null}
+
             <nav className="teacher-console-nav" aria-label="Teacher dashboard">
               <button type="button" className="is-active">
                 Dashboard
@@ -1375,12 +1381,6 @@ export function TeacherDashboardPage() {
             <PaginationControls {...courseStatsPagination} label="khóa học" />
           </div>
           ) : null}
-
-        {message.text ? (
-          <div className={`auth-message ${message.type === 'success' ? 'auth-message--success' : ''}`}>
-            {message.text}
-          </div>
-        ) : null}
 
         {coursePublisherOpen ? (
         <form
@@ -1883,6 +1883,12 @@ export function TeacherDashboardPage() {
           <button type="submit" className="button dashboard-submit" disabled={saving}>
             {saving ? 'Đang lưu...' : editingCourseId ? 'Cập nhật khóa học' : 'Confirm và đăng bài'}
           </button>
+
+          {message.text ? (
+            <div className={`auth-message teacher-submit-feedback ${message.type === 'success' ? 'auth-message--success' : ''}`}>
+              {message.text}
+            </div>
+          ) : null}
         </form>
         ) : null}
 
