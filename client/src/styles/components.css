@@ -966,11 +966,13 @@
 
 .content-card.today-course-strip,
 .content-card.lesson-action-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(124, 139, 255, 0.28);
+  background: linear-gradient(135deg, rgba(124, 139, 255, 0.09), rgba(72, 241, 206, 0.08));
 }
 
 .today-course-strip > div,
@@ -1003,18 +1005,21 @@
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 800;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .today-course-strip__select select {
   width: 100%;
-  min-height: 44px;
-  padding: 0 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-soft);
+  min-height: 46px;
+  padding: 0 0.9rem;
+  border: 1px solid rgba(124, 139, 255, 0.35);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
   color: var(--text);
+  font-size: 0.95rem;
   font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 @media (max-width: 980px) {

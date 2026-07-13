@@ -1375,10 +1375,6 @@ export default function LearningPage() {
   const currentCourseId = currentCourse?.id || routeCourseKey || '';
   const lessonStorageId = currentCourseId && selectedLessonId ? `${currentCourseId}:${selectedLessonId}` : '';
   const studyCourseOptions = useMemo(() => {
-    if (currentRole === 'teacher' || currentRole === 'admin') {
-      return [];
-    }
-
     const optionMap = new Map();
     availableCourses.forEach((course) => {
       const courseKey = getCourseRouteKey(course);
@@ -1395,7 +1391,7 @@ export default function LearningPage() {
     }
 
     return Array.from(optionMap.values());
-  }, [availableCourses, currentCourse, currentRole]);
+  }, [availableCourses, currentCourse]);
   const teacherCourseOptions =
     currentCourse && !courseOptions.some((course) => course.key === currentCourseId)
       ? [{ key: currentCourseId, title: currentCourse.title }, ...courseOptions]
@@ -1923,11 +1919,11 @@ export default function LearningPage() {
         </aside>
 
         <div className="learning-stage">
-          {!isTeacher && studyCourseOptions.length > 1 ? (
+          {studyCourseOptions.length > 1 ? (
             <section className="content-card content-card--enterprise today-course-strip">
               <div>
-                <span className="eyebrow">Học hôm nay</span>
-                <strong>Chọn khóa muốn học</strong>
+                <span className="eyebrow">{isTeacher ? 'Quản lý khóa học' : 'Học hôm nay'}</span>
+                <strong>{isTeacher ? 'Chọn khóa để quản lý' : 'Chọn khóa muốn học'}</strong>
               </div>
               <label className="today-course-strip__select">
                 <span>Khóa học</span>
