@@ -38,6 +38,25 @@ function isMissingAssignmentAttemptsTable(error) {
   return /lesson_assignment_attempts/i.test(error?.message || '');
 }
 
+const MOCK_ASSIGNMENTS_STORAGE_KEY = 'ngoaingu3k-mock-assignments';
+
+function readMockAssignments() {
+  try {
+    const rawValue = localStorage.getItem(MOCK_ASSIGNMENTS_STORAGE_KEY);
+    return rawValue ? JSON.parse(rawValue) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeMockAssignments(assignments = []) {
+  try {
+    localStorage.setItem(MOCK_ASSIGNMENTS_STORAGE_KEY, JSON.stringify(assignments));
+  } catch {
+    // ignore
+  }
+}
+
 function normalizeCourseIds(courseIds = []) {
   return new Set((courseIds || []).map((courseId) => String(courseId).toLowerCase()).filter(Boolean));
 }
@@ -153,7 +172,10 @@ async function selectAssignments(createQuery, includeExerciseConfig = true) {
 
 export async function getAssignmentsForTeacher(teacherId) {
   if (!isSupabaseReady() || !teacherId) {
-    return [];
+    const mockAssignments = readMockAssignments();
+    return mockAssignments
+      .filter((assignment) => assignment.teacher_id === teacherId)
+      .map(normalizeAssignment);
   }
 
   const { data, error } = await selectAssignments(
@@ -168,8 +190,14 @@ export async function getAssignmentsForTeacher(teacherId) {
 }
 
 export async function getAssignmentsForStudent(studentEmail, ownedCourseIds = getStoredPurchasedCourseIds()) {
+  const normalizedEmail = String(studentEmail || '').toLowerCase();
+  const ownedCourseIdSet = normalizeCourseIds(ownedCourseIds);
+
   if (!isSupabaseReady() || !studentEmail) {
-    return [];
+    const mockAssignments = readMockAssignments();
+    return mockAssignments
+      .map(normalizeAssignment)
+      .filter((assignment) => isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet));
   }
 
   const { data, error } = await selectAssignments((fields) => supabase.from('lesson_assignments').select(fields));
@@ -178,9 +206,6 @@ export async function getAssignmentsForStudent(studentEmail, ownedCourseIds = ge
     return [];
   }
 
-  const normalizedEmail = studentEmail.toLowerCase();
-  const ownedCourseIdSet = normalizeCourseIds(ownedCourseIds);
-
   return data
     .map(normalizeAssignment)
     .filter((assignment) => isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet));
@@ -188,14 +213,37 @@ export async function getAssignmentsForStudent(studentEmail, ownedCourseIds = ge
 
 export async function createAssignment({ teacherId, assignment, recipients, accessToken } = {}) {
   // Nếu có accessToken (người dùng đã xác thực), gọi endpoint server dùng service role
-  if (accessToken) {
+  if (accessToken && accessToken !== 'dev-token' && isSupabaseReady()) {
     const payload = { teacherId, assignment, recipients };
     const result = await apiFetch('/api/assignments', { method: 'POST', token: accessToken, body: payload });
     return result?.id;
   }
 
   if (!isSupabaseReady() || !teacherId) {
-    throw new Error('Hệ thống chưa sẵn sàng.');
+    const newId = `mock-assignment-${Date.now()}`;
+    const newAssignment = {
+      id: newId,
+      teacher_id: teacherId,
+      course_key: assignment.courseKey,
+      course_title: assignment.courseTitle,
+      lesson_title: assignment.lessonTitle,
+      title: assignment.title,
+      description: assignment.description,
+      assignment_scope: assignment.assignmentScope,
+      audio_name: assignment.audioName,
+      audio_url: assignment.audioUrl,
+      attachment_name: assignment.attachmentName,
+      attachment_url: assignment.attachmentUrl,
+      exercise_config: assignment.exerciseConfig || {},
+      created_at: new Date().toISOString(),
+      recipients: (recipients || []).map((email) => ({ student_email: email }))
+    };
+
+    const mockAssignments = readMockAssignments();
+    mockAssignments.unshift(newAssignment);
+    writeMockAssignments(mockAssignments);
+
+    return newId;
   }
 
   const payload = {

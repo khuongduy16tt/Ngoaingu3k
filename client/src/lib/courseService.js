@@ -475,9 +475,17 @@ export async function getOwnedCourseIds(userId, courses = []) {
     courses.map((course) => [course.databaseId || course.id, course.id])
   );
 
-  const remoteIds = data
-    .map((order) => courseLookup.get(order.course_id) || order.course_id)
-    .filter(Boolean);
+  const remoteIds = [];
+  data.forEach((order) => {
+    const courseId = order.course_id;
+    if (courseId) {
+      remoteIds.push(courseId);
+      const resolvedSlug = courseLookup.get(courseId);
+      if (resolvedSlug) {
+        remoteIds.push(resolvedSlug);
+      }
+    }
+  });
 
   const mergedIds = dedupeStrings([...storedIds, ...remoteIds]);
 

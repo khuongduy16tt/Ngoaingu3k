@@ -1431,11 +1431,18 @@ export default function LearningPage() {
     purchasedCourseSet.has(String(currentCourseId).toLowerCase()) ||
     purchasedCourseSet.has(String(routeCourseKey).toLowerCase());
   const allVisibleAssignments = isTeacher ? teacherAssignments : studentAssignments;
-  const visibleAssignments = allVisibleAssignments.filter(
-    (assignment) =>
-      String(assignment.courseKey).toLowerCase() === String(currentCourseId).toLowerCase() ||
-      String(assignment.courseKey).toLowerCase() === String(routeCourseKey).toLowerCase()
-  );
+  const currentCourseAccessKeys = useMemo(() => {
+    return getCourseAccessKeys(currentCourse);
+  }, [currentCourse]);
+
+  const visibleAssignments = allVisibleAssignments.filter((assignment) => {
+    const key = String(assignment.courseKey || '').toLowerCase();
+    return (
+      currentCourseAccessKeys.includes(key) ||
+      key === String(currentCourseId).toLowerCase() ||
+      key === String(routeCourseKey).toLowerCase()
+    );
+  });
   const currentLessonAssignments = currentLesson
     ? visibleAssignments.filter((assignment) => assignment.lessonTitle === currentLesson.title)
     : [];
