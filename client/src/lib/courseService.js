@@ -423,10 +423,10 @@ export function addStoredPurchasedCourseId(courseId, userId = 'local') {
 }
 
 export async function getCourseCatalog() {
-  const localTeacherCourses = readAllTeacherManagedCourses();
-  const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
-
   if (!isSupabaseReady()) {
+    const localTeacherCourses = readAllTeacherManagedCourses();
+    const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
+
     return dedupeCourseList([
       ...mockCourses.map((course, index) => normalizeCourse(course, index)),
       ...normalizedLocalCourses
@@ -441,13 +441,12 @@ export async function getCourseCatalog() {
 
   if (error) {
     console.warn('[getCourseCatalog] Supabase error:', error.message);
+    const localTeacherCourses = readAllTeacherManagedCourses();
+    const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
     return dedupeCourseList(normalizedLocalCourses);
   }
 
-  return dedupeCourseList([
-    ...(data || []).map((course, index) => normalizeCourse(course, index)),
-    ...normalizedLocalCourses
-  ]);
+  return (data || []).map((course, index) => normalizeCourse(course, index));
 }
 
 export async function getFeaturedCourses() {
@@ -611,28 +610,18 @@ export async function getCourseBySlug(courseSlug) {
 
   const localTeacherCourses = readAllTeacherManagedCourses();
   const localCourse = localTeacherCourses.find((course) => course.id === courseSlug || course.slug === courseSlug || course.databaseId === courseSlug);
-  let normalizedLocalCourse = null;
-  if (localCourse) {
-    const baseLocalCourse = normalizeCourse(localCourse);
-    const normalizedCourse = {
-      ...baseLocalCourse,
-      hero: baseLocalCourse.hero || defaultHero(baseLocalCourse),
-      sections: Array.isArray(localCourse.sections) ? localCourse.sections : []
-    };
-    const localLessonCount = normalizedCourse.sections.reduce(
-      (count, section) => count + ((Array.isArray(section.lessons) ? section.lessons.length : 0) || 0),
-      0
-    );
-
-    normalizedLocalCourse = normalizedCourse;
-
-    if (localLessonCount > 0) {
-      return {
-        ...normalizedCourse,
-        sections: normalizeRemoteSections(normalizedCourse.sections)
-      };
-    }
-  }
+  const normalizedLocalCourse = localCourse
+    ? {
+        ...(() => {
+          const baseLocalCourse = normalizeCourse(localCourse);
+          return {
+            ...baseLocalCourse,
+            hero: defaultHero(baseLocalCourse)
+          };
+        })(),
+        sections: Array.isArray(localCourse.sections) ? localCourse.sections : []
+      }
+    : null;
 
   if (!isSupabaseReady()) {
     if (normalizedLocalCourse) {
@@ -669,6 +658,13 @@ export async function getCourseBySlug(courseSlug) {
   const { data: course, error } = await courseQuery.maybeSingle();
 
   if (error || !course) {
+    if (normalizedLocalCourse) {
+      return {
+        ...normalizedLocalCourse,
+        sections: normalizeRemoteSections(normalizedLocalCourse.sections)
+      };
+    }
+
     return null;
   }
 
