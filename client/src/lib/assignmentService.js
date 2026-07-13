@@ -1,4 +1,4 @@
-import { getStoredPurchasedCourseIds } from './courseService';
+import { getStoredPurchasedCourseIds, readAllTeacherManagedCourses, readTeacherManagedCourses } from './courseService';
 import { isSupabaseReady, supabase } from './supabase';
 
 export const assignmentFallbackCourses = [
@@ -250,8 +250,49 @@ export async function createAssignment({ teacherId, assignment, recipients }) {
   return created.id;
 }
 
-export function getCourseOptions() {
-  return assignmentFallbackCourses;
+function normalizeCourseOption(course) {
+  const key = String(course?.key || course?.id || course?.slug || course?.databaseId || '').trim();
+  const title = String(course?.title || course?.name || course?.summary || '').trim();
+
+  if (!key || !title) {
+    return null;
+  }
+
+  return { key, title };
+}
+
+function dedupeCourseOptions(courses = []) {
+  const seen = new Set();
+
+  return (Array.isArray(courses) ? courses : []).filter((course) => {
+    const key = String(course?.key || '').trim();
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+export function getCourseOptions(teacherId = '') {
+  const managedCourses = teacherId
+    ? readTeacherManagedCourses(teacherId)
+    : readAllTeacherManagedCourses();
+
+  const managedOptions = dedupeCourseOptions(
+    managedCourses
+      .map(normalizeCourseOption)
+      .filter(Boolean)
+  );
+
+  const fallbackOptions = dedupeCourseOptions(
+    assignmentFallbackCourses
+      .map(normalizeCourseOption)
+      .filter(Boolean)
+  );
+
+  return dedupeCourseOptions([...managedOptions, ...fallbackOptions]);
 }
 
 export async function getAssignmentAttemptsForStudent(studentId, studentEmail) {

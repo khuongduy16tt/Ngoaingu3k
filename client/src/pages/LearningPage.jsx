@@ -1105,7 +1105,10 @@ export default function LearningPage() {
   const currentRole = getEffectiveRole(auth);
   const currentEmail = auth.user?.email || '';
   const routeCourseKey = courseId || '';
-  const courseOptions = useMemo(() => getCourseOptions(), []);
+  const courseOptions = useMemo(
+    () => getCourseOptions(currentRole === 'teacher' ? auth.user?.id : ''),
+    [auth.user?.id, currentRole]
+  );
   const learningRoomScope = `${auth.user?.id || 'anon'}:${currentRole || 'roleless'}`;
   const cachedRoomState = readLearningRoomCache(routeCourseKey, learningRoomScope);
 

@@ -40,7 +40,7 @@ export function writeTeacherManagedCourses(teacherId = 'local', courses = []) {
   return courses;
 }
 
-function readAllTeacherManagedCourses() {
+export function readAllTeacherManagedCourses() {
   try {
     const managedCourses = [];
     for (let index = 0; index < localStorage.length; index += 1) {
