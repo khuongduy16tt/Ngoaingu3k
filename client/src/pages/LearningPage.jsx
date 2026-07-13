@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
@@ -1166,6 +1166,19 @@ export default function LearningPage() {
     }
   }, [lessonId, learningRoomScope, routeCourseKey]);
 
+  const lastLoadedUserIdRef = useRef(null);
+  const lastLoadedRoleRef = useRef(null);
+  const availableCoursesRef = useRef(availableCourses);
+  const purchasedCoursesRef = useRef(purchasedCourses);
+
+  useEffect(() => {
+    availableCoursesRef.current = availableCourses;
+  }, [availableCourses]);
+
+  useEffect(() => {
+    purchasedCoursesRef.current = purchasedCourses;
+  }, [purchasedCourses]);
+
   useEffect(() => {
     if (!auth.ready) {
       return undefined;
@@ -1181,11 +1194,27 @@ export default function LearningPage() {
 
       try {
         const canBrowseAllCourses = currentRole === 'teacher' || currentRole === 'admin';
-        const [catalog, routeCourse] = await Promise.all([
-          getCourseCatalog(),
-          routeCourseKey ? getCourseBySlug(routeCourseKey) : Promise.resolve(null)
-        ]);
-        const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, catalog);
+        const userChanged = auth.user?.id !== lastLoadedUserIdRef.current || currentRole !== lastLoadedRoleRef.current;
+
+        let catalog = availableCoursesRef.current;
+        let nextOwnedCourseIds = purchasedCoursesRef.current;
+        let routeCourse = null;
+
+        if (userChanged || !catalog.length || !nextOwnedCourseIds.length) {
+          const [fetchedCatalog, fetchedRouteCourse] = await Promise.all([
+            getCourseCatalog(),
+            routeCourseKey ? getCourseBySlug(routeCourseKey) : Promise.resolve(null)
+          ]);
+          catalog = fetchedCatalog;
+          routeCourse = fetchedRouteCourse;
+          nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, catalog);
+
+          lastLoadedUserIdRef.current = auth.user?.id;
+          lastLoadedRoleRef.current = currentRole;
+        } else {
+          routeCourse = routeCourseKey ? await getCourseBySlug(routeCourseKey) : null;
+        }
+
         const ownedCourseKeySet = new Set(nextOwnedCourseIds.map((courseKey) => String(courseKey).toLowerCase()));
         const ownedCourses = catalog.filter((course) =>
           getCourseAccessKeys(course).some((courseKey) => ownedCourseKeySet.has(courseKey))
