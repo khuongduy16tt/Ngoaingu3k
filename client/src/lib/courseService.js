@@ -63,7 +63,7 @@ function readAllTeacherManagedCourses() {
         // ignore invalid JSON values
       }
     }
-    return managedCourses;
+    return dedupeCourseList(managedCourses);
   } catch {
     return [];
   }
@@ -108,6 +108,41 @@ function createCourseSlug(title) {
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase() || 'khoa-hoc';
+}
+
+function getCourseIdentityKey(course) {
+  const databaseId = String(course?.databaseId || '').trim().toLowerCase();
+  const slug = String(course?.slug || course?.id || '').trim().toLowerCase();
+
+  if (databaseId) {
+    return `db:${databaseId}`;
+  }
+
+  if (slug) {
+    return `slug:${slug}`;
+  }
+
+  const title = String(course?.title || '').trim().toLowerCase();
+  const teacherId = String(course?.teacherId || course?.teacher_id || '').trim().toLowerCase();
+  return title ? `title:${title}|teacher:${teacherId}` : '';
+}
+
+function dedupeCourseList(courses = []) {
+  const seenKeys = new Set();
+
+  return (Array.isArray(courses) ? courses : []).filter((course) => {
+    const identityKey = getCourseIdentityKey(course);
+    if (!identityKey) {
+      return true;
+    }
+
+    if (seenKeys.has(identityKey)) {
+      return false;
+    }
+
+    seenKeys.add(identityKey);
+    return true;
+  });
 }
 
 function formatPrice(value) {
@@ -392,7 +427,10 @@ export async function getCourseCatalog() {
   const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
 
   if (!isSupabaseReady()) {
-    return [...mockCourses.map((course, index) => normalizeCourse(course, index)), ...normalizedLocalCourses];
+    return dedupeCourseList([
+      ...mockCourses.map((course, index) => normalizeCourse(course, index)),
+      ...normalizedLocalCourses
+    ]);
   }
 
   const { data, error } = await supabase
@@ -403,10 +441,13 @@ export async function getCourseCatalog() {
 
   if (error) {
     console.warn('[getCourseCatalog] Supabase error:', error.message);
-    return normalizedLocalCourses;
+    return dedupeCourseList(normalizedLocalCourses);
   }
 
-  return [...(data || []).map((course, index) => normalizeCourse(course, index)), ...normalizedLocalCourses];
+  return dedupeCourseList([
+    ...(data || []).map((course, index) => normalizeCourse(course, index)),
+    ...normalizedLocalCourses
+  ]);
 }
 
 export async function getFeaturedCourses() {
