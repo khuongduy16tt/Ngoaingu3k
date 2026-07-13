@@ -40,6 +40,10 @@ When the client runs separately, set `VITE_API_URL=http://localhost:4000` in
 served from the Express dev server or deployed as a single Vercel project, leave
 `VITE_API_URL` empty so API calls use the same domain.
 
+If you are on Windows PowerShell and `npm run dev` is blocked by execution
+policy, run `start-local.cmd` from the repo root instead. It calls `npm.cmd`
+directly and starts the same local server.
+
 ## Notes
 
 - Google OAuth, payments, and realtime progress are scaffolded, not wired to production providers yet.

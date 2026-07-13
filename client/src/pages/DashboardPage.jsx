@@ -368,9 +368,14 @@ function createEmptyCourseDraft() {
 }
 
 const TEACHER_COURSE_DRAFT_STORAGE_KEY = 'teacher-course-draft-v1';
+const TEACHER_DASHBOARD_UI_STORAGE_KEY = 'teacher-dashboard-ui-v1';
 
 function getTeacherCourseDraftKey(teacherId = 'local') {
   return `${TEACHER_COURSE_DRAFT_STORAGE_KEY}:${teacherId || 'local'}`;
+}
+
+function getTeacherDashboardUiKey(teacherId = 'local') {
+  return `${TEACHER_DASHBOARD_UI_STORAGE_KEY}:${teacherId || 'local'}`;
 }
 
 function readTeacherCourseDraft(teacherId) {
@@ -398,6 +403,31 @@ function writeTeacherCourseDraft(teacherId, draftState) {
 function clearTeacherCourseDraft(teacherId) {
   try {
     localStorage.removeItem(getTeacherCourseDraftKey(teacherId));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function readTeacherDashboardUiState(teacherId) {
+  try {
+    const rawValue = localStorage.getItem(getTeacherDashboardUiKey(teacherId));
+    if (!rawValue) return null;
+    const parsedValue = JSON.parse(rawValue);
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeTeacherDashboardUiState(teacherId, uiState) {
+  try {
+    localStorage.setItem(
+      getTeacherDashboardUiKey(teacherId),
+      JSON.stringify({
+        ...uiState,
+        savedAt: new Date().toISOString()
+      })
+    );
   } catch {
     // ignore storage failures
   }
@@ -586,13 +616,16 @@ export function TeacherDashboardPage() {
 
     async function loadTeacherCourses() {
       setLoading(true);
-      const storedCourses = readTeacherManagedCourses(teacherId);
-      const nextCourses = storedCourses;
+      try {
+        const storedCourses = readTeacherManagedCourses(teacherId);
 
-      if (active) {
-        setTeacherCourses(nextCourses);
-        writeTeacherManagedCourses(teacherId, nextCourses);
-        setLoading(false);
+        if (active) {
+          setTeacherCourses(Array.isArray(storedCourses) ? storedCourses : []);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
@@ -606,6 +639,7 @@ export function TeacherDashboardPage() {
   useEffect(() => {
     setDraftHydratedTeacherId('');
     const savedDraft = readTeacherCourseDraft(teacherId);
+    const savedUiState = readTeacherDashboardUiState(teacherId);
 
     if (savedDraft && isCourseDraftDirty(savedDraft)) {
       const restoredCourseDraft = {
@@ -637,6 +671,9 @@ export function TeacherDashboardPage() {
       setStudentPreviewLessonId('');
     }
 
+    setCoursePublisherOpen(Boolean(savedUiState?.coursePublisherOpen ?? isCourseDraftDirty(savedDraft)));
+    setActiveCoursesOpen(Boolean(savedUiState?.activeCoursesOpen));
+    setExpandedCourseId(savedUiState?.expandedCourseId || '');
     setDraftHydratedTeacherId(teacherId);
   }, [teacherId]);
 
@@ -671,6 +708,18 @@ export function TeacherDashboardPage() {
     studentPreviewLessonId,
     teacherId
   ]);
+
+  useEffect(() => {
+    if (draftHydratedTeacherId !== teacherId) {
+      return;
+    }
+
+    writeTeacherDashboardUiState(teacherId, {
+      coursePublisherOpen,
+      activeCoursesOpen,
+      expandedCourseId
+    });
+  }, [activeCoursesOpen, coursePublisherOpen, draftHydratedTeacherId, expandedCourseId, teacherId]);
 
   const studentRows = useMemo(() => buildStudentProgressRows(teacherCourses), [teacherCourses]);
 
