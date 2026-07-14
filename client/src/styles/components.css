@@ -3620,24 +3620,19 @@ button:disabled {
 
 .marketplace-owned-strip__list {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.8rem;
-  overflow-x: auto;
-  padding-bottom: 0.2rem;
-  scrollbar-width: thin;
-  scroll-snap-type: x proximity;
 }
 
 @media (max-width: 1199px) {
   .marketplace-owned-strip__list {
-    grid-auto-columns: minmax(200px, 72vw);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 639px) {
   .marketplace-owned-strip__list {
-    grid-auto-columns: minmax(180px, 82vw);
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3648,7 +3643,6 @@ button:disabled {
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
-  scroll-snap-align: start;
   transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
