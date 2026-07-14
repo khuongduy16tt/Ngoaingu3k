@@ -462,7 +462,7 @@ export default function CoursesPage() {
               </div>
 
               <div className="marketplace-owned-strip__list">
-                {ownedCourses.slice(0, 4).map((course) => (
+                {ownedCourses.map((course) => (
                   <Link key={course.id} className="marketplace-owned-tile" to={`/learn/${course.id}`}>
                     <strong>{course.title}</strong>
                     <span>
