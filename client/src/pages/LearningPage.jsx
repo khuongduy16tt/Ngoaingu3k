@@ -15,6 +15,7 @@ import {
   getCourseBySlug,
   getCourseCatalog,
   getOwnedCourseIds,
+  readAllTeacherManagedCourses,
   PURCHASED_COURSES_STORAGE_KEY,
   saveLessonQuestionsToSupabase
 } from '../lib/courseService';
@@ -1238,6 +1239,7 @@ export default function LearningPage() {
       try {
         const canBrowseAllCourses = currentRole === 'teacher' || currentRole === 'admin';
         const userChanged = auth.user?.id !== lastLoadedUserIdRef.current || currentRole !== lastLoadedRoleRef.current;
+        const localManagedCourses = canBrowseAllCourses ? readAllTeacherManagedCourses() : [];
 
         let catalog = availableCoursesRef.current;
         let nextOwnedCourseIds = purchasedCoursesRef.current;
@@ -1263,10 +1265,13 @@ export default function LearningPage() {
           getCourseAccessKeys(course).some((courseKey) => ownedCourseKeySet.has(courseKey))
         );
         const accessibleCourses = canBrowseAllCourses ? catalog : ownedCourses;
-        const fallbackCourse = accessibleCourses[0] || (canBrowseAllCourses ? catalog[0] : null);
+        const fallbackCourse = localManagedCourses[0] || accessibleCourses[0] || (canBrowseAllCourses ? catalog[0] : null);
         const fallbackCourseKey = getCourseRouteKey(fallbackCourse);
         const nextCourse =
           routeCourse ||
+          (canBrowseAllCourses && localManagedCourses[0]
+            ? await getCourseBySlug(getCourseRouteKey(localManagedCourses[0]))
+            : null) ||
           (fallbackCourseKey ? await getCourseBySlug(fallbackCourseKey) : null) ||
           fallbackCourse ||
           null;
