@@ -914,39 +914,31 @@ export function TeacherDashboardPage() {
       return;
     }
 
-    setCourseDraft((previous) => {
-      const nextSections = previous.sections.map((section, currentSectionIndex) => {
-        if (currentSectionIndex !== sectionIndex) {
-          return section;
-        }
+    const nextSections = courseDraft.sections.map((section, currentSectionIndex) => {
+      if (currentSectionIndex !== sectionIndex) {
+        return section;
+      }
 
-        const lessons = Array.isArray(section.lessons) ? [...section.lessons] : [];
-        if (fromIndex >= lessons.length || toIndex > lessons.length) {
-          return section;
-        }
+      const lessons = Array.isArray(section.lessons) ? [...section.lessons] : [];
+      if (fromIndex >= lessons.length || toIndex > lessons.length) {
+        return section;
+      }
 
-        const [movedLesson] = lessons.splice(fromIndex, 1);
-        if (!movedLesson) {
-          return section;
-        }
+      const [movedLesson] = lessons.splice(fromIndex, 1);
+      if (!movedLesson) {
+        return section;
+      }
 
-        const nextIndex = Math.max(
-          0,
-          Math.min(fromIndex < toIndex ? toIndex - 1 : toIndex, lessons.length)
-        );
-        lessons.splice(nextIndex, 0, movedLesson);
-
-        return {
-          ...section,
-          lessons
-        };
-      });
+      const nextIndex = Math.max(0, Math.min(fromIndex < toIndex ? toIndex - 1 : toIndex, lessons.length));
+      lessons.splice(nextIndex, 0, movedLesson);
 
       return {
-        ...previous,
-        sections: nextSections
+        ...section,
+        lessons
       };
     });
+
+    updateDraftSectionsInPlace(nextSections);
   }
 
   function handleDraftLessonDragStart(sectionIndex, lessonIndex, lessonKey) {
