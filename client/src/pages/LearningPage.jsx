@@ -24,6 +24,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { parseExcelQuestionFile } from '../lib/excelCourseParser';
 import { getEmbeddableVideoUrl, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
+import { courseDetail as mockCourseDetail } from '../data/mock';
 
 const fallbackLessons = [
   { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
@@ -111,6 +112,36 @@ function getCourseAccessKeys(course) {
   return [course?.id, course?.slug, course?.databaseId]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
+}
+
+function cloneFallbackLessons() {
+  return (mockCourseDetail.sections || []).map((section) => ({
+    ...section,
+    lessons: Array.isArray(section.lessons)
+      ? section.lessons.map((lesson) => ({ ...lesson }))
+      : []
+  }));
+}
+
+function createTeacherFallbackCourse(courseOptions = [], routeCourseKey = '') {
+  const normalizedRouteKey = String(routeCourseKey || '').trim().toLowerCase();
+  const matchedOption = courseOptions.find(
+    (course) => String(course.key || '').trim().toLowerCase() === normalizedRouteKey
+  );
+  const fallbackOption = matchedOption || courseOptions[0] || null;
+
+  return {
+    ...mockCourseDetail,
+    id: fallbackOption?.key || routeCourseKey || mockCourseDetail.id,
+    databaseId: fallbackOption?.key || routeCourseKey || mockCourseDetail.id,
+    slug: fallbackOption?.key || routeCourseKey || mockCourseDetail.slug,
+    title: fallbackOption?.title || mockCourseDetail.title,
+    hero: fallbackOption?.title
+      ? `${fallbackOption.title} đang ở chế độ mẫu để giáo viên/quản trị vẫn có thể thao tác.`
+      : mockCourseDetail.hero,
+    summary: fallbackOption?.title || mockCourseDetail.hero,
+    sections: cloneFallbackLessons()
+  };
 }
 
 function formatAssignmentScope(scope) {
@@ -1239,12 +1270,22 @@ export default function LearningPage() {
           (fallbackCourseKey ? await getCourseBySlug(fallbackCourseKey) : null) ||
           fallbackCourse ||
           null;
-        const nextLessons = nextCourse ? buildLessonsFromCourse(nextCourse) : [];
+        const teacherFallbackCourse = !nextCourse && canBrowseAllCourses
+          ? createTeacherFallbackCourse(courseOptions, routeCourseKey)
+          : null;
+        const resolvedCourse = nextCourse || teacherFallbackCourse;
+        const nextLessons = resolvedCourse ? buildLessonsFromCourse(resolvedCourse) : [];
 
         if (active) {
-          setCurrentCourse(nextCourse);
+          setCurrentCourse(resolvedCourse);
           setLessons(nextLessons);
-          setAvailableCourses(accessibleCourses);
+          setAvailableCourses(
+            accessibleCourses.length
+              ? accessibleCourses
+              : resolvedCourse
+                ? [resolvedCourse]
+                : []
+          );
           setSelectedLessonId((previousLessonId) => {
             if (lessonId && nextLessons.some((lesson) => lesson.id === lessonId)) {
               return lessonId;
@@ -1262,7 +1303,7 @@ export default function LearningPage() {
           });
           setPurchasedCourses(nextOwnedCourseIds);
           writeLearningRoomCache(routeCourseKey, learningRoomScope, {
-            currentCourse: nextCourse,
+            currentCourse: resolvedCourse,
             lessons: nextLessons,
             selectedLessonId:
               lessonId && nextLessons.some((lesson) => lesson.id === lessonId)
@@ -1272,11 +1313,11 @@ export default function LearningPage() {
                   : nextLessons.find((lesson) => lesson.status === 'active')?.id || nextLessons[0]?.id || '',
             availableCourses: accessibleCourses
           });
-          if (nextCourse) {
+          if (resolvedCourse) {
             setTeacherDraft((previous) => ({
               ...previous,
-              courseKey: nextCourse.id || routeCourseKey,
-              courseTitle: nextCourse.title || previous.courseTitle
+              courseKey: resolvedCourse.id || routeCourseKey,
+              courseTitle: resolvedCourse.title || previous.courseTitle
             }));
           }
         }

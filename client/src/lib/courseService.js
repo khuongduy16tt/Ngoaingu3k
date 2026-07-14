@@ -433,20 +433,27 @@ export async function getCourseCatalog() {
     ]);
   }
 
-  const { data, error } = await supabase
+  const [remoteCoursesResult, localTeacherCourses] = await Promise.all([
+    supabase
     .from('courses')
     .select('id, slug, title, description, price, status, banner_url')
     .eq('status', 'published')
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false }),
+    Promise.resolve(readAllTeacherManagedCourses())
+  ]);
+
+  const { data, error } = remoteCoursesResult;
 
   if (error) {
     console.warn('[getCourseCatalog] Supabase error:', error.message);
-    const localTeacherCourses = readAllTeacherManagedCourses();
     const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
     return dedupeCourseList(normalizedLocalCourses);
   }
 
-  return (data || []).map((course, index) => normalizeCourse(course, index));
+  const normalizedRemoteCourses = (data || []).map((course, index) => normalizeCourse(course, index));
+  const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
+
+  return dedupeCourseList([...normalizedRemoteCourses, ...normalizedLocalCourses]);
 }
 
 export async function getFeaturedCourses() {
@@ -635,7 +642,7 @@ export async function getCourseBySlug(courseSlug) {
     if (normalizedLocalCourse) {
       return {
         ...normalizedLocalCourse,
-        sections: normalizeRemoteSections(normalizedLocalCourse.sections)
+        sections: Array.isArray(normalizedLocalCourse.sections) ? normalizedLocalCourse.sections : []
       };
     }
 
@@ -669,7 +676,7 @@ export async function getCourseBySlug(courseSlug) {
     if (normalizedLocalCourse) {
       return {
         ...normalizedLocalCourse,
-        sections: normalizeRemoteSections(normalizedLocalCourse.sections)
+        sections: Array.isArray(normalizedLocalCourse.sections) ? normalizedLocalCourse.sections : []
       };
     }
 
