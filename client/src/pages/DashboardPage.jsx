@@ -611,10 +611,12 @@ export function TeacherDashboardPage() {
   const [selectedDraftLessonId, setSelectedDraftLessonId] = useState('');
   const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
   const [draggedDraftLessonId, setDraggedDraftLessonId] = useState('');
+  const [draftLessonDropTarget, setDraftLessonDropTarget] = useState(null);
   const [draftHydratedTeacherId, setDraftHydratedTeacherId] = useState('');
   const [coursePublisherOpen, setCoursePublisherOpen] = useState(false);
   const [activeCoursesOpen, setActiveCoursesOpen] = useState(false);
   const [expandedCourseId, setExpandedCourseId] = useState('');
+  const importLessonStripRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -941,7 +943,9 @@ export function TeacherDashboardPage() {
     updateDraftSectionsInPlace(nextSections);
   }
 
-  function handleDraftLessonDragStart(sectionIndex, lessonIndex, lessonKey) {
+  function handleDraftLessonDragStart(event, sectionIndex, lessonIndex, lessonKey) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', lessonKey);
     setDraggedDraftLessonId(lessonKey);
     setSelectedDraftLessonId(lessonKey);
     setStudentPreviewLessonId(lessonKey);
@@ -949,9 +953,49 @@ export function TeacherDashboardPage() {
 
   function handleDraftLessonDragEnd() {
     setDraggedDraftLessonId('');
+    setDraftLessonDropTarget(null);
   }
 
-  function handleDraftLessonDrop(sectionIndex, lessonIndex) {
+  function scrollDraftLessonStripWhileDragging(event) {
+    const strip = importLessonStripRef.current;
+    if (!strip) {
+      return;
+    }
+
+    const bounds = strip.getBoundingClientRect();
+    const edgeSize = 72;
+    const speed = 14;
+
+    if (event.clientY < bounds.top + edgeSize) {
+      strip.scrollBy({ top: -speed, behavior: 'auto' });
+    } else if (event.clientY > bounds.bottom - edgeSize) {
+      strip.scrollBy({ top: speed, behavior: 'auto' });
+    }
+  }
+
+  function handleDraftLessonDragOver(event, sectionIndex, lessonIndex, lessonKey) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    scrollDraftLessonStripWhileDragging(event);
+
+    if (!draggedDraftLessonId || draggedDraftLessonId === lessonKey) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+    const nextTarget = { sectionIndex, lessonIndex, placement };
+
+    setDraftLessonDropTarget((currentTarget) =>
+      currentTarget?.sectionIndex === nextTarget.sectionIndex &&
+      currentTarget?.lessonIndex === nextTarget.lessonIndex &&
+      currentTarget?.placement === nextTarget.placement
+        ? currentTarget
+        : nextTarget
+    );
+  }
+
+  function handleDraftLessonDrop(sectionIndex, insertionIndex) {
     if (!draggedDraftLessonId) {
       return;
     }
@@ -959,27 +1003,31 @@ export function TeacherDashboardPage() {
     const sourceLesson = draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId);
     if (!sourceLesson || sourceLesson.sectionIndex !== sectionIndex) {
       setDraggedDraftLessonId('');
+      setDraftLessonDropTarget(null);
       return;
     }
 
-    reorderDraftLesson(sectionIndex, sourceLesson.lessonIndex, lessonIndex);
+    reorderDraftLesson(sectionIndex, sourceLesson.lessonIndex, insertionIndex);
     setDraggedDraftLessonId('');
+    setDraftLessonDropTarget(null);
   }
 
-  function handleDraftLessonDropToEnd() {
+  function handleDraftLessonDropToEnd(sectionIndex) {
     if (!draggedDraftLessonId) {
       return;
     }
 
     const sourceLesson = draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId);
-    if (!sourceLesson) {
+    if (!sourceLesson || sourceLesson.sectionIndex !== sectionIndex) {
       setDraggedDraftLessonId('');
+      setDraftLessonDropTarget(null);
       return;
     }
 
-    const sourceSectionLessons = courseDraft.sections[sourceLesson.sectionIndex]?.lessons || [];
-    reorderDraftLesson(sourceLesson.sectionIndex, sourceLesson.lessonIndex, sourceSectionLessons.length);
+    const targetSectionLessons = courseDraft.sections[sectionIndex]?.lessons || [];
+    reorderDraftLesson(sectionIndex, sourceLesson.lessonIndex, targetSectionLessons.length);
     setDraggedDraftLessonId('');
+    setDraftLessonDropTarget(null);
   }
 
   function persistCourses(nextCourses) {
@@ -997,6 +1045,7 @@ export function TeacherDashboardPage() {
     setSelectedDraftLessonId('');
     setStudentPreviewLessonId('');
     setDraggedDraftLessonId('');
+    setDraftLessonDropTarget(null);
   }
 
   function openCoursePublisherForNew() {
@@ -1883,11 +1932,8 @@ export function TeacherDashboardPage() {
               <div className="lesson-import-workbench">
                 <div
                   className="import-lesson-strip"
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    handleDraftLessonDropToEnd();
-                  }}
+                  ref={importLessonStripRef}
+                  onDragOver={scrollDraftLessonStripWhileDragging}
                 >
                   {courseDraft.sections.map((section, sectionIndex) => (
                     <section key={`${section.title}-${sectionIndex}`} className="import-lesson-section">
@@ -1896,7 +1942,7 @@ export function TeacherDashboardPage() {
                           <span className="eyebrow">{section.title || 'Nội dung chính'}</span>
                           <strong>{Array.isArray(section.lessons) ? section.lessons.length : 0} bài</strong>
                         </div>
-                        <span className="pill">Kéo thả để đổi vị trí</span>
+                        <span className="pill">Giữ và kéo để đổi vị trí</span>
                       </div>
 
                       <div className="import-lesson-section__list">
@@ -1904,6 +1950,16 @@ export function TeacherDashboardPage() {
                           const lessonKey = getDraftLessonKey(lesson);
                           const isSelected = lessonKey === selectedDraftLessonId;
                           const isDragging = lessonKey === draggedDraftLessonId;
+                          const isDropBefore =
+                            !isDragging &&
+                            draftLessonDropTarget?.sectionIndex === sectionIndex &&
+                            draftLessonDropTarget?.lessonIndex === lessonIndex &&
+                            draftLessonDropTarget?.placement === 'before';
+                          const isDropAfter =
+                            !isDragging &&
+                            draftLessonDropTarget?.sectionIndex === sectionIndex &&
+                            draftLessonDropTarget?.lessonIndex === lessonIndex &&
+                            draftLessonDropTarget?.placement === 'after';
 
                           return (
                             <article
@@ -1911,7 +1967,9 @@ export function TeacherDashboardPage() {
                               className={[
                                 'import-lesson-pill',
                                 isSelected ? 'is-active' : '',
-                                isDragging ? 'is-dragging' : ''
+                                isDragging ? 'is-dragging' : '',
+                                isDropBefore ? 'is-drop-before' : '',
+                                isDropAfter ? 'is-drop-after' : ''
                               ]
                                 .filter(Boolean)
                                 .join(' ')}
@@ -1929,12 +1987,18 @@ export function TeacherDashboardPage() {
                                   setStudentPreviewLessonId(lessonKey);
                                 }
                               }}
-                              onDragStart={() => handleDraftLessonDragStart(sectionIndex, lessonIndex, lessonKey)}
+                              onDragStart={(event) => handleDraftLessonDragStart(event, sectionIndex, lessonIndex, lessonKey)}
                               onDragEnd={handleDraftLessonDragEnd}
-                              onDragOver={(event) => event.preventDefault()}
+                              onDragOver={(event) => handleDraftLessonDragOver(event, sectionIndex, lessonIndex, lessonKey)}
                               onDrop={(event) => {
                                 event.preventDefault();
-                                handleDraftLessonDrop(sectionIndex, lessonIndex);
+                                const insertionIndex =
+                                  draftLessonDropTarget?.sectionIndex === sectionIndex &&
+                                  draftLessonDropTarget?.lessonIndex === lessonIndex &&
+                                  draftLessonDropTarget?.placement === 'after'
+                                    ? lessonIndex + 1
+                                    : lessonIndex;
+                                handleDraftLessonDrop(sectionIndex, insertionIndex);
                               }}
                             >
                               <span className="import-lesson-pill__drag" aria-hidden="true">
@@ -1958,6 +2022,29 @@ export function TeacherDashboardPage() {
                             </article>
                           );
                         })}
+
+                        <div
+                          className={[
+                            'import-lesson-drop-end',
+                            draggedDraftLessonId && draftLessonDropTarget?.sectionIndex === sectionIndex && draftLessonDropTarget?.placement === 'end'
+                              ? 'is-active'
+                              : ''
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = 'move';
+                            scrollDraftLessonStripWhileDragging(event);
+                            setDraftLessonDropTarget({ sectionIndex, lessonIndex: -1, placement: 'end' });
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleDraftLessonDropToEnd(sectionIndex);
+                          }}
+                        >
+                          {draggedDraftLessonId ? 'Thả ở đây để đưa xuống cuối' : 'Kéo bài vào đây để đưa xuống cuối'}
+                        </div>
                       </div>
                     </section>
                   ))}

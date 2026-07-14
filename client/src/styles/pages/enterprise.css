@@ -1671,6 +1671,59 @@ textarea:focus-visible {
   margin-top: 6px;
 }
 
+.teacher-course-publisher .import-lesson-pill {
+  position: relative;
+  cursor: grab;
+  transition: opacity 140ms ease, transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.teacher-course-publisher .import-lesson-pill.is-dragging {
+  opacity: 0.38;
+  cursor: grabbing;
+}
+
+.teacher-course-publisher .import-lesson-pill.is-drop-before::before,
+.teacher-course-publisher .import-lesson-pill.is-drop-after::after {
+  position: absolute;
+  right: 8px;
+  left: 8px;
+  z-index: 2;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  content: '';
+  pointer-events: none;
+}
+
+.teacher-course-publisher .import-lesson-pill.is-drop-before::before {
+  top: -6px;
+}
+
+.teacher-course-publisher .import-lesson-pill.is-drop-after::after {
+  bottom: -6px;
+}
+
+.teacher-course-publisher .import-lesson-drop-end {
+  display: grid;
+  min-height: 34px;
+  place-items: center;
+  margin-top: 2px;
+  border: 1px dashed color-mix(in srgb, var(--border-strong) 68%, transparent);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  transition: min-height 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.teacher-course-publisher .import-lesson-drop-end.is-active {
+  min-height: 48px;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--accent);
+}
+
 .teacher-course-publisher .lesson-edit-panel,
 .teacher-course-publisher .lesson-question-editor__item {
   padding: 14px;
