@@ -494,19 +494,21 @@ export default function CoursesPage() {
                 const canBuy = auth.session && currentRole === 'student' && !isOwned;
                 const buyLabel =
                   purchasingCourseId === course.id ? 'Đang xử lý...' : isOwned ? 'Đã sở hữu' : 'Mua ngay';
+                const hasBanner = Boolean(course.bannerUrl);
 
                 return (
                   <article
                     key={course.id}
                     className={`course-card course-card--enterprise marketplace-card ${isOwned ? 'is-owned' : ''}`}
                   >
-                    <div className="marketplace-card__media">
-                      {course.bannerUrl ? (
+                    <div className={`marketplace-card__media ${hasBanner ? 'has-banner' : 'is-placeholder'}`}>
+                      {hasBanner ? (
                         <img src={course.bannerUrl} alt={course.title} loading="lazy" />
                       ) : (
                         <div className="marketplace-card__fallback">
                           <span>{course.category}</span>
                           <strong>{course.title}</strong>
+                          <p>{course.summary}</p>
                         </div>
                       )}
 

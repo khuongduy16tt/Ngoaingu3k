@@ -2143,6 +2143,8 @@ export function AdminDashboardPage() {
   const [courseDraft, setCourseDraft] = useState(emptyCourseDraft);
   const [lessonDraft, setLessonDraft] = useState(emptyLessonDraft);
   const [permissionDraft, setPermissionDraft] = useState(defaultRolePermissions);
+  const [uploadingCourseBanner, setUploadingCourseBanner] = useState(false);
+  const [courseBannerError, setCourseBannerError] = useState('');
 
   // ── New feature state ──────────────────────────────────
   const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'activity'
@@ -2293,6 +2295,8 @@ export function AdminDashboardPage() {
 
   function resetCourseDraft() {
     setCourseDraft(emptyCourseDraft);
+    setCourseBannerError('');
+    setUploadingCourseBanner(false);
   }
 
   function resetLessonDraft() {
@@ -2351,6 +2355,36 @@ export function AdminDashboardPage() {
       setMessage({ type: 'error', text: error.message || 'Chưa thể lưu khóa học.' });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCourseBannerChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const errorMessage = validateImageFile(file);
+    if (errorMessage) {
+      setCourseBannerError(errorMessage);
+      return;
+    }
+
+    setCourseBannerError('');
+    setUploadingCourseBanner(true);
+
+    try {
+      const result = await uploadCourseImage(file, courseDraft.id || courseDraft.slug || courseDraft.title || 'course');
+      if (result?.url) {
+        updateCourseDraft('bannerUrl', result.url);
+      } else {
+        setCourseBannerError('Không tải được ảnh lên. Hãy kiểm tra bucket "course-images" đã được tạo.');
+      }
+    } catch (error) {
+      setCourseBannerError(error.message || 'Đã xảy ra lỗi khi tải ảnh.');
+    } finally {
+      setUploadingCourseBanner(false);
+      event.target.value = '';
     }
   }
 
@@ -2934,10 +2968,42 @@ export function AdminDashboardPage() {
               <span>Giá VND</span>
               <input type="number" min="0" step="10000" value={courseDraft.price} onChange={(event) => updateCourseDraft('price', event.target.value)} />
             </label>
-            <label className="auth-field">
-              <span>Banner URL</span>
-              <input value={courseDraft.bannerUrl} onChange={(event) => updateCourseDraft('bannerUrl', event.target.value)} />
-            </label>
+            <div className="auth-field auth-field--full">
+              <span>Ảnh đại diện (banner)</span>
+              <input
+                type="file"
+                accept="image/jpeg, image/png, image/webp, image/gif"
+                onChange={handleCourseBannerChange}
+                disabled={uploadingCourseBanner}
+              />
+              <small style={{ color: 'var(--muted)', lineHeight: 1.5 }}>
+                Ảnh này sẽ hiển thị ở đầu thẻ khóa học cho học viên. Có thể tải file lên hoặc dán link ảnh bên dưới.
+              </small>
+              {uploadingCourseBanner ? <span className="upload-progress">Đang tải ảnh lên...</span> : null}
+              {courseBannerError ? <span className="error-message" style={{ color: 'var(--error)' }}>{courseBannerError}</span> : null}
+              <input
+                value={courseDraft.bannerUrl}
+                onChange={(event) => updateCourseDraft('bannerUrl', event.target.value)}
+                placeholder="Dán URL ảnh nếu muốn dùng link"
+              />
+              {courseDraft.bannerUrl ? (
+                <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+                  <img
+                    src={courseDraft.bannerUrl}
+                    alt="Banner Preview"
+                    style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: 'var(--radius)' }}
+                  />
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    onClick={() => updateCourseDraft('bannerUrl', '')}
+                    style={{ width: 'fit-content' }}
+                  >
+                    Xóa ảnh
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <label className="auth-field auth-field--full">
               <span>Mô tả</span>
               <textarea rows="3" value={courseDraft.description} onChange={(event) => updateCourseDraft('description', event.target.value)} />

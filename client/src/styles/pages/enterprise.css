@@ -1215,11 +1215,42 @@ textarea:focus-visible {
 
 .marketplace-card__media {
   min-height: 210px;
+  position: relative;
+  background:
+    radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%),
+    radial-gradient(circle at 82% 18%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 30%),
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--surface-soft)), color-mix(in srgb, var(--accent-2) 10%, var(--surface-soft))) !important;
+}
+
+.marketplace-card__media.has-banner {
   background: var(--surface-soft) !important;
 }
 
 .marketplace-card__media img {
   min-height: 210px;
+}
+
+.marketplace-card__fallback {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 0.65rem;
+  padding: 1.25rem;
+}
+
+.marketplace-card__fallback strong {
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  font-weight: 850;
+}
+
+.marketplace-card__fallback p {
+  margin: 0;
+  max-width: 24ch;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
 }
 
 .marketplace-card__badges {
