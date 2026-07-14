@@ -67,7 +67,7 @@ export async function uploadAssignmentImage(file, assignmentId) {
   return { path: data.path, url };
 }
 
-async function readFileAsDataUrl(file) {
+export async function readFileAsDataUrl(file) {
   return await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));

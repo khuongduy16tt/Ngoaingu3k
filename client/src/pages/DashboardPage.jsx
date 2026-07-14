@@ -29,7 +29,7 @@ import {
   exportOrdersToExcel,
   exportActivityToExcel
 } from '../lib/reportService';
-import { uploadAssignmentImage, uploadLessonVideo, validateImageFile, validateVideoFile } from '../lib/storageService';
+import { readFileAsDataUrl, uploadLessonVideo, validateImageFile, validateVideoFile } from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { average, buildStudentProgressRows } from '../lib/studentProgressService';
 import { formatVnd, normalizeVndAmount } from '../lib/money';
@@ -1075,19 +1075,12 @@ export function TeacherDashboardPage() {
         return;
       }
 
-      setImportMessage({ type: 'info', text: 'Đang tải ảnh lên để học sinh xem được...' });
-
       try {
-        const assetKey = `${teacherId || 'teacher'}-${sectionIndex}-${lessonIndex}-${Date.now()}`;
-        const uploadedImage = await uploadAssignmentImage(file, assetKey);
-
-        if (!uploadedImage?.url) {
-          throw new Error('Không thể lưu ảnh minh họa. Vui lòng thử lại.');
-        }
+        const imageDataUrl = await readFileAsDataUrl(file);
 
         updateDraftLesson(sectionIndex, lessonIndex, {
           imageName: file.name,
-          imageUrl: uploadedImage.url
+          imageUrl: imageDataUrl
         });
         setImportMessage({ type: 'success', text: 'Đã thêm ảnh minh họa cho bài học.' });
       } catch (error) {
