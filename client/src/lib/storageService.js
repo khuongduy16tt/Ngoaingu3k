@@ -47,8 +47,8 @@ export async function uploadLessonVideo(file, lessonId, onProgress) {
  */
 export async function uploadAssignmentImage(file, assignmentId) {
   if (!isSupabaseReady()) {
-    // Dev mode: trả về object URL tạm thời
-    return { path: 'local', url: URL.createObjectURL(file) };
+    const url = await readFileAsDataUrl(file);
+    return { path: 'local', url };
   }
 
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
@@ -65,6 +65,15 @@ export async function uploadAssignmentImage(file, assignmentId) {
 
   const url = getPublicUrl('assignment-images', data.path);
   return { path: data.path, url };
+}
+
+async function readFileAsDataUrl(file) {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Không thể đọc file ảnh.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 // ─── Lấy public URL ──────────────────────────────────────────────────────────

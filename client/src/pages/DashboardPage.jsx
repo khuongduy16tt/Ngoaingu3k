@@ -29,7 +29,7 @@ import {
   exportOrdersToExcel,
   exportActivityToExcel
 } from '../lib/reportService';
-import { uploadLessonVideo, validateVideoFile } from '../lib/storageService';
+import { uploadAssignmentImage, uploadLessonVideo, validateImageFile, validateVideoFile } from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { average, buildStudentProgressRows } from '../lib/studentProgressService';
 import { formatVnd, normalizeVndAmount } from '../lib/money';
@@ -1053,7 +1053,7 @@ export function TeacherDashboardPage() {
     }
   }
 
-  function handleDraftLessonAsset(sectionIndex, lessonIndex, type, file) {
+  async function handleDraftLessonAsset(sectionIndex, lessonIndex, type, file) {
     if (!file) return;
     const isAudio = type === 'audio';
     const isImage = type === 'image';
@@ -1068,12 +1068,41 @@ export function TeacherDashboardPage() {
       return;
     }
 
+    if (isImage) {
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        setImportMessage({ type: 'error', text: validationError });
+        return;
+      }
+
+      setImportMessage({ type: 'info', text: 'Đang tải ảnh lên để học sinh xem được...' });
+
+      try {
+        const assetKey = `${teacherId || 'teacher'}-${sectionIndex}-${lessonIndex}-${Date.now()}`;
+        const uploadedImage = await uploadAssignmentImage(file, assetKey);
+
+        if (!uploadedImage?.url) {
+          throw new Error('Không thể lưu ảnh minh họa. Vui lòng thử lại.');
+        }
+
+        updateDraftLesson(sectionIndex, lessonIndex, {
+          imageName: file.name,
+          imageUrl: uploadedImage.url
+        });
+        setImportMessage({ type: 'success', text: 'Đã thêm ảnh minh họa cho bài học.' });
+      } catch (error) {
+        setImportMessage({ type: 'error', text: error?.message || 'Không thể tải ảnh lên.' });
+      }
+
+      return;
+    }
+
     const fileUrl = URL.createObjectURL(file);
     updateDraftLesson(sectionIndex, lessonIndex, {
       [`${type}Name`]: file.name,
       [`${type}Url`]: fileUrl
     });
-    setImportMessage({ type: 'success', text: `Đã thêm ${isAudio ? 'file nghe' : 'ảnh'} cho bài học.` });
+    setImportMessage({ type: 'success', text: 'Đã thêm file nghe cho bài học.' });
   }
 
   async function handleImportFile(file) {
