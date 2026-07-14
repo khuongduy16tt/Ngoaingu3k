@@ -274,20 +274,27 @@ async function syncChapterLessons(chapterId, lessons = []) {
   }
 
   const existingByPosition = new Map((existingLessons || []).map((lesson) => [Number(lesson.position), lesson]));
+  // A copied/imported draft can contain the same persisted lesson id twice. Each
+  // row in an upsert batch must have a distinct conflict key for Postgres.
+  const assignedLessonIds = new Set();
   const touchedLessonIds = new Set();
   const syncedLessons = [];
   const lessonDraftRows = safeLessons.map((lesson, lessonIndex) => {
     const position = lessonIndex + 1;
     const draftLessonId = lesson?.databaseId || lesson?.id;
-    const existingLessonId = isUuid(draftLessonId)
+    const candidateLessonId = isUuid(draftLessonId)
       ? draftLessonId
       : existingByPosition.get(position)?.id;
+    const lessonId = candidateLessonId && !assignedLessonIds.has(candidateLessonId)
+      ? candidateLessonId
+      : randomUUID();
+    assignedLessonIds.add(lessonId);
 
     return {
       lesson,
       position,
       payload: {
-        id: existingLessonId || randomUUID(),
+        id: lessonId,
         chapter_id: chapterId,
         title: String(lesson?.title || `Bài ${position}`).trim(),
         video_url: lesson?.videoUrl || lesson?.videoEmbedUrl || null,
