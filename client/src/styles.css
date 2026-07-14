@@ -1466,6 +1466,172 @@ input:focus-visible {
   gap: 1rem;
 }
 
+.course-import-preview {
+  display: grid;
+  gap: 1rem;
+}
+
+.lesson-import-workbench {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.import-lesson-strip {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+  max-height: min(78vh, 980px);
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.import-lesson-strip::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.import-lesson-strip::-webkit-scrollbar-thumb {
+  background: rgba(120, 138, 165, 0.35);
+  border-radius: 999px;
+}
+
+.import-lesson-section {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.import-lesson-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.import-lesson-section__head strong {
+  display: block;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.import-lesson-section__list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.import-lesson-pill {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: grab;
+  box-shadow: none;
+}
+
+.import-lesson-pill:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.import-lesson-pill:active {
+  cursor: grabbing;
+}
+
+.import-lesson-pill:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.import-lesson-pill.is-active {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent) inset;
+}
+
+.import-lesson-pill.is-dragging {
+  opacity: 0.65;
+  transform: scale(0.99);
+}
+
+.import-lesson-pill__drag {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-2) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent-2) 18%, var(--border));
+  color: var(--accent-2);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  user-select: none;
+}
+
+.import-lesson-pill__main {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.import-lesson-pill__main > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.import-lesson-pill__main strong {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.import-lesson-pill__main small {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.import-lesson-strip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lesson-edit-panel {
+  display: grid;
+  gap: 1rem;
+  position: sticky;
+  top: 1rem;
+  align-content: start;
+}
+
+.lesson-edit-panel__head {
+  align-items: center;
+}
+
+.lesson-edit-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lesson-edit-panel__actions .pill {
+  align-self: center;
+}
+
 .teacher-course-list {
   display: grid;
   gap: 0.85rem;
@@ -3577,6 +3743,14 @@ button:disabled {
   .marketplace-filters {
     position: static;
     max-height: none;
+  }
+
+  .lesson-import-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-edit-panel {
+    position: static;
   }
 
   .media-grid,
@@ -5748,6 +5922,10 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .lesson-import-workbench {
+    grid-template-columns: 1fr;
+  }
+
   .content-card,
   .course-card,
   .stat-card,
@@ -5785,6 +5963,16 @@ textarea:focus-visible {
   .lesson-actions,
   .teacher-recipient-actions {
     width: 100%;
+  }
+
+  .lesson-edit-panel {
+    position: static;
+  }
+
+  .lesson-edit-panel__actions,
+  .import-lesson-section__head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .marketplace-card__actions .button,

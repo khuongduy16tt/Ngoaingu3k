@@ -610,6 +610,7 @@ export function TeacherDashboardPage() {
   const [importDriveLink, setImportDriveLink] = useState('');
   const [selectedDraftLessonId, setSelectedDraftLessonId] = useState('');
   const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
+  const [draggedDraftLessonId, setDraggedDraftLessonId] = useState('');
   const [draftHydratedTeacherId, setDraftHydratedTeacherId] = useState('');
   const [coursePublisherOpen, setCoursePublisherOpen] = useState(false);
   const [activeCoursesOpen, setActiveCoursesOpen] = useState(false);
@@ -766,13 +767,9 @@ export function TeacherDashboardPage() {
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === selectedDraftLessonId) || draftLessons[0] || null;
   const studentPreviewLesson =
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === studentPreviewLessonId) || selectedDraftLesson;
-  const selectedDraftLessonSectionLessons = selectedDraftLesson
-    ? courseDraft.sections[selectedDraftLesson.sectionIndex]?.lessons || []
-    : [];
-  const selectedDraftLessonCanMoveUp = Boolean(selectedDraftLesson && selectedDraftLesson.lessonIndex > 0);
-  const selectedDraftLessonCanMoveDown = Boolean(
-    selectedDraftLesson && selectedDraftLesson.lessonIndex < selectedDraftLessonSectionLessons.length - 1
-  );
+  const selectedDraftLessonSection = selectedDraftLesson
+    ? courseDraft.sections[selectedDraftLesson.sectionIndex] || null
+    : null;
   const hasDraftAudio = draftLessons.some((lesson) => lesson.audioUrl || lesson.audioName);
   const hasDraftImage = draftLessons.some((lesson) => lesson.imageUrl || lesson.imageName);
   const hasDraftVideo = draftLessons.some((lesson) => lesson.videoUrl);
@@ -893,29 +890,104 @@ export function TeacherDashboardPage() {
     });
   }
 
-  function moveDraftLesson(sectionIndex, lessonIndex, direction) {
-    const nextSections = courseDraft.sections.map((section, currentSectionIndex) => {
-      if (currentSectionIndex !== sectionIndex) {
-        return section;
-      }
+  function addDraftLessonAtEnd() {
+    if (!courseDraft.sections.length) {
+      const sectionTitle = manualLessonDraft.sectionTitle.trim() || 'Nội dung chính';
+      const firstLesson = createDraftLesson(sectionTitle, 1);
+      updateDraftSections([
+        {
+          title: sectionTitle,
+          lessons: [firstLesson]
+        }
+      ]);
+      return;
+    }
 
-      const lessons = Array.isArray(section.lessons) ? [...section.lessons] : [];
-      const targetIndex = lessonIndex + direction;
-      if (targetIndex < 0 || targetIndex >= lessons.length) {
-        return section;
-      }
+    const lastSectionIndex = courseDraft.sections.length - 1;
+    const lastSection = courseDraft.sections[lastSectionIndex];
+    const lastLessonIndex = Array.isArray(lastSection?.lessons) ? lastSection.lessons.length - 1 : -1;
+    addDraftLessonAfter(lastSectionIndex, lastLessonIndex);
+  }
 
-      [lessons[lessonIndex], lessons[targetIndex]] = [lessons[targetIndex], lessons[lessonIndex]];
+  function reorderDraftLesson(sectionIndex, fromIndex, toIndex) {
+    if (sectionIndex < 0 || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+      return;
+    }
+
+    setCourseDraft((previous) => {
+      const nextSections = previous.sections.map((section, currentSectionIndex) => {
+        if (currentSectionIndex !== sectionIndex) {
+          return section;
+        }
+
+        const lessons = Array.isArray(section.lessons) ? [...section.lessons] : [];
+        if (fromIndex >= lessons.length || toIndex > lessons.length) {
+          return section;
+        }
+
+        const [movedLesson] = lessons.splice(fromIndex, 1);
+        if (!movedLesson) {
+          return section;
+        }
+
+        const nextIndex = Math.max(
+          0,
+          Math.min(fromIndex < toIndex ? toIndex - 1 : toIndex, lessons.length)
+        );
+        lessons.splice(nextIndex, 0, movedLesson);
+
+        return {
+          ...section,
+          lessons
+        };
+      });
+
       return {
-        ...section,
-        lessons
+        ...previous,
+        sections: nextSections
       };
     });
+  }
 
-    updateDraftSectionsInPlace(nextSections, {
-      focusLessonId: selectedDraftLesson?.id || '',
-      previewLessonId: studentPreviewLesson?.id || selectedDraftLesson?.id || ''
-    });
+  function handleDraftLessonDragStart(sectionIndex, lessonIndex, lessonKey) {
+    setDraggedDraftLessonId(lessonKey);
+    setSelectedDraftLessonId(lessonKey);
+    setStudentPreviewLessonId(lessonKey);
+  }
+
+  function handleDraftLessonDragEnd() {
+    setDraggedDraftLessonId('');
+  }
+
+  function handleDraftLessonDrop(sectionIndex, lessonIndex) {
+    if (!draggedDraftLessonId) {
+      return;
+    }
+
+    const sourceLesson = draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId);
+    if (!sourceLesson || sourceLesson.sectionIndex !== sectionIndex) {
+      setDraggedDraftLessonId('');
+      return;
+    }
+
+    reorderDraftLesson(sectionIndex, sourceLesson.lessonIndex, lessonIndex);
+    setDraggedDraftLessonId('');
+  }
+
+  function handleDraftLessonDropToEnd() {
+    if (!draggedDraftLessonId) {
+      return;
+    }
+
+    const sourceLesson = draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId);
+    if (!sourceLesson) {
+      setDraggedDraftLessonId('');
+      return;
+    }
+
+    const sourceSectionLessons = courseDraft.sections[sourceLesson.sectionIndex]?.lessons || [];
+    reorderDraftLesson(sourceLesson.sectionIndex, sourceLesson.lessonIndex, sourceSectionLessons.length);
+    setDraggedDraftLessonId('');
   }
 
   function persistCourses(nextCourses) {
@@ -932,6 +1004,7 @@ export function TeacherDashboardPage() {
     setImportMessage({ type: '', text: '' });
     setSelectedDraftLessonId('');
     setStudentPreviewLessonId('');
+    setDraggedDraftLessonId('');
   }
 
   function openCoursePublisherForNew() {
@@ -1816,59 +1889,97 @@ export function TeacherDashboardPage() {
               </div>
 
               <div className="lesson-import-workbench">
-                <div className="import-lesson-strip">
-                  {draftLessons.map((lesson) => {
-                    const lessonKey = getDraftLessonKey(lesson);
-                    return (
-                      <article
-                        key={lessonKey}
-                        className={lessonKey === selectedDraftLessonId ? 'import-lesson-pill is-active' : 'import-lesson-pill'}
-                      >
-                        <button
-                          type="button"
-                          className="import-lesson-pill__main"
-                          onClick={() => setSelectedDraftLessonId(lessonKey)}
-                        >
-                          <span>{lesson.lessonNumber ? `Bài ${lesson.lessonNumber}` : 'Bài học'}</span>
-                          <strong>{lesson.title || lesson.attachmentName || 'Bài học mới'}</strong>
-                          <small>
-                            {[lesson.videoUrl ? 'Có video' : 'Chưa có video', lesson.exerciseType, lesson.questionCount ? `${lesson.questionCount} câu` : '', lesson.audioName ? 'Có audio' : '', lesson.imageName ? 'Có ảnh' : ''].filter(Boolean).join(' · ')}
-                          </small>
-                        </button>
-                        <button
-                          type="button"
-                          className="button-ghost"
-                          onClick={() => {
-                            setSelectedDraftLessonId(lessonKey);
-                            setStudentPreviewLessonId(lessonKey);
-                          }}
-                        >
-                          Student view
-                        </button>
-                      </article>
-                    );
-                  })}
-                </div>
+                <div
+                  className="import-lesson-strip"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleDraftLessonDropToEnd();
+                  }}
+                >
+                  {courseDraft.sections.map((section, sectionIndex) => (
+                    <section key={`${section.title}-${sectionIndex}`} className="import-lesson-section">
+                      <div className="import-lesson-section__head">
+                        <div>
+                          <span className="eyebrow">{section.title || 'Nội dung chính'}</span>
+                          <strong>{Array.isArray(section.lessons) ? section.lessons.length : 0} bài</strong>
+                        </div>
+                        <span className="pill">Kéo thả để đổi vị trí</span>
+                      </div>
 
-                <div className="import-lesson-strip-actions">
-                  <button
-                    type="button"
-                    className="button-ghost"
-                    disabled={!draftLessons.length}
-                    onClick={() => {
-                      const lastLesson = draftLessons[draftLessons.length - 1];
-                      if (lastLesson) {
-                        addDraftLessonAfter(lastLesson.sectionIndex, lastLesson.lessonIndex);
-                      }
-                    }}
-                  >
-                    + Thêm bài mới vào cuối khóa
-                  </button>
+                      <div className="import-lesson-section__list">
+                        {(Array.isArray(section.lessons) ? section.lessons : []).map((lesson, lessonIndex) => {
+                          const lessonKey = getDraftLessonKey(lesson);
+                          const isSelected = lessonKey === selectedDraftLessonId;
+                          const isDragging = lessonKey === draggedDraftLessonId;
+
+                          return (
+                            <article
+                              key={lessonKey}
+                              className={[
+                                'import-lesson-pill',
+                                isSelected ? 'is-active' : '',
+                                isDragging ? 'is-dragging' : ''
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
+                              role="button"
+                              tabIndex={0}
+                              draggable
+                              onClick={() => {
+                                setSelectedDraftLessonId(lessonKey);
+                                setStudentPreviewLessonId(lessonKey);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setSelectedDraftLessonId(lessonKey);
+                                  setStudentPreviewLessonId(lessonKey);
+                                }
+                              }}
+                              onDragStart={() => handleDraftLessonDragStart(sectionIndex, lessonIndex, lessonKey)}
+                              onDragEnd={handleDraftLessonDragEnd}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                handleDraftLessonDrop(sectionIndex, lessonIndex);
+                              }}
+                            >
+                              <span className="import-lesson-pill__drag" aria-hidden="true">
+                                ≡
+                              </span>
+                              <div className="import-lesson-pill__main">
+                                <span>{lesson.lessonNumber ? `Bài ${lesson.lessonNumber}` : `Bài ${lessonIndex + 1}`}</span>
+                                <strong>{lesson.title || lesson.attachmentName || 'Bài học mới'}</strong>
+                                <small>
+                                  {[
+                                    lesson.videoUrl ? 'Có video' : 'Chưa có video',
+                                    lesson.exerciseType,
+                                    lesson.questionCount ? `${lesson.questionCount} câu` : '',
+                                    lesson.audioName ? 'Có audio' : '',
+                                    lesson.imageName ? 'Có ảnh' : ''
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </small>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+
+                  <div className="import-lesson-strip-actions">
+                    <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd}>
+                      + Thêm bài mới vào cuối khóa
+                    </button>
+                  </div>
                 </div>
 
                 {selectedDraftLesson ? (
                   <div className="lesson-edit-panel">
-                    <div className="section-head">
+                    <div className="section-head lesson-edit-panel__head">
                       <div>
                         <span className="eyebrow">Sửa bài học</span>
                         <h3>{selectedDraftLesson.title || 'Bài học mới'}</h3>
@@ -1877,27 +1988,11 @@ export function TeacherDashboardPage() {
                         <button
                           type="button"
                           className="button-ghost"
-                          disabled={!selectedDraftLessonCanMoveUp}
-                          onClick={() => moveDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, -1)}
+                          onClick={() => setStudentPreviewLessonId(selectedDraftLesson.id)}
                         >
-                          Lên
+                          Student view
                         </button>
-                        <button
-                          type="button"
-                          className="button-ghost"
-                          disabled={!selectedDraftLessonCanMoveDown}
-                          onClick={() => moveDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, 1)}
-                        >
-                          Xuống
-                        </button>
-                        <button
-                          type="button"
-                          className="button-ghost"
-                          onClick={() => addDraftLessonAfter(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex)}
-                        >
-                          Thêm bài sau
-                        </button>
-                        <span className="pill">{selectedDraftLesson.sectionTitle}</span>
+                        <span className="pill">{selectedDraftLessonSection?.title || selectedDraftLesson.sectionTitle}</span>
                       </div>
                     </div>
 
