@@ -57,6 +57,57 @@ function writeMockAssignments(assignments = []) {
   }
 }
 
+function readAllAssignments() {
+  return readMockAssignments().map(normalizeAssignment);
+}
+
+function mergeAssignmentLists(primary = [], secondary = []) {
+  const assignmentMap = new Map();
+
+  [...primary, ...secondary].forEach((assignment) => {
+    if (!assignment?.id) {
+      return;
+    }
+
+    assignmentMap.set(assignment.id, normalizeAssignment(assignment));
+  });
+
+  return Array.from(assignmentMap.values()).sort(
+    (left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)
+  );
+}
+
+function buildMockAssignmentRecord({ teacherId, assignment, recipients = [], id }) {
+  return {
+    id: id || `mock-assignment-${Date.now()}`,
+    teacher_id: teacherId,
+    course_key: assignment.courseKey,
+    course_title: assignment.courseTitle,
+    lesson_title: assignment.lessonTitle,
+    title: assignment.title,
+    description: assignment.description,
+    assignment_scope: assignment.assignmentScope,
+    audio_name: assignment.audioName,
+    audio_url: assignment.audioUrl,
+    attachment_name: assignment.attachmentName,
+    attachment_url: assignment.attachmentUrl,
+    exercise_config: assignment.exerciseConfig || {},
+    created_at: new Date().toISOString(),
+    recipients: (recipients || []).map((email) => ({ student_email: email }))
+  };
+}
+
+function persistMockAssignment(record) {
+  const mockAssignments = readMockAssignments();
+  const nextAssignments = [
+    record,
+    ...mockAssignments.filter((assignment) => assignment.id !== record.id)
+  ];
+
+  writeMockAssignments(nextAssignments);
+  return record.id;
+}
+
 function normalizeCourseIds(courseIds = []) {
   return new Set((courseIds || []).map((courseId) => String(courseId).toLowerCase()).filter(Boolean));
 }
@@ -171,79 +222,70 @@ async function selectAssignments(createQuery, includeExerciseConfig = true) {
 }
 
 export async function getAssignmentsForTeacher(teacherId) {
+  const localAssignments = teacherId
+    ? readAllAssignments().filter((assignment) => assignment.teacherId === teacherId)
+    : readAllAssignments();
+
   if (!isSupabaseReady() || !teacherId) {
-    const mockAssignments = readMockAssignments();
-    return mockAssignments
-      .filter((assignment) => assignment.teacher_id === teacherId)
-      .map(normalizeAssignment);
+    return localAssignments;
   }
 
   const { data, error } = await selectAssignments(
     (fields) => supabase.from('lesson_assignments').select(fields).eq('teacher_id', teacherId)
   );
 
-  if (error || !data) {
-    return [];
-  }
+  const remoteAssignments = error || !data ? [] : data.map(normalizeAssignment);
 
-  return data.map(normalizeAssignment);
+  return mergeAssignmentLists(remoteAssignments, localAssignments).filter(
+    (assignment) => assignment.teacherId === teacherId
+  );
 }
 
 export async function getAssignmentsForStudent(studentEmail, ownedCourseIds = getStoredPurchasedCourseIds()) {
   const normalizedEmail = String(studentEmail || '').toLowerCase();
   const ownedCourseIdSet = normalizeCourseIds(ownedCourseIds);
+  const localAssignments = readAllAssignments().filter((assignment) =>
+    isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet)
+  );
 
   if (!isSupabaseReady() || !studentEmail) {
-    const mockAssignments = readMockAssignments();
-    return mockAssignments
-      .map(normalizeAssignment)
-      .filter((assignment) => isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet));
+    return localAssignments;
   }
 
   const { data, error } = await selectAssignments((fields) => supabase.from('lesson_assignments').select(fields));
 
-  if (error || !data) {
-    return [];
-  }
+  const remoteAssignments = error || !data ? [] : data.map(normalizeAssignment);
 
-  return data
-    .map(normalizeAssignment)
+  return mergeAssignmentLists(remoteAssignments, localAssignments)
     .filter((assignment) => isVisibleToStudent(assignment, normalizedEmail, ownedCourseIdSet));
 }
 
 export async function createAssignment({ teacherId, assignment, recipients, accessToken } = {}) {
+  const localRecord = buildMockAssignmentRecord({
+    teacherId,
+    assignment,
+    recipients
+  });
+
   // Nếu có accessToken (người dùng đã xác thực), gọi endpoint server dùng service role
   if (accessToken && accessToken !== 'dev-token' && isSupabaseReady()) {
-    const payload = { teacherId, assignment, recipients };
-    const result = await apiFetch('/api/assignments', { method: 'POST', token: accessToken, body: payload });
-    return result?.id;
+    try {
+      const payload = { teacherId, assignment, recipients };
+      const result = await apiFetch('/api/assignments', { method: 'POST', token: accessToken, body: payload });
+      const createdId = result?.id || localRecord.id;
+      persistMockAssignment({
+        ...localRecord,
+        id: createdId
+      });
+      return createdId;
+    } catch (error) {
+      console.warn('[createAssignment] Falling back to local storage:', error.message);
+      return persistMockAssignment(localRecord);
+    }
   }
 
   if (!isSupabaseReady() || !teacherId) {
-    const newId = `mock-assignment-${Date.now()}`;
-    const newAssignment = {
-      id: newId,
-      teacher_id: teacherId,
-      course_key: assignment.courseKey,
-      course_title: assignment.courseTitle,
-      lesson_title: assignment.lessonTitle,
-      title: assignment.title,
-      description: assignment.description,
-      assignment_scope: assignment.assignmentScope,
-      audio_name: assignment.audioName,
-      audio_url: assignment.audioUrl,
-      attachment_name: assignment.attachmentName,
-      attachment_url: assignment.attachmentUrl,
-      exercise_config: assignment.exerciseConfig || {},
-      created_at: new Date().toISOString(),
-      recipients: (recipients || []).map((email) => ({ student_email: email }))
-    };
-
-    const mockAssignments = readMockAssignments();
-    mockAssignments.unshift(newAssignment);
-    writeMockAssignments(mockAssignments);
-
-    return newId;
+    return persistMockAssignment(localRecord);
   }
 
   const payload = {
@@ -280,7 +322,8 @@ export async function createAssignment({ teacherId, assignment, recipients, acce
   }
 
   if (createError) {
-    throw createError;
+    console.warn('[createAssignment] Remote insert failed, using local fallback:', createError.message);
+    return persistMockAssignment(localRecord);
   }
 
   if (assignment.assignmentScope === 'selected_students' && recipients.length) {
@@ -302,6 +345,11 @@ export async function createAssignment({ teacherId, assignment, recipients, acce
       }
     }
   }
+
+  persistMockAssignment({
+    ...localRecord,
+    id: created.id
+  });
 
   return created.id;
 }

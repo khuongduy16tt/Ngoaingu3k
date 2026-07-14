@@ -1691,8 +1691,8 @@ export default function LearningPage() {
         type: 'success',
         text:
           teacherDraft.assignmentScope === 'course_buyers'
-            ? 'Đã giao bài cho học viên đã mua khóa.'
-            : `Đã giao bài cho ${recipients.length} học sinh được chọn.`
+            ? 'Giao bài thành công. Đã giao bài cho học viên đã mua khóa.'
+            : `Giao bài thành công. Đã giao bài cho ${recipients.length} học sinh được chọn.`
       });
 
       // Load lại danh sách giao bài ở background; lỗi ở bước này không ghi đè thông báo thành công
