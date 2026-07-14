@@ -1534,6 +1534,11 @@
   padding-right: 0.25rem;
 }
 
+.import-lesson-strip-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .import-lesson-pill {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1586,6 +1591,13 @@
   grid-template-columns: minmax(250px, 0.42fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+}
+
+.lesson-edit-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .lesson-edit-panel,

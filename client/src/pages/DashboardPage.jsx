@@ -766,6 +766,13 @@ export function TeacherDashboardPage() {
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === selectedDraftLessonId) || draftLessons[0] || null;
   const studentPreviewLesson =
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === studentPreviewLessonId) || selectedDraftLesson;
+  const selectedDraftLessonSectionLessons = selectedDraftLesson
+    ? courseDraft.sections[selectedDraftLesson.sectionIndex]?.lessons || []
+    : [];
+  const selectedDraftLessonCanMoveUp = Boolean(selectedDraftLesson && selectedDraftLesson.lessonIndex > 0);
+  const selectedDraftLessonCanMoveDown = Boolean(
+    selectedDraftLesson && selectedDraftLesson.lessonIndex < selectedDraftLessonSectionLessons.length - 1
+  );
   const hasDraftAudio = draftLessons.some((lesson) => lesson.audioUrl || lesson.audioName);
   const hasDraftImage = draftLessons.some((lesson) => lesson.imageUrl || lesson.imageName);
   const hasDraftVideo = draftLessons.some((lesson) => lesson.videoUrl);
@@ -801,17 +808,114 @@ export function TeacherDashboardPage() {
   }
 
   function updateDraftSections(sections) {
-    const lessonsCount = sections.reduce((count, section) => count + ((section.lessons || []).length), 0);
-    const firstLesson = sections.flatMap((section) => section.lessons || [])[0];
+    const normalizedSections = sections.map((section) => ({
+      ...section,
+      lessons: (section.lessons || []).map((lesson, lessonIndex) => ({
+        ...lesson,
+        lessonNumber: String(lessonIndex + 1),
+        position: lessonIndex + 1
+      }))
+    }));
+    const lessonsCount = normalizedSections.reduce((count, section) => count + ((section.lessons || []).length), 0);
+    const firstLesson = normalizedSections.flatMap((section) => section.lessons || [])[0];
     setCourseDraft((previous) => ({
       ...previous,
-      sections,
+      sections: normalizedSections,
       lessonsCount: String(lessonsCount || previous.lessonsCount || 1)
     }));
     if (firstLesson) {
       setSelectedDraftLessonId(firstLesson.id);
       setStudentPreviewLessonId(firstLesson.id);
     }
+  }
+
+  function updateDraftSectionsInPlace(nextSections, options = {}) {
+    const normalizedSections = nextSections.map((section) => ({
+      ...section,
+      lessons: (section.lessons || []).map((lesson, lessonIndex) => ({
+        ...lesson,
+        lessonNumber: String(lessonIndex + 1),
+        position: lessonIndex + 1
+      }))
+    }));
+    const lessonsCount = normalizedSections.reduce((count, section) => count + ((section.lessons || []).length), 0);
+    setCourseDraft((previous) => ({
+      ...previous,
+      sections: normalizedSections,
+      lessonsCount: String(lessonsCount || previous.lessonsCount || 1)
+    }));
+
+    if (options.focusLessonId) {
+      setSelectedDraftLessonId(options.focusLessonId);
+    }
+
+    if (options.previewLessonId || options.focusLessonId) {
+      setStudentPreviewLessonId(options.previewLessonId || options.focusLessonId);
+    }
+  }
+
+  function createDraftLesson(sectionTitle, lessonNumber) {
+    const nextNumber = Number(lessonNumber) || 1;
+    return {
+      id: `draft-lesson-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      title: `Bài ${nextNumber} mới`,
+      lessonNumber: String(nextNumber),
+      exerciseType: 'Nhập thủ công',
+      status: 'active',
+      note: `Bài ${nextNumber} · Nhập thủ công`,
+      sectionTitle: sectionTitle || 'Nội dung chính',
+      questionCount: 0,
+      questions: [],
+      exercises: []
+    };
+  }
+
+  function addDraftLessonAfter(sectionIndex, lessonIndex) {
+    const nextSections = courseDraft.sections.map((section, currentSectionIndex) => {
+      if (currentSectionIndex !== sectionIndex) {
+        return section;
+      }
+
+      const lessons = Array.isArray(section.lessons) ? [...section.lessons] : [];
+      const insertIndex = Number.isInteger(lessonIndex) ? lessonIndex + 1 : lessons.length;
+      const nextLesson = createDraftLesson(section.title, insertIndex + 1);
+      lessons.splice(insertIndex, 0, nextLesson);
+
+      return {
+        ...section,
+        lessons
+      };
+    });
+
+    updateDraftSectionsInPlace(nextSections, {
+      focusLessonId: nextSections[sectionIndex]?.lessons?.[Number.isInteger(lessonIndex) ? lessonIndex + 1 : nextSections[sectionIndex]?.lessons?.length - 1]?.id,
+      previewLessonId: nextSections[sectionIndex]?.lessons?.[Number.isInteger(lessonIndex) ? lessonIndex + 1 : nextSections[sectionIndex]?.lessons?.length - 1]?.id
+    });
+  }
+
+  function moveDraftLesson(sectionIndex, lessonIndex, direction) {
+    const nextSections = courseDraft.sections.map((section, currentSectionIndex) => {
+      if (currentSectionIndex !== sectionIndex) {
+        return section;
+      }
+
+      const lessons = Array.isArray(section.lessons) ? [...section.lessons] : [];
+      const targetIndex = lessonIndex + direction;
+      if (targetIndex < 0 || targetIndex >= lessons.length) {
+        return section;
+      }
+
+      [lessons[lessonIndex], lessons[targetIndex]] = [lessons[targetIndex], lessons[lessonIndex]];
+      return {
+        ...section,
+        lessons
+      };
+    });
+
+    updateDraftSectionsInPlace(nextSections, {
+      focusLessonId: selectedDraftLesson?.id || '',
+      previewLessonId: studentPreviewLesson?.id || selectedDraftLesson?.id || ''
+    });
   }
 
   function persistCourses(nextCourses) {
@@ -1746,6 +1850,22 @@ export function TeacherDashboardPage() {
                   })}
                 </div>
 
+                <div className="import-lesson-strip-actions">
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    disabled={!draftLessons.length}
+                    onClick={() => {
+                      const lastLesson = draftLessons[draftLessons.length - 1];
+                      if (lastLesson) {
+                        addDraftLessonAfter(lastLesson.sectionIndex, lastLesson.lessonIndex);
+                      }
+                    }}
+                  >
+                    + Thêm bài mới vào cuối khóa
+                  </button>
+                </div>
+
                 {selectedDraftLesson ? (
                   <div className="lesson-edit-panel">
                     <div className="section-head">
@@ -1753,7 +1873,32 @@ export function TeacherDashboardPage() {
                         <span className="eyebrow">Sửa bài học</span>
                         <h3>{selectedDraftLesson.title || 'Bài học mới'}</h3>
                       </div>
-                      <span className="pill">{selectedDraftLesson.sectionTitle}</span>
+                      <div className="lesson-edit-panel__actions">
+                        <button
+                          type="button"
+                          className="button-ghost"
+                          disabled={!selectedDraftLessonCanMoveUp}
+                          onClick={() => moveDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, -1)}
+                        >
+                          Lên
+                        </button>
+                        <button
+                          type="button"
+                          className="button-ghost"
+                          disabled={!selectedDraftLessonCanMoveDown}
+                          onClick={() => moveDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, 1)}
+                        >
+                          Xuống
+                        </button>
+                        <button
+                          type="button"
+                          className="button-ghost"
+                          onClick={() => addDraftLessonAfter(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex)}
+                        >
+                          Thêm bài sau
+                        </button>
+                        <span className="pill">{selectedDraftLesson.sectionTitle}</span>
+                      </div>
                     </div>
 
                     <div className="dashboard-form__grid">
@@ -2205,6 +2350,39 @@ export function AdminDashboardPage() {
     return lookup;
   }, [adminData.courses]);
 
+  const lessonsByCourse = useMemo(() => {
+    const lookup = new Map();
+
+    adminData.lessons.forEach((lesson) => {
+      const courseId = lesson.courseId || '';
+      const bucket = lookup.get(courseId) || [];
+      bucket.push(lesson);
+      lookup.set(courseId, bucket);
+    });
+
+    lookup.forEach((lessons) => {
+      lessons.sort((left, right) => {
+        const positionDiff = Number(left.position || 0) - Number(right.position || 0);
+        if (positionDiff) return positionDiff;
+        return String(left.title || '').localeCompare(String(right.title || ''), 'vi');
+      });
+    });
+
+    return lookup;
+  }, [adminData.lessons]);
+
+  const lessonRows = useMemo(() => {
+    return [...adminData.lessons].sort((left, right) => {
+      const courseDiff = String(left.courseId || '').localeCompare(String(right.courseId || ''), 'vi');
+      if (courseDiff) return courseDiff;
+
+      const positionDiff = Number(left.position || 0) - Number(right.position || 0);
+      if (positionDiff) return positionDiff;
+
+      return String(left.title || '').localeCompare(String(right.title || ''), 'vi');
+    });
+  }, [adminData.lessons]);
+
   const paidOrders = adminData.orders.filter((order) => order.status === 'paid');
   const paymentReviewOrders = adminData.orders.filter((order) =>
     ['pending_payment', 'pending', 'awaiting_admin', 'paid'].includes(order.status)
@@ -2277,6 +2455,20 @@ export function AdminDashboardPage() {
     resetKey: `${activityFilter}|${filteredActivityLogs.length}`
   });
 
+  function getNextLessonPosition(courseId, excludeLessonId = '') {
+    const courseLessons = lessonsByCourse.get(courseId || '') || [];
+    return (
+      courseLessons.reduce((maxPosition, lesson) => {
+        if (excludeLessonId && (lesson.id === excludeLessonId || lesson.databaseId === excludeLessonId)) {
+          return maxPosition;
+        }
+
+        const lessonPosition = Number(lesson.position || 0);
+        return lessonPosition > maxPosition ? lessonPosition : maxPosition;
+      }, 0) + 1
+    );
+  }
+
   function updateProfileDraft(field, value) {
     setProfileDraft((previous) => ({ ...previous, [field]: value }));
   }
@@ -2286,7 +2478,17 @@ export function AdminDashboardPage() {
   }
 
   function updateLessonDraft(field, value) {
-    setLessonDraft((previous) => ({ ...previous, [field]: value }));
+    setLessonDraft((previous) => {
+      if (field === 'courseId') {
+        return {
+          ...previous,
+          courseId: value,
+          position: String(getNextLessonPosition(String(value || ''), previous.id || previous.databaseId || ''))
+        };
+      }
+
+      return { ...previous, [field]: value };
+    });
   }
 
   function resetProfileDraft() {
@@ -2300,10 +2502,38 @@ export function AdminDashboardPage() {
   }
 
   function resetLessonDraft() {
+    const defaultCourseId = getCourseKey(adminData.courses[0] || {}) || '';
     setLessonDraft({
       ...emptyLessonDraft,
-      courseId: getCourseKey(adminData.courses[0] || {}) || ''
+      courseId: defaultCourseId,
+      position: String(getNextLessonPosition(defaultCourseId))
     });
+  }
+
+  async function handleShiftLessonPosition(lesson, direction) {
+    const courseLessons = lessonsByCourse.get(lesson.courseId || '') || [];
+    const currentIndex = courseLessons.findIndex((item) => item.id === lesson.id && item.databaseId === lesson.databaseId);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= courseLessons.length) {
+      return;
+    }
+
+    const targetLesson = courseLessons[targetIndex];
+
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      await saveAdminLesson({ ...lesson, position: Number(targetLesson.position || 0) });
+      await saveAdminLesson({ ...targetLesson, position: Number(lesson.position || 0) });
+      await reloadAdminData();
+      setMessage({ type: 'success', text: 'Đã đổi vị trí bài học.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Chưa thể đổi vị trí bài học.' });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSaveProfile(event) {
@@ -3141,7 +3371,7 @@ export function AdminDashboardPage() {
 
           <AdminDataTable
             columns={['Bài học', 'Khóa', 'Thứ tự', 'Xem thử', 'Thao tác']}
-            rows={adminData.lessons}
+            rows={lessonRows}
             emptyText="Chưa có bài học."
             renderRow={(lesson) => (
               <tr key={`${lesson.id}-${lesson.databaseId}`}>
@@ -3154,6 +3384,35 @@ export function AdminDashboardPage() {
                 <td>{lesson.isPreview ? 'Có' : 'Không'}</td>
                 <td>
                   <div className="admin-row-actions">
+                    <button
+                      type="button"
+                      className="button-ghost"
+                      disabled={saving || lesson.position <= 1}
+                      onClick={() => handleShiftLessonPosition(lesson, -1)}
+                    >
+                      Lên
+                    </button>
+                    <button
+                      type="button"
+                      className="button-ghost"
+                      disabled={saving || lesson.position >= (lessonsByCourse.get(lesson.courseId || '') || []).length}
+                      onClick={() => handleShiftLessonPosition(lesson, 1)}
+                    >
+                      Xuống
+                    </button>
+                    <button
+                      type="button"
+                      className="button-ghost"
+                      onClick={() =>
+                        setLessonDraft({
+                          ...emptyLessonDraft,
+                          courseId: lesson.courseId,
+                          position: String(Number(lesson.position || 0) + 1)
+                        })
+                      }
+                    >
+                      Thêm sau
+                    </button>
                     <button
                       type="button"
                       className="button-ghost"
