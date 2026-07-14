@@ -8,6 +8,7 @@ import {
   getAssignmentsForStudent,
   getAssignmentsForTeacher,
   getCourseOptions,
+  MOCK_ASSIGNMENTS_STORAGE_KEY,
   saveAssignmentAttempt
 } from '../lib/assignmentService';
 import {
@@ -1124,6 +1125,7 @@ export default function LearningPage() {
   const [studentAssignments, setStudentAssignments] = useState([]);
   const [assignmentAttempts, setAssignmentAttempts] = useState({});
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [assignmentRefreshTick, setAssignmentRefreshTick] = useState(0);
   const [showTeacherStudentView, setShowTeacherStudentView] = useState(false);
   const [teacherDraft, setTeacherDraft] = useState(getInitialTeacherDraft);
   const [teacherSource, setTeacherSource] = useState({ type: 'sample', name: 'Mẫu OCR', url: '' });
@@ -1368,7 +1370,25 @@ export default function LearningPage() {
     return () => {
       active = false;
     };
-  }, [auth.user?.id, auth.user?.email, purchasedCourses]);
+  }, [auth.user?.id, auth.user?.email, purchasedCourses, assignmentRefreshTick]);
+
+  useEffect(() => {
+    function refreshAssignments(event) {
+      if (event?.type === 'storage' && event.key !== MOCK_ASSIGNMENTS_STORAGE_KEY) {
+        return;
+      }
+
+      setAssignmentRefreshTick((currentTick) => currentTick + 1);
+    }
+
+    window.addEventListener('lesson-assignments-updated', refreshAssignments);
+    window.addEventListener('storage', refreshAssignments);
+
+    return () => {
+      window.removeEventListener('lesson-assignments-updated', refreshAssignments);
+      window.removeEventListener('storage', refreshAssignments);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -1696,12 +1716,13 @@ export default function LearningPage() {
       });
 
       // Load lại danh sách giao bài ở background; lỗi ở bước này không ghi đè thông báo thành công
-      try {
-        const nextTeacherAssignments = await getAssignmentsForTeacher(auth.user.id);
-        setTeacherAssignments(nextTeacherAssignments);
-      } catch (err) {
-        console.warn('Không thể load lại danh sách giao bài:', err?.message || err);
-      }
+      void getAssignmentsForTeacher(auth.user.id)
+        .then((nextTeacherAssignments) => {
+          setTeacherAssignments(nextTeacherAssignments);
+        })
+        .catch((err) => {
+          console.warn('Không thể load lại danh sách giao bài:', err?.message || err);
+        });
     } catch (submissionError) {
       setTeacherSaveStatus({
         type: 'error',

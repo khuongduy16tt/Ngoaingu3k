@@ -7,7 +7,7 @@ export function getApiUrl(path) {
 }
 
 export async function apiFetch(path, options = {}) {
-  const { token, headers = {}, body, ...fetchOptions } = options;
+  const { token, headers = {}, body, timeoutMs, ...fetchOptions } = options;
   const requestHeaders = {
     Accept: 'application/json',
     ...headers
@@ -23,24 +23,42 @@ export async function apiFetch(path, options = {}) {
     requestHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(getApiUrl(path), {
-    ...fetchOptions,
-    headers: requestHeaders,
-    body: requestBody
-  });
+  const controller = timeoutMs ? new AbortController() : null;
+  const timeoutHandle = timeoutMs
+    ? setTimeout(() => controller?.abort(), timeoutMs)
+    : null;
 
-  const contentType = response.headers.get('content-type') || '';
-  const payload = contentType.includes('application/json')
-    ? await response.json()
-    : await response.text();
+  try {
+    const response = await fetch(getApiUrl(path), {
+      ...fetchOptions,
+      headers: requestHeaders,
+      body: requestBody,
+      signal: controller?.signal
+    });
 
-  if (!response.ok) {
-    const message =
-      typeof payload === 'string'
-        ? payload
-        : payload?.message || 'Yêu cầu chưa hoàn tất.';
-    throw new Error(message);
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await response.json()
+      : await response.text();
+
+    if (!response.ok) {
+      const message =
+        typeof payload === 'string'
+          ? payload
+          : payload?.message || 'Yêu cầu chưa hoàn tất.';
+      throw new Error(message);
+    }
+
+    return payload;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Yêu cầu quá thời gian chờ. Vui lòng thử lại.');
+    }
+
+    throw error;
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
   }
-
-  return payload;
 }

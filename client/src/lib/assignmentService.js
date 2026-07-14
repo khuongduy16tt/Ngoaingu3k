@@ -38,7 +38,7 @@ function isMissingAssignmentAttemptsTable(error) {
   return /lesson_assignment_attempts/i.test(error?.message || '');
 }
 
-const MOCK_ASSIGNMENTS_STORAGE_KEY = 'ngoaingu3k-mock-assignments';
+export const MOCK_ASSIGNMENTS_STORAGE_KEY = 'ngoaingu3k-mock-assignments';
 
 function readMockAssignments() {
   try {
@@ -52,6 +52,11 @@ function readMockAssignments() {
 function writeMockAssignments(assignments = []) {
   try {
     localStorage.setItem(MOCK_ASSIGNMENTS_STORAGE_KEY, JSON.stringify(assignments));
+    window.dispatchEvent(
+      new CustomEvent('lesson-assignments-updated', {
+        detail: { assignments }
+      })
+    );
   } catch {
     // ignore
   }
@@ -106,6 +111,22 @@ function persistMockAssignment(record) {
 
   writeMockAssignments(nextAssignments);
   return record.id;
+}
+
+async function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function normalizeCourseIds(courseIds = []) {
@@ -212,7 +233,11 @@ function normalizeAssignmentAttempt(item) {
 
 async function selectAssignments(createQuery, includeExerciseConfig = true) {
   const query = createQuery(includeExerciseConfig ? assignmentSelectWithExercise : assignmentSelectBase);
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await withTimeout(
+    query.order('created_at', { ascending: false }),
+    8000,
+    'Loading assignments timed out.'
+  );
 
   if (error && includeExerciseConfig && isMissingExerciseConfigColumn(error)) {
     return selectAssignments(createQuery, false);
@@ -271,7 +296,12 @@ export async function createAssignment({ teacherId, assignment, recipients, acce
   if (accessToken && accessToken !== 'dev-token' && isSupabaseReady()) {
     try {
       const payload = { teacherId, assignment, recipients };
-      const result = await apiFetch('/api/assignments', { method: 'POST', token: accessToken, body: payload });
+      const result = await apiFetch('/api/assignments', {
+        method: 'POST',
+        token: accessToken,
+        body: payload,
+        timeoutMs: 10000
+      });
       const createdId = result?.id || localRecord.id;
       persistMockAssignment({
         ...localRecord,
@@ -303,19 +333,29 @@ export async function createAssignment({ teacherId, assignment, recipients, acce
     exercise_config: assignment.exerciseConfig || {}
   };
 
-  let { data: created, error: createError } = await supabase
-    .from('lesson_assignments')
-    .insert(payload)
-    .select('id')
-    .single();
+  let createResult = await withTimeout(
+    supabase
+      .from('lesson_assignments')
+      .insert(payload)
+      .select('id')
+      .single(),
+    10000,
+    'Tạo bài giao quá lâu. Hệ thống sẽ lưu bản local.'
+  );
+  let { data: created, error: createError } = createResult;
 
   if (createError && isMissingExerciseConfigColumn(createError)) {
     const { exercise_config: _exerciseConfig, ...fallbackPayload } = payload;
-    const fallbackResult = await supabase
-      .from('lesson_assignments')
-      .insert(fallbackPayload)
-      .select('id')
-      .single();
+    createResult = await withTimeout(
+      supabase
+        .from('lesson_assignments')
+        .insert(fallbackPayload)
+        .select('id')
+        .single(),
+      10000,
+      'Tạo bài giao quá lâu. Hệ thống sẽ lưu bản local.'
+    );
+    const fallbackResult = createResult;
 
     created = fallbackResult.data;
     createError = fallbackResult.error;
@@ -336,9 +376,11 @@ export async function createAssignment({ teacherId, assignment, recipients, acce
       }));
 
     if (recipientRows.length) {
-      const { error: recipientError } = await supabase
-        .from('lesson_assignment_recipients')
-        .insert(recipientRows);
+      const { error: recipientError } = await withTimeout(
+        supabase.from('lesson_assignment_recipients').insert(recipientRows),
+        8000,
+        'Lưu danh sách học sinh quá lâu. Hệ thống sẽ lưu bản local.'
+      );
 
       if (recipientError) {
         throw recipientError;
