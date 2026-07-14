@@ -145,6 +145,17 @@ function createTeacherFallbackCourse(courseOptions = [], routeCourseKey = '') {
   };
 }
 
+function createTeacherWorkspaceFallback(course, routeCourseKey = '') {
+  const baseCourse = course || createTeacherFallbackCourse([], routeCourseKey);
+  return {
+    ...baseCourse,
+    id: baseCourse.id || routeCourseKey || mockCourseDetail.id,
+    databaseId: baseCourse.databaseId || baseCourse.id || routeCourseKey || mockCourseDetail.id,
+    slug: baseCourse.slug || routeCourseKey || mockCourseDetail.slug,
+    sections: cloneFallbackLessons()
+  };
+}
+
 function formatAssignmentScope(scope) {
   return scope === 'course_buyers' ? 'Học viên đã mua khóa' : 'Học viên được chọn';
 }
@@ -1278,7 +1289,10 @@ export default function LearningPage() {
         const teacherFallbackCourse = !nextCourse && canBrowseAllCourses
           ? createTeacherFallbackCourse(courseOptions, routeCourseKey)
           : null;
-        const resolvedCourse = nextCourse || teacherFallbackCourse;
+        let resolvedCourse = nextCourse || teacherFallbackCourse;
+        if (resolvedCourse && canBrowseAllCourses && buildLessonsFromCourse(resolvedCourse).length === 0) {
+          resolvedCourse = createTeacherWorkspaceFallback(resolvedCourse, routeCourseKey);
+        }
         const nextLessons = resolvedCourse ? buildLessonsFromCourse(resolvedCourse) : [];
 
         if (active) {
