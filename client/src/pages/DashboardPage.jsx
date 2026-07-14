@@ -35,6 +35,7 @@ import { average, buildStudentProgressRows } from '../lib/studentProgressService
 import { formatVnd, normalizeVndAmount } from '../lib/money';
 import { parseExcelCourseFile, parseExcelQuestionFile } from '../lib/excelCourseParser';
 import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
+import { uploadCourseImage } from '../lib/storageService';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -363,6 +364,7 @@ function createEmptyCourseDraft() {
     lessonsCount: '12',
     price: '490000',
     summary: '',
+    bannerUrl: null,
     sections: []
   };
 }
@@ -597,6 +599,8 @@ export function TeacherDashboardPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [courseDraft, setCourseDraft] = useState(() => createEmptyCourseDraft());
   const [editingCourseId, setEditingCourseId] = useState('');
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerUploadError, setBannerUploadError] = useState('');
   const [courseInputMode, setCourseInputMode] = useState('manual');
   const [manualLessonDraft, setManualLessonDraft] = useState({
     sectionTitle: 'Nội dung chính',
@@ -1223,6 +1227,34 @@ export function TeacherDashboardPage() {
     setImportMessage({ type: 'success', text: `Đã tạo ${lessonLines.length} bài học thủ công để xem trước.` });
   }
 
+  async function handleBannerChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const errorMsg = validateImageFile(file);
+    if (errorMsg) {
+      setBannerUploadError(errorMsg);
+      return;
+    }
+
+    setBannerUploadError('');
+    setUploadingBanner(true);
+    try {
+      const courseId = editingCourseId || '';
+      const result = await uploadCourseImage(file, courseId);
+      
+      if (result?.url) {
+        updateDraft('bannerUrl', result.url);
+      } else {
+        setBannerUploadError('Lỗi tải ảnh lên Supabase. Đảm bảo bucket "course-images" đã được tạo.');
+      }
+    } catch (err) {
+      setBannerUploadError('Đã xảy ra lỗi khi tải ảnh.');
+    } finally {
+      setUploadingBanner(false);
+    }
+  }
+
   async function handlePublishCourse(event) {
     event.preventDefault();
     setMessage({ type: '', text: '' });
@@ -1566,6 +1598,23 @@ export function TeacherDashboardPage() {
                 onChange={(event) => updateDraft('summary', event.target.value)}
                 placeholder="Mục tiêu, lộ trình và kết quả học viên đạt được sau khóa..."
               />
+            </label>
+
+            <label className="auth-field auth-field--full">
+              <span>Ảnh đại diện (Banner)</span>
+              <input
+                type="file"
+                accept="image/jpeg, image/png, image/webp, image/gif"
+                onChange={handleBannerChange}
+                disabled={uploadingBanner}
+              />
+              {uploadingBanner && <span className="upload-progress">Đang tải ảnh lên...</span>}
+              {bannerUploadError && <span className="error-message" style={{ color: 'var(--error)' }}>{bannerUploadError}</span>}
+              {courseDraft.bannerUrl && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <img src={courseDraft.bannerUrl} alt="Banner Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: 'var(--radius)' }} />
+                </div>
+              )}
             </label>
 
             <div className="auth-field auth-field--full">

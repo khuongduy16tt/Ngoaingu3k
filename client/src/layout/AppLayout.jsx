@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { navLinks } from '../data/mock';
 import { useAuth } from '../providers/AuthProvider';
@@ -32,6 +32,7 @@ export function AppLayout({ children }) {
   );
 }
 
+// ─── Floating Test Button ─────────────────────────────────────────────────────
 function FloatingTestButton() {
   return (
     <Link className="floating-test-button" to="/test" aria-label={ui.testButtonAria}>
@@ -45,6 +46,7 @@ function FloatingTestButton() {
   );
 }
 
+// ─── Floating Contact Buttons ─────────────────────────────────────────────────
 const floatingContactActions = [
   {
     label: ui.zaloLabel,
@@ -134,6 +136,7 @@ function FloatingContactButtons() {
   );
 }
 
+// ─── Theme ────────────────────────────────────────────────────────────────────
 function readStoredTheme() {
   try {
     const storedTheme = localStorage.getItem('theme');
@@ -171,6 +174,144 @@ function ThemeIcon({ theme }) {
   );
 }
 
+// ─── Avatar helpers ───────────────────────────────────────────────────────────
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #f97316, #ef4444)',
+  'linear-gradient(135deg, #8b5cf6, #6366f1)',
+  'linear-gradient(135deg, #06b6d4, #3b82f6)',
+  'linear-gradient(135deg, #10b981, #059669)',
+  'linear-gradient(135deg, #f59e0b, #f97316)',
+  'linear-gradient(135deg, #ec4899, #8b5cf6)',
+  'linear-gradient(135deg, #14b8a6, #06b6d4)',
+];
+
+function getAvatarGradient(seed) {
+  if (!seed) return AVATAR_GRADIENTS[0];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+}
+
+function getInitials(name, email) {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0][0].toUpperCase();
+  }
+  if (email) return email[0].toUpperCase();
+  return '?';
+}
+
+// ─── UserAvatar mini dropdown ─────────────────────────────────────────────────
+function UserAvatar() {
+  const auth = useAuth();
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  const name = auth.profile?.full_name || auth.user?.user_metadata?.full_name || '';
+  const email = auth.user?.email || '';
+  const avatarUrl = auth.profile?.avatar_url || '';
+  const initials = getInitials(name, email);
+  const gradient = getAvatarGradient(name || email);
+  const role = auth.profile?.role || auth.role || 'student';
+  const roleLabel = role === 'teacher' ? 'Giáo viên' : role === 'admin' ? 'Quản trị viên' : 'Học sinh';
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="user-avatar-wrapper" ref={wrapperRef}>
+      <button
+        id="user-avatar-btn"
+        className="user-avatar-btn"
+        type="button"
+        aria-label="Mở menu hồ sơ"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="user-avatar-ring">
+          {avatarUrl ? (
+            <img className="user-avatar-img" src={avatarUrl} alt={name || 'Avatar'} />
+          ) : (
+            <span className="user-avatar-initials" style={{ background: gradient }}>
+              {initials}
+            </span>
+          )}
+        </span>
+      </button>
+
+      {open && (
+        <div id="profile-dropdown" className="profile-dropdown" role="dialog" aria-label="Menu người dùng">
+          {/* Mini profile header */}
+          <div className="profile-dropdown__header">
+            <div className="profile-dropdown__avatar-mini">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={name} />
+              ) : (
+                <span style={{ background: gradient }}>{initials}</span>
+              )}
+            </div>
+            <div className="profile-dropdown__info">
+              <div className="profile-dropdown__name">{name || 'Người dùng'}</div>
+              <div className="profile-dropdown__email">{email}</div>
+              <span className={`profile-dropdown__role-badge profile-dropdown__role-badge--${role}`}>
+                {roleLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className="profile-dropdown__divider" />
+
+          {/* Actions */}
+          <div className="profile-dropdown__actions">
+            <Link
+              to="/profile"
+              className="profile-dropdown__action"
+              onClick={() => setOpen(false)}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Xem hồ sơ
+            </Link>
+
+            <button
+              className="profile-dropdown__action profile-dropdown__action--signout"
+              type="button"
+              onClick={() => { setOpen(false); auth.signOut(); }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Đăng xuất
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── TopBar ───────────────────────────────────────────────────────────────────
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
@@ -224,9 +365,7 @@ function TopBar({ theme, setTheme, themeLabel }) {
             <ThemeIcon theme={theme} />
           </button>
           {signedIn ? (
-            <button className="text-control" type="button" onClick={() => auth.signOut()}>
-              {ui.signOut}
-            </button>
+            <UserAvatar />
           ) : (
             <>
               <Link className="text-control auth-nav-link" to="/auth">
@@ -243,6 +382,7 @@ function TopBar({ theme, setTheme, themeLabel }) {
   );
 }
 
+// ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   const quickLinks = [
     { label: ui.home, to: '/home' },

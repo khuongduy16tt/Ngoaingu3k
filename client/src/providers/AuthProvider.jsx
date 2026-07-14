@@ -186,6 +186,27 @@ export function AuthProvider({ children }) {
     };
   }
 
+  async function updateProfile(updates) {
+    if (!supabase) {
+      // Mock mode: update local state only
+      setProfile((prev) => prev ? { ...prev, ...updates } : prev);
+      return { error: null };
+    }
+
+    const userId = session?.user?.id;
+    if (!userId) return { error: new Error('Không có user') };
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId);
+
+    if (!error) {
+      setProfile((prev) => prev ? { ...prev, ...updates } : prev);
+    }
+    return { error };
+  }
+
   async function signOut() {
     const userId = session?.user?.id;
     if (userId) {
@@ -351,7 +372,8 @@ export function AuthProvider({ children }) {
       signInWithEmail,
       signUpWithEmail,
       signInWithGoogle,
-      sendPasswordReset
+      sendPasswordReset,
+      updateProfile
     }),
     [loading, profile, ready, role, session]
   );

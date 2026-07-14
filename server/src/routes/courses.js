@@ -219,11 +219,13 @@ async function saveCourseRecord(course, user) {
   }
 
   if (!existingCourseId) {
-    const { data: existingCourse, error } = await supabaseAdmin
+    const { data: existingCourses, error } = await supabaseAdmin
       .from('courses')
       .select('id, teacher_id')
       .eq('slug', payload.slug)
-      .maybeSingle();
+      .limit(1);
+      
+    const existingCourse = existingCourses?.[0];
 
     if (!error && existingCourse?.teacher_id === teacherId) {
       existingCourseId = existingCourse.id;

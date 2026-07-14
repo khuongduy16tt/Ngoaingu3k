@@ -160,10 +160,16 @@ export default function CourseDetailPage() {
   return (
     <div className="page">
       <section className="course-hero">
-        <div>
+        <div style={{ flex: 1 }}>
           <span className="eyebrow">{course.category || 'Thông tin khóa học'}</span>
           <h1>{course.title}</h1>
           <p>{loading ? 'Đang tải thông tin khóa học...' : course.hero}</p>
+
+          {course.bannerUrl && (
+            <div style={{ margin: '1.5rem 0' }}>
+              <img src={course.bannerUrl} alt={course.title} style={{ width: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: 'var(--radius)' }} />
+            </div>
+          )}
 
           <div className="marketplace-card__facts course-detail__facts">
             <span>{course.level}</span>

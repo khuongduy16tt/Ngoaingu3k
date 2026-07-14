@@ -1,52 +1,76 @@
 :root {
   color-scheme: dark;
-  --bg: #08101d;
-  --bg-alt: #111a2b;
-  --surface: rgba(15, 23, 38, 0.9);
-  --surface-soft: rgba(20, 31, 49, 0.8);
-  --surface-strong: rgba(8, 12, 20, 0.95);
-  --border: rgba(151, 167, 193, 0.18);
-  --border-strong: rgba(186, 201, 223, 0.28);
-  --text: #edf4ff;
-  --muted: #a8b8cf;
-  --accent: #54e2d1;
-  --accent-2: #8b9dff;
-  --accent-warm: #f0b85f;
-  --success: #76e4b9;
-  --button-bg: linear-gradient(135deg, #5cf0dc, #8ec2ff);
-  --button-text: #08101d;
+  /* Deep indigo/violet tinted neutrals for a richer dark mode */
+  --bg: oklch(18% 0.02 260);
+  --bg-alt: oklch(22% 0.03 260);
+  --surface: oklch(25% 0.03 260 / 0.9);
+  --surface-soft: oklch(28% 0.03 260 / 0.8);
+  --surface-strong: oklch(20% 0.03 260 / 0.95);
+  --border: oklch(85% 0.02 260 / 0.18);
+  --border-strong: oklch(85% 0.02 260 / 0.28);
+  
+  --text: oklch(95% 0.01 260);
+  --muted: oklch(75% 0.03 260);
+  
+  /* Brand accents */
+  --accent: oklch(84% 0.12 185); /* Teal/Cyan */
+  --accent-2: oklch(75% 0.12 280); /* Indigo/Purple */
+  --accent-warm: oklch(80% 0.15 65); /* Amber/Orange */
+  
+  /* Semantic */
+  --success: oklch(80% 0.15 150);
+  --error: oklch(65% 0.20 20);
+  --warning: oklch(80% 0.16 70);
+  --info: oklch(75% 0.15 240);
+
+  --button-bg: linear-gradient(135deg, oklch(84% 0.12 185), oklch(75% 0.12 260));
+  --button-text: oklch(18% 0.02 260);
   --button-border: transparent;
-  --ghost-bg: rgba(255, 255, 255, 0.04);
-  --ghost-text: #edf4ff;
-  --ghost-border: rgba(189, 203, 223, 0.22);
-  --nav-bg: rgba(255, 255, 255, 0.035);
-  --shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  
+  --ghost-bg: oklch(95% 0.01 260 / 0.04);
+  --ghost-text: oklch(95% 0.01 260);
+  --ghost-border: oklch(85% 0.02 260 / 0.22);
+  --nav-bg: oklch(95% 0.01 260 / 0.035);
+  
+  --shadow: 0 28px 70px rgba(0, 0, 0, 0.4);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f5f8fc;
-  --bg-alt: #edf3fb;
-  --surface: rgba(255, 255, 255, 0.88);
-  --surface-soft: rgba(246, 249, 253, 0.9);
-  --surface-strong: rgba(255, 255, 255, 0.96);
-  --border: rgba(23, 36, 56, 0.11);
-  --border-strong: rgba(23, 36, 56, 0.18);
-  --text: #102033;
-  --muted: #5d6d84;
-  --accent: #087f76;
-  --accent-2: #295bd8;
-  --accent-warm: #b36a00;
-  --success: #0c8f64;
-  --button-bg: linear-gradient(135deg, #0d5df4, #08b39c);
-  --button-text: #ffffff;
+  /* Warm off-white/cream tinted neutrals instead of sterile cold gray */
+  --bg: oklch(98% 0.01 80);
+  --bg-alt: oklch(95% 0.02 80);
+  --surface: oklch(100% 0 0 / 0.88);
+  --surface-soft: oklch(97% 0.01 80 / 0.9);
+  --surface-strong: oklch(100% 0 0 / 0.96);
+  --border: oklch(25% 0.02 260 / 0.11);
+  --border-strong: oklch(25% 0.02 260 / 0.18);
+  
+  --text: oklch(25% 0.03 260);
+  --muted: oklch(55% 0.03 260);
+  
+  /* Brand accents */
+  --accent: oklch(50% 0.10 185); /* Dark Teal */
+  --accent-2: oklch(55% 0.14 280); /* Deep Indigo */
+  --accent-warm: oklch(65% 0.18 65); /* Deep Orange */
+  
+  /* Semantic */
+  --success: oklch(55% 0.15 150);
+  --error: oklch(55% 0.20 20);
+  --warning: oklch(65% 0.18 70);
+  --info: oklch(55% 0.15 240);
+
+  --button-bg: linear-gradient(135deg, oklch(55% 0.14 260), oklch(50% 0.10 185));
+  --button-text: oklch(100% 0 0);
   --button-border: transparent;
-  --ghost-bg: rgba(13, 29, 52, 0.04);
-  --ghost-text: #102033;
-  --ghost-border: rgba(13, 29, 52, 0.16);
-  --nav-bg: rgba(13, 29, 52, 0.04);
-  --shadow: 0 22px 44px rgba(16, 32, 51, 0.12);
+  
+  --ghost-bg: oklch(25% 0.02 260 / 0.04);
+  --ghost-text: oklch(25% 0.03 260);
+  --ghost-border: oklch(25% 0.02 260 / 0.16);
+  --nav-bg: oklch(25% 0.02 260 / 0.04);
+  
+  --shadow: 0 22px 44px oklch(25% 0.03 260 / 0.12);
 }
 
 * {

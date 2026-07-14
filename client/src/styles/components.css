@@ -98,8 +98,9 @@
   gap: 0.4rem;
   padding: 0.35rem 0.72rem;
   border-radius: 999px;
-  background: rgba(97, 200, 255, 0.1);
-  color: #8fd6ff;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   font-size: 0.8rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -123,8 +124,28 @@
 .hero-quick-stats div {
   padding: 1rem;
   border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-quick-stats div::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+}
+
+.hero-quick-stats div:nth-child(2)::before {
+  background: var(--accent-2);
+}
+
+.hero-quick-stats div:nth-child(3)::before {
+  background: var(--accent-warm);
 }
 
 .hero-quick-stats strong {
@@ -3414,14 +3435,16 @@ button:disabled {
 .content-card,
 .course-card,
 .stat-card {
-  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+  position: relative;
 }
 
 .content-card:hover,
 .course-card:hover,
 .stat-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(97, 200, 255, 0.28);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .course-market-page {

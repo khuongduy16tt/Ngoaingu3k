@@ -20,6 +20,7 @@ const TeacherDashboardPage = lazy(() =>
 const AdminDashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((module) => ({ default: module.AdminDashboardPage }))
 );
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 function LoadingScreen() {
   return (
@@ -121,6 +122,14 @@ export function AppRoutes() {
         />
         <Route path="/dashboard" element={<DashboardRedirect />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/student-progress"
           element={

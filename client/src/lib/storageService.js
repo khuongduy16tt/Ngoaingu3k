@@ -37,6 +37,70 @@ export async function uploadLessonVideo(file, lessonId, onProgress) {
   return { path: data.path, url };
 }
 
+// ─── Upload Avatar người dùng ────────────────────────────────────────────────
+
+/**
+ * Upload ảnh avatar cho người dùng.
+ * @param {File} file - File ảnh (.jpg, .png, .webp)
+ * @param {string} userId
+ * @returns {{ path: string, url: string } | null}
+ */
+export async function uploadAvatarImage(file, userId) {
+  if (!isSupabaseReady()) {
+    const url = await readFileAsDataUrl(file);
+    return { path: 'local', url };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${userId}/avatar.${ext}`;
+
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { cacheControl: '3600', upsert: true });
+
+  if (error) {
+    console.error('[uploadAvatarImage]', error.message);
+    return null;
+  }
+
+  const url = getPublicUrl('avatars', data.path);
+  return { path: data.path, url };
+}
+
+// ─── Upload Ảnh khóa học ──────────────────────────────────────────────────────
+
+/**
+ * Upload ảnh đại diện (banner) cho khóa học.
+ * @param {File} file - File ảnh (.jpg, .png, .webp)
+ * @param {string} courseId - ID của khóa học
+ * @returns {{ path: string, url: string } | null}
+ */
+export async function uploadCourseImage(file, courseId) {
+  if (!isSupabaseReady()) {
+    const url = await readFileAsDataUrl(file);
+    return { path: 'local', url };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  // Dùng courseId hoặc Date.now nếu khóa học chưa có id chính thức
+  const path = `${courseId || Date.now()}/banner_${Date.now()}.${ext}`;
+
+  // Thử upload vào bucket course-images, nếu lỗi có thể do bucket chưa được tạo
+  const { data, error } = await supabase.storage
+    .from('course-images')
+    .upload(path, file, { cacheControl: '3600', upsert: true });
+
+  if (error) {
+    console.error('[uploadCourseImage] Error uploading to course-images:', error.message);
+    // Fallback sang bucket assignment-images hoặc báo lỗi
+    // Để giữ thiết kế chuẩn, chúng ta vẫn báo lỗi và khuyên admin tạo bucket course-images
+    return null;
+  }
+
+  const url = getPublicUrl('course-images', data.path);
+  return { path: data.path, url };
+}
+
 // ─── Upload Ảnh câu hỏi ──────────────────────────────────────────────────────
 
 /**
@@ -103,7 +167,7 @@ export async function deleteStorageFile(bucket, filePath) {
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska'];
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_VIDEO_MB = 500;
-const MAX_IMAGE_MB = 10;
+const MAX_IMAGE_MB = 30;
 
 export function validateVideoFile(file) {
   if (!VIDEO_TYPES.includes(file.type)) {
