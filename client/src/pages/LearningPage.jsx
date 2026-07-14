@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
-import { getEffectiveRole } from '../lib/permissions';
+import { getDashboardPathForRole, getEffectiveRole } from '../lib/permissions';
 import {
   createAssignment,
   getAssignmentAttemptsForStudent,
@@ -499,7 +499,7 @@ function parsePastedVideoQuestions(text) {
     .filter((question) => question.prompt);
 }
 
-function LessonVideoPlayer({ lesson, isTeacher }) {
+function LessonVideoPlayer({ lesson, isTeacher, dashboardPath }) {
   const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
   const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
   const videoIssue = getVideoEmbedIssue(rawVideoUrl);
@@ -520,7 +520,7 @@ function LessonVideoPlayer({ lesson, isTeacher }) {
             Mở link gốc
           </a>
         ) : isTeacher ? (
-          <Link className="button-ghost" to="/dashboard/teacher">
+          <Link className="button-ghost" to={dashboardPath || '/dashboard/teacher'}>
             Sửa video bài học
           </Link>
         ) : null}
@@ -1051,21 +1051,31 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
   );
 }
 
-function LearningEmptyState({ isTeacher, loading }) {
-  const dashboardPath = isTeacher ? '/dashboard/teacher' : '/dashboard/student';
-  const dashboardLabel = isTeacher ? 'Mở bảng giảng viên' : 'Mở bảng học viên';
+function LearningEmptyState({ role, loading }) {
+  const dashboardPath = getDashboardPathForRole(role);
+  const dashboardLabel =
+    role === 'admin' ? 'Mở bảng quản trị' : role === 'teacher' ? 'Mở bảng giảng viên' : 'Mở bảng học viên';
+  const roleLabel = role === 'teacher' ? 'Giáo viên' : role === 'admin' ? 'Quản trị viên' : 'Học sinh';
+  const eyebrowLabel = loading ? 'Đang kiểm tra' : role === 'student' ? 'Phòng học trống' : 'Phòng học quản lý';
+  const titleLabel =
+    loading
+      ? 'Đang tải dữ liệu phòng học'
+      : role === 'student'
+        ? 'Chưa có khóa học nào trong phòng học'
+        : 'Khóa học này chưa có bài học nào được xuất bản';
+  const descriptionLabel = loading
+    ? 'Hệ thống đang đồng bộ khóa học, bài học và quyền truy cập từ Supabase.'
+    : role === 'student'
+      ? 'Khi có khóa học được xuất bản hoặc bạn được cấp quyền học, nội dung bài học sẽ xuất hiện tại đây.'
+      : 'Bạn vẫn có thể mở bảng điều khiển để tạo bài học đầu tiên, gắn video và giao bài tập cho học viên.';
 
   return (
     <div className="page learning-page">
       <section className="learning-empty-screen">
         <div className="learning-empty-screen__copy">
-          <span className="eyebrow">{loading ? 'Đang kiểm tra' : 'Phòng học trống'}</span>
-          <h1>{loading ? 'Đang tải dữ liệu phòng học' : 'Chưa có khóa học nào trong phòng học'}</h1>
-          <p>
-            {loading
-              ? 'Hệ thống đang đồng bộ khóa học, bài học và quyền truy cập từ Supabase.'
-              : 'Khi có khóa học được xuất bản hoặc bạn được cấp quyền học, nội dung bài học sẽ xuất hiện tại đây.'}
-          </p>
+          <span className="eyebrow">{eyebrowLabel}</span>
+          <h1>{titleLabel}</h1>
+          <p>{descriptionLabel}</p>
 
           {!loading ? (
             <div className="learning-empty-screen__actions">
@@ -1089,8 +1099,8 @@ function LearningEmptyState({ isTeacher, loading }) {
             <strong>{loading ? '...' : '0'}</strong>
           </article>
           <article>
-            <span>Trạng thái</span>
-            <strong>{loading ? 'Đang tải' : 'Chờ dữ liệu'}</strong>
+            <span>Vai trò</span>
+            <strong>{loading ? '...' : roleLabel}</strong>
           </article>
         </div>
       </section>
@@ -1886,27 +1896,42 @@ export default function LearningPage() {
   const showBlockingLoading = loadingCourse && !currentCourse;
 
   if (!auth.ready || showBlockingLoading) {
-    return <LearningEmptyState isTeacher={isTeacher} loading />;
+    return <LearningEmptyState role={currentRole} loading />;
   }
 
   if (!currentCourse) {
-    return <LearningEmptyState isTeacher={isTeacher} loading={false} />;
+    return <LearningEmptyState role={currentRole} loading={false} />;
   }
 
   if (!lessons.length || !currentLesson) {
+    const dashboardPath = getDashboardPathForRole(currentRole);
+    const dashboardLabel =
+      currentRole === 'admin' ? 'Mở bảng quản trị' : isTeacher ? 'Mở bảng giảng viên' : 'Mở bảng học viên';
+    const emptyTitle =
+      currentRole === 'student'
+        ? 'Khóa học này đã có trong hệ thống nhưng chưa có bài học nào được xuất bản.'
+        : 'Khóa học này chưa có bài học nào được xuất bản.';
+    const emptyDescription =
+      currentRole === 'student'
+        ? 'Học viên chỉ nhận được học liệu khi đã mua khóa học hoặc được giảng viên cấp quyền trực tiếp.'
+        : 'Bạn vẫn có thể mở bảng điều khiển để tạo bài học đầu tiên, gắn video và giao bài tập cho học viên.';
+    const roleLabel = currentRole === 'teacher' ? 'Giáo viên' : currentRole === 'admin' ? 'Quản trị viên' : 'Học sinh';
+
     return (
       <div className="page learning-page">
         <section className="learning-empty-screen">
           <div className="learning-empty-screen__copy">
-            <span className="eyebrow">Phòng học đang chờ bài học</span>
+            <span className="eyebrow">{currentRole === 'student' ? 'Phòng học đang chờ bài học' : 'Phòng học quản lý'}</span>
             <h1>{currentCourse.title}</h1>
-            <p>Khóa học này đã có trong hệ thống nhưng chưa có bài học nào được xuất bản.</p>
+            <p>
+              {emptyTitle} {emptyDescription}
+            </p>
             <div className="learning-empty-screen__actions">
               <Link className="button" to="/courses">
                 Xem danh mục khóa học
               </Link>
-              <Link className="button-ghost" to={isTeacher ? '/dashboard/teacher' : '/dashboard/student'}>
-                {isTeacher ? 'Mở bảng giảng viên' : 'Mở bảng học viên'}
+              <Link className="button-ghost" to={dashboardPath}>
+                {dashboardLabel}
               </Link>
             </div>
           </div>
@@ -1921,8 +1946,8 @@ export default function LearningPage() {
               <strong>0</strong>
             </article>
             <article>
-              <span>Trạng thái</span>
-              <strong>Chờ bài học</strong>
+              <span>Vai trò</span>
+              <strong>{roleLabel}</strong>
             </article>
           </div>
         </section>
@@ -2328,7 +2353,7 @@ export default function LearningPage() {
                 {currentLesson.note ? <p>{currentLesson.note}</p> : null}
               </div>
 
-              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} />
+              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
 
               {isTeacher ? (
                 <VideoQuestionEditor
