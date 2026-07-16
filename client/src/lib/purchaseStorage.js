@@ -50,3 +50,10 @@ export function setPurchasedCourseIds(userId = 'local', courseIds = []) {
 export function grantPurchasedCourseId(userId = 'local', courseId) {
   return setPurchasedCourseIds(userId, [...getPurchasedCourseIds(userId), courseId]);
 }
+
+export function revokePurchasedCourseId(userId = 'local', courseId) {
+  const nextIds = getPurchasedCourseIds(userId).filter(
+    (id) => String(id).toLowerCase() !== String(courseId).toLowerCase()
+  );
+  return writePurchasedCourseIds(userId, nextIds);
+}

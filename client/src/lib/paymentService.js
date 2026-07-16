@@ -1,5 +1,5 @@
 import { formatVnd, normalizeVndAmount } from './money';
-import { grantPurchasedCourseId } from './purchaseStorage';
+import { grantPurchasedCourseId, revokePurchasedCourseId } from './purchaseStorage';
 
 const PAYMENT_ORDERS_STORAGE_KEY = 'learning-payment-orders-v1';
 const PAYMENT_QR_URL = import.meta.env.VITE_PAYMENT_QR_URL || '';
@@ -110,5 +110,19 @@ export function approveManualPaymentOrder(orderId) {
   });
 
   grantPurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
+  return nextOrder;
+}
+
+export function revokeManualPaymentOrder(orderId) {
+  const order = readPaymentOrders().find((item) => item.id === orderId);
+  if (!order) return null;
+
+  const nextOrder = upsertPaymentOrder({
+    ...order,
+    status: 'cancelled',
+    revokedAt: new Date().toISOString()
+  });
+
+  revokePurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
   return nextOrder;
 }

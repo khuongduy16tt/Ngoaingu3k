@@ -235,6 +235,41 @@ router.post('/:orderId/approve', requireAuth, requireRole('admin'), async (req, 
   }
 });
 
+router.post('/:orderId/revoke', requireAuth, requireRole('admin'), async (req, res) => {
+  const { orderId } = req.params;
+
+  if (!isSupabaseAdminReady()) {
+    return res.json({
+      orderId,
+      status: 'cancelled',
+      revokedAt: new Date().toISOString(),
+      mode: 'mock'
+    });
+  }
+
+  try {
+    const { data: order, error } = await supabaseAdmin
+      .from('orders')
+      .update({ status: 'cancelled' })
+      .eq('id', orderId)
+      .select('id, status')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ message: 'Không thể đóng khóa đơn hàng.' });
+    }
+
+    return res.json({
+      orderId: order.id,
+      status: order.status,
+      revokedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('[POST /api/payments/:orderId/revoke]', err.message);
+    return res.status(500).json({ message: 'Lỗi máy chủ.' });
+  }
+});
+
 /**
  * POST /api/payments/webhook
  * Webhook endpoint for payment providers to confirm payments.

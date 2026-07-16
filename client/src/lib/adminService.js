@@ -4,10 +4,11 @@ import { apiFetch } from './api';
 import { normalizeVndAmount } from './money';
 import {
   approveManualPaymentOrder,
+  revokeManualPaymentOrder,
   readPaymentOrders,
   upsertPaymentOrder
 } from './paymentService';
-import { grantPurchasedCourseId } from './purchaseStorage';
+import { grantPurchasedCourseId, revokePurchasedCourseId } from './purchaseStorage';
 
 const adminStorageKey = 'admin-dashboard-state-v1';
 
@@ -768,5 +769,38 @@ export async function approvePaymentOrder(order, accessToken) {
   });
 
   grantPurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
+  return nextOrder;
+}
+
+export async function revokePaymentOrder(order, accessToken) {
+  if (!order?.id) {
+    throw new Error('Thiếu thông tin đơn hàng.');
+  }
+
+  let revokedOrder = null;
+
+  if (isSupabaseReady() && accessToken && !String(order.id).startsWith('local-payment-')) {
+    const response = await apiFetch(`/api/payments/${order.id}/revoke`, {
+      method: 'POST',
+      token: accessToken,
+      body: {}
+    });
+
+    revokedOrder = upsertPaymentOrder({
+      ...order,
+      status: response.status || 'cancelled',
+      revokedAt: response.revokedAt || new Date().toISOString()
+    });
+  } else {
+    revokedOrder = revokeManualPaymentOrder(order.id);
+  }
+
+  const nextOrder = revokedOrder || upsertPaymentOrder({
+    ...order,
+    status: 'cancelled',
+    revokedAt: new Date().toISOString()
+  });
+
+  revokePurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
   return nextOrder;
 }

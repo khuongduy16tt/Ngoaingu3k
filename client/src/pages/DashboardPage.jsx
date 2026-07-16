@@ -10,6 +10,7 @@ import {
   getAdminDashboardData,
   getUsersWithPurchaseInfo,
   approvePaymentOrder,
+  revokePaymentOrder,
   saveAdminCourse,
   saveAdminLesson,
   saveAdminProfile,
@@ -2475,6 +2476,10 @@ export function AdminDashboardPage() {
   const videoUploadRef = useRef(null);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [videoUploading, setVideoUploading] = useState(false);
+  const [confirmationOrder, setConfirmationOrder] = useState(null);
+  const [confirmationAction, setConfirmationAction] = useState('');
+  const [confirmationInput, setConfirmationInput] = useState('');
+  const [confirmationPhrase, setConfirmationPhrase] = useState('');
 
   async function reloadAdminData() {
     setLoading(true);
@@ -2561,6 +2566,14 @@ export function AdminDashboardPage() {
   const paymentReviewOrders = adminData.orders.filter((order) =>
     ['pending_payment', 'pending', 'awaiting_admin', 'paid'].includes(order.status)
   );
+  const confirmationCourse = confirmationOrder
+    ? courseLookup.get(confirmationOrder.courseId) || courseLookup.get(confirmationOrder.localCourseId)
+    : null;
+  const confirmationStudent = confirmationOrder
+    ? profileLookup.get(confirmationOrder.userId)
+    : null;
+  const confirmationCourseTitle = confirmationOrder?.courseTitle || confirmationCourse?.title || confirmationOrder?.courseId;
+  const confirmationStudentName = confirmationOrder?.studentName || confirmationStudent?.fullName || confirmationOrder?.studentEmail || confirmationOrder?.userId;
   const revenue = paidOrders.reduce((total, order) => total + Number(order.amount || 0), 0);
 
   const metrics = useMemo(
@@ -2889,6 +2902,54 @@ export function AdminDashboardPage() {
     }
   }
 
+  async function handleRevokePayment(order) {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      await revokePaymentOrder(order, auth.session?.access_token);
+      await reloadAdminData();
+      setMessage({ type: 'success', text: `Đã đóng khóa ${getCourseTitle(courseLookup, order.courseId)} cho học viên.` });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Chưa thể đóng khóa đơn hàng.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openConfirmation(order, action) {
+    setConfirmationOrder(order);
+    setConfirmationAction(action);
+    setConfirmationInput('');
+    setConfirmationPhrase(action === 'approve' ? 'MỞ KHÓA' : 'ĐÓNG KHÓA');
+  }
+
+  function closeConfirmation() {
+    setConfirmationOrder(null);
+    setConfirmationAction('');
+    setConfirmationInput('');
+    setConfirmationPhrase('');
+  }
+
+  async function confirmAction() {
+    if (!confirmationOrder || !confirmationAction) {
+      return;
+    }
+
+    if (confirmationInput.trim().toUpperCase() !== confirmationPhrase) {
+      setMessage({ type: 'error', text: `Vui lòng nhập chính xác '${confirmationPhrase}' trước khi xác nhận.` });
+      return;
+    }
+
+    if (confirmationAction === 'approve') {
+      await handleApprovePayment(confirmationOrder);
+    } else if (confirmationAction === 'revoke') {
+      await handleRevokePayment(confirmationOrder);
+    }
+
+    closeConfirmation();
+  }
+
   async function handleLessonVideoUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -2984,6 +3045,10 @@ export function AdminDashboardPage() {
                   const user = profileLookup.get(order.userId);
                   const course = courseLookup.get(order.courseId) || courseLookup.get(order.localCourseId);
                   const canApprove = ['pending', 'pending_payment', 'awaiting_admin'].includes(order.status);
+                  const canRevoke = order.status === 'paid';
+                  const isActionEnabled = canApprove || canRevoke;
+                  const actionLabel = order.status === 'paid' ? 'Đóng khóa' : canApprove ? 'Mở khóa' : 'Chờ xác nhận';
+                  const actionKey = order.status === 'paid' ? 'revoke' : 'approve';
 
                   return (
                     <tr key={order.id}>
@@ -3003,10 +3068,10 @@ export function AdminDashboardPage() {
                         <button
                           type="button"
                           className="button-ghost"
-                          disabled={!canApprove || saving}
-                          onClick={() => handleApprovePayment(order)}
+                          disabled={!isActionEnabled || saving}
+                          onClick={() => openConfirmation(order, actionKey)}
                         >
-                          {order.status === 'paid' ? 'Đã mở' : canApprove ? 'Mở khóa' : 'Chờ xác nhận'}
+                          {actionLabel}
                         </button>
                       </td>
                     </tr>
@@ -3018,6 +3083,57 @@ export function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {confirmationOrder ? (
+            <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Xác nhận hành động mở/đóng khóa">
+              <button type="button" className="payment-screen__backdrop" onClick={closeConfirmation} aria-label="Đóng xác nhận" />
+              <div className="payment-screen__panel content-card content-card--enterprise">
+                <div className="section-head">
+                  <div>
+                    <span className="eyebrow">Xác nhận hành động</span>
+                    <h2>{confirmationAction === 'approve' ? 'Xác nhận mở khóa' : 'Xác nhận đóng khóa'}</h2>
+                  </div>
+                </div>
+                <div className="section-content">
+                  <p>
+                    Bạn có chắc chắn {confirmationAction === 'approve' ? 'mở khóa' : 'đóng khóa'} khóa học
+                    <strong> {confirmationCourseTitle} </strong> cho học viên
+                    <strong> {confirmationStudentName} </strong> không?
+                  </p>
+                  <p style={{ marginTop: '0.75rem', color: '#b03a2e' }}>
+                    Hành động này là vĩnh viễn và sẽ {confirmationAction === 'revoke' ? 'xóa quyền truy cập khoá học' : 'cấp quyền truy cập khoá học'}.
+                  </p>
+                  <div style={{ marginTop: '1rem' }}>
+                    <label htmlFor="confirmation-input" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                      Nhập <strong>{confirmationPhrase}</strong> để xác nhận:
+                    </label>
+                    <input
+                      id="confirmation-input"
+                      className="text-control"
+                      type="text"
+                      value={confirmationInput}
+                      onChange={(event) => setConfirmationInput(event.target.value)}
+                      placeholder={confirmationPhrase}
+                      style={{ width: '100%', maxWidth: '420px' }}
+                    />
+                  </div>
+                </div>
+                <div className="section-actions" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="button teacher-console-primary"
+                    onClick={confirmAction}
+                    disabled={saving || confirmationInput.trim().toUpperCase() !== confirmationPhrase}
+                  >
+                    Có, {confirmationAction === 'approve' ? 'mở khóa' : 'đóng khóa'}
+                  </button>
+                  <button type="button" className="button-ghost" onClick={closeConfirmation} disabled={saving}>
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
