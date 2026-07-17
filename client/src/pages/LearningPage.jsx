@@ -1551,10 +1551,19 @@ export default function LearningPage() {
       ? 'Đang khóa'
       : 'Đang học';
   const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : lessons[1];
-  const lessonPagination = usePagination(lessons, {
-    pageSize: 8,
-    resetKey: currentCourseId
-  });
+  const sections = useMemo(() => {
+    const map = new Map();
+    lessons.forEach((lesson) => {
+      const sectionTitle = lesson.sectionTitle || 'Nội dung khóa học';
+      if (!map.has(sectionTitle)) {
+        map.set(sectionTitle, []);
+      }
+      map.get(sectionTitle).push(lesson);
+    });
+    return Array.from(map.entries()).map(([title, items]) => ({ title, lessons: items }));
+  }, [lessons]);
+  
+  const [expandedSections, setExpandedSections] = useState({});
   const assignmentPagination = usePagination(visibleAssignments, {
     pageSize: 4,
     resetKey: `${currentCourseId}|${currentRole}|${visibleAssignments.length}`
@@ -1565,11 +1574,11 @@ export default function LearningPage() {
   }, [currentLesson?.id]);
 
   useEffect(() => {
-    const currentLessonIndex = lessons.findIndex((lesson) => lesson.id === selectedLessonId);
-    if (currentLessonIndex >= 0) {
-      lessonPagination.setPage(Math.floor(currentLessonIndex / lessonPagination.pageSize) + 1);
+    const currentSection = lessons.find((l) => l.id === selectedLessonId)?.sectionTitle || (sections[0]?.title ?? 'Nội dung khóa học');
+    if (currentSection) {
+      setExpandedSections((prev) => (prev[currentSection] ? prev : { ...prev, [currentSection]: true }));
     }
-  }, [lessonPagination.pageSize, lessonPagination.setPage, lessons, selectedLessonId]);
+  }, [selectedLessonId, lessons, sections]);
 
   function handleAudioUpload(event) {
     const file = event.target.files?.[0];
@@ -2025,7 +2034,25 @@ export default function LearningPage() {
         <aside className="lesson-sidebar">
           <div className="sidebar-head">
             <span className="eyebrow">Phòng học</span>
-            <h2>{currentCourse.title}</h2>
+            {studyCourseOptions.length > 1 ? (
+              <select 
+                className="sidebar-course-select" 
+                value={currentCourseId} 
+                onChange={handleSelectStudyCourse}
+                style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', marginBottom: '0.25rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '1rem', fontWeight: 'bold' }}
+              >
+                {studyCourseOptions.map((course) => {
+                  const courseKey = getCourseRouteKey(course);
+                  return (
+                    <option key={courseKey} value={courseKey}>
+                      {course.title}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <h2>{currentCourse.title}</h2>
+            )}
             <p>{completedLessonCount}/{lessons.length} bài đã hoàn thành</p>
           </div>
 
@@ -2039,378 +2066,88 @@ export default function LearningPage() {
             </div>
           </div>
 
-          <div className="lesson-sidebar__module">
-            <span>Trang {lessonPagination.page}/{lessonPagination.pageCount}</span>
-            <strong>{currentLesson.sectionTitle || 'Nội dung khóa học'}</strong>
+          <div className="lesson-sidebar__sections">
+            {sections.map((section, sectionIndex) => {
+              const isExpanded = expandedSections[section.title] ?? (sectionIndex === 0);
+              return (
+                <div key={section.title} className={`sidebar-section ${isExpanded ? 'is-expanded' : ''}`}>
+                  <button
+                    className="sidebar-section__header"
+                    onClick={() => setExpandedSections((prev) => ({ ...prev, [section.title]: !isExpanded }))}
+                  >
+                    <strong>{section.title}</strong>
+                    <span className="sidebar-section__toggle" aria-hidden="true">{isExpanded ? '▼' : '▶'}</span>
+                  </button>
+                  {isExpanded && (
+                    <div className="sidebar-section__lessons">
+                      {section.lessons.map((lesson) => {
+                        const isLessonDone = lessonProgressMap[lesson.id]?.completed || lesson.status === 'done';
+                        const lessonNumber = lesson.lessonNumber;
+
+                        return (
+                          <button
+                            key={lesson.id}
+                            type="button"
+                            className={`lesson-item ${isLessonDone ? 'done' : lesson.status} ${selectedLessonId === lesson.id ? 'is-selected' : ''}`}
+                            onClick={() => handleSelectLesson(lesson.id)}
+                          >
+                            <span className="lesson-item__icon" aria-hidden="true">
+                              {isLessonDone ? '✓' : lessonNumber}
+                            </span>
+                            <span className="lesson-item__copy">
+                              <strong>{lesson.title}</strong>
+                              <span>
+                                {[
+                                  lesson.exerciseType || 'Video',
+                                  lesson.questionCount ? `${lesson.questionCount} câu` : '',
+                                  isLessonDone ? 'Đã học' : lesson.status === 'locked' ? 'Đang khóa' : 'Đang học'
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-
-          {lessonPagination.pageItems.map((lesson) => {
-            const isLessonDone = lessonProgressMap[lesson.id]?.completed || lesson.status === 'done';
-            const lessonNumber = lesson.lessonNumber || lessonPagination.startItem + lessonPagination.pageItems.indexOf(lesson);
-
-            return (
-              <button
-                key={lesson.id}
-                type="button"
-                className={`lesson-item ${isLessonDone ? 'done' : lesson.status} ${selectedLessonId === lesson.id ? 'is-selected' : ''}`}
-                onClick={() => handleSelectLesson(lesson.id)}
-              >
-                <span className="lesson-item__icon" aria-hidden="true">
-                  {isLessonDone ? '✓' : lessonNumber}
-                </span>
-                <span className="lesson-item__copy">
-                  <strong>{lesson.title}</strong>
-                  <span>{[lesson.exerciseType || 'Video', lesson.questionCount ? `${lesson.questionCount} câu` : '', isLessonDone ? 'Đã học' : lesson.status === 'locked' ? 'Đang khóa' : 'Đang học'].filter(Boolean).join(' · ')}</span>
-                </span>
-              </button>
-            );
-          })}
-          <PaginationControls {...lessonPagination} label="bài học" />
         </aside>
 
         <div className="learning-stage">
-          {studyCourseOptions.length > 1 ? (
-            <section className="content-card content-card--enterprise today-course-strip">
-              <div>
-                <span className="eyebrow">{isTeacher ? 'Quản lý khóa học' : 'Học hôm nay'}</span>
-                <strong>{isTeacher ? 'Chọn khóa để quản lý' : 'Chọn khóa muốn học'}</strong>
-              </div>
-              <label className="today-course-strip__select">
-                <span>Khóa học</span>
-                <select value={currentCourseId} onChange={handleSelectStudyCourse}>
-                  {studyCourseOptions.map((course) => {
-                    const courseKey = getCourseRouteKey(course);
-                    return (
-                      <option key={courseKey} value={courseKey}>
-                        {course.title}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            </section>
-          ) : null}
-
-          {isTeacher ? (
-            <section className="content-card content-card--enterprise teacher-lesson-bar">
-              <div className="teacher-lesson-bar__copy">
-                <span className="eyebrow">Teacher</span>
-                <strong>{currentLesson.title}</strong>
-                <small>{currentLesson.note}</small>
-              </div>
-
-              <div className="teacher-lesson-bar__stats">
-                <span>
-                  <b>{currentLesson.videoUrl ? 'Có' : 'Chưa'}</b>
-                  Video
-                </span>
-                <span>
-                  <b>{lessonAudio ? 'Có' : 'Chưa'}</b>
-                  Audio
-                </span>
-                <span>
-                  <b>{lessonFile ? 'Có' : 'Chưa'}</b>
-                  Tài liệu
-                </span>
-                <span>
-                  <b>{currentLessonExercises.length}</b>
-                  Câu video
-                </span>
-                <span>
-                  <b>{visibleAssignments.length}</b>
-                  Đã giao
-                </span>
-              </div>
-
-              <div className="teacher-lesson-bar__actions">
-                <a className="button-ghost" href="#teacher-assignment-studio">
-                  Giao bài
-                </a>
-                <label className="teacher-bar-upload">
-                  Tải PDF
-                  <input
-                    type="file"
-                    accept=".pdf,.zip,.txt,.md,.doc,.docx,image/*"
-                    onChange={(event) => void handleTeacherSourceFile(event.target.files?.[0])}
-                  />
-                </label>
-              </div>
-            </section>
-          ) : null}
-
           {hasLessonAccess ? (
             <>
-              {isTeacher ? (
-                <section id="teacher-assignment-studio" className="content-card content-card--enterprise lesson-teacher-panel assignment-studio">
-                  <div className="section-head">
-                    <div>
-                      <span className="eyebrow">Giao bài cho học sinh</span>
-                      <h2>Tạo bài tập từ PDF, ảnh hoặc Drive</h2>
-                    </div>
-                    <span className="pill">{ocrStatusLabels[ocrStatus]}</span>
-                  </div>
-
-                  {teacherSaveStatus.text ? (
-                    <div className={`auth-message ${teacherSaveStatus.type === 'success' ? 'auth-message--success' : ''}`}>
-                      {teacherSaveStatus.text}
-                    </div>
-                  ) : null}
-
-                  <div className="assignment-studio__layout">
-                    <div className="assignment-studio__panel">
-                      <label
-                        className="teacher-dropzone"
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={handleTeacherDrop}
-                      >
-                        <input
-                          type="file"
-                          accept=".pdf,.zip,.txt,.md,.doc,.docx,image/*"
-                          onChange={(event) => void handleTeacherSourceFile(event.target.files?.[0])}
-                        />
-                        <strong>Thả PDF, ảnh, ZIP hoặc worksheet vào đây</strong>
-                        <span>{teacherSource.name ? `Nguồn hiện tại: ${teacherSource.name}` : 'Chưa có tài liệu'}</span>
-                      </label>
-
-                      <label className="auth-field auth-field--full">
-                        <span>Link Drive / tài liệu</span>
-                        <div className="teacher-drive-row">
-                          <input
-                            type="url"
-                            value={driveLink}
-                            onChange={(event) => setDriveLink(event.target.value)}
-                            placeholder="Dán link Google Drive hoặc URL tài liệu"
-                          />
-                          <button type="button" className="button-ghost" onClick={handleDriveImport}>
-                            Đọc Drive
-                          </button>
-                        </div>
-                      </label>
-
-                      <div className="ocr-pipeline">
-                        {['Nhận tài liệu', 'Giải nén / OCR', 'Sinh câu hỏi'].map((step, index) => (
-                          <span
-                            key={step}
-                            className={
-                              ocrStatus === 'ready' || (ocrStatus === 'processing' && index < 2)
-                                ? 'ocr-step is-active'
-                                : 'ocr-step'
-                            }
-                          >
-                            {step}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="assignment-studio__fields">
-                        <label className="auth-field">
-                          <span>Khóa học</span>
-                          <select
-                            value={teacherDraft.courseKey}
-                            onChange={(event) => {
-                              const nextCourse = teacherCourseOptions.find((course) => course.key === event.target.value) || teacherCourseOptions[0];
-                              setTeacherDraft((previous) => ({
-                                ...previous,
-                                courseKey: nextCourse?.key || previous.courseKey,
-                                courseTitle: nextCourse?.title || previous.courseTitle
-                              }));
-                            }}
-                          >
-                            {teacherCourseOptions.map((course) => (
-                              <option key={course.key} value={course.key}>
-                                {course.title}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label className="auth-field">
-                          <span>Tên bài giao</span>
-                          <input
-                            value={teacherDraft.title}
-                            onChange={(event) => setTeacherDraft((previous) => ({ ...previous, title: event.target.value }))}
-                            placeholder="Ví dụ: Bài tập phát âm tuần 1"
-                          />
-                        </label>
-
-                        <label className="auth-field auth-field--full">
-                          <span>Yêu cầu cho học sinh</span>
-                          <textarea
-                            rows="3"
-                            value={teacherDraft.description}
-                            onChange={(event) => setTeacherDraft((previous) => ({ ...previous, description: event.target.value }))}
-                            placeholder="Nhập hướng dẫn ngắn trước khi học sinh làm bài"
-                          />
-                        </label>
-
-                        <label className="auth-field">
-                          <span>Phạm vi giao bài</span>
-                          <select
-                            value={teacherDraft.assignmentScope}
-                            onChange={(event) =>
-                              setTeacherDraft((previous) => ({
-                                ...previous,
-                                assignmentScope: event.target.value
-                              }))
-                            }
-                          >
-                            <option value="course_buyers">Học viên đã mua khóa</option>
-                            <option value="selected_students">Email học sinh được chọn</option>
-                          </select>
-                        </label>
-
-                        {teacherDraft.assignmentScope === 'selected_students' ? (
-                          <label className="auth-field auth-field--full">
-                            <span>Email học sinh</span>
-                            <textarea
-                              rows="3"
-                              value={teacherDraft.recipientsText}
-                              onChange={(event) =>
-                                setTeacherDraft((previous) => ({
-                                  ...previous,
-                                  recipientsText: event.target.value
-                                }))
-                              }
-                              placeholder="Mỗi dòng một email, hoặc phân tách bằng dấu phẩy"
-                            />
-                          </label>
-                        ) : null}
-                      </div>
-
-                      <div className="assignment-studio__mini">
-                        <strong>Audio nghe kèm</strong>
-                        <p>{lessonAudio?.name || 'Có thể bỏ qua nếu bài này chỉ dùng PDF/Drive.'}</p>
-                        <label className="upload-button">
-                          Chọn audio
-                          <input type="file" accept="audio/*" onChange={handleAudioUpload} />
-                        </label>
-                      </div>
-
-                      <label className="auth-field auth-field--full">
-                        <span>Nội dung OCR</span>
-                        <textarea
-                          rows="8"
-                          value={ocrText}
-                          onChange={(event) => setOcrText(event.target.value)}
-                          placeholder="Nội dung đọc được từ tài liệu sẽ nằm ở đây. Giáo viên có thể sửa trước khi sinh bài tập."
-                        />
-                      </label>
-
-                      <div className="assignment-studio__actions">
-                        <button type="button" className="button-ghost" onClick={regenerateExercisesFromOcr}>
-                          Sinh lại câu hỏi
-                        </button>
-                        <span className="pill">{formatAssignmentScope(teacherDraft.assignmentScope)}</span>
-                      </div>
-                    </div>
-
-                    <div className="assignment-studio__panel">
-                      <div className="assignment-studio__head">
-                        <div>
-                          <span className="eyebrow">Bài tập được tạo</span>
-                          <h3>Chọn đáp án đúng trước khi giao</h3>
-                        </div>
-                        <span className="pill">{selectedGeneratedExercises.length}/{generatedExercises.length} câu</span>
-                      </div>
-
-                      <div className="ocr-question-list">
-                        {generatedExercises.map((question, questionIndex) => (
-                          <article
-                            key={question.id}
-                            className={question.enabled ? 'ocr-question-card' : 'ocr-question-card is-disabled'}
-                          >
-                            <div className="ocr-question-card__head">
-                              <label className="ocr-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={question.enabled}
-                                  onChange={(event) => updateGeneratedExercise(questionIndex, { enabled: event.target.checked })}
-                                />
-                                <span>Giao câu {questionIndex + 1}</span>
-                              </label>
-                              <span className="pill">Trắc nghiệm</span>
-                            </div>
-
-                            <label className="auth-field auth-field--full">
-                              <span>Câu hỏi</span>
-                              <input
-                                type="text"
-                                value={question.prompt}
-                                onChange={(event) => updateGeneratedExercise(questionIndex, { prompt: event.target.value })}
-                              />
-                            </label>
-
-                            <div className="ocr-options-grid">
-                              {question.options.map((option, optionIndex) => (
-                                <label
-                                  key={`${question.id}-${optionIndex}`}
-                                  className={question.correctAnswer === option ? 'ocr-option is-correct' : 'ocr-option'}
-                                >
-                                  <input
-                                    type="radio"
-                                    name={`ocr-correct-${question.id}`}
-                                    checked={question.correctAnswer === option}
-                                    onChange={() => updateGeneratedExercise(questionIndex, { correctAnswer: option })}
-                                  />
-                                  <span>Đáp án {optionIndex + 1}</span>
-                                  <input
-                                    type="text"
-                                    value={option}
-                                    onChange={(event) => updateGeneratedOption(questionIndex, optionIndex, event.target.value)}
-                                  />
-                                </label>
-                              ))}
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-
-                      {showTeacherStudentView ? (
-                        <div className="student-view-preview">
-                          <div className="section-head">
-                            <div>
-                              <span className="eyebrow">Student view</span>
-                              <h3>Học sinh sẽ thấy bộ bài này</h3>
-                            </div>
-                            <span className="pill">{teacherDraft.courseTitle}</span>
-                          </div>
-                          <div className="generated-question-preview">
-                            {selectedGeneratedExercises.map((question, index) => (
-                              <article key={`${question.id}-preview`} className="generated-question-preview__item">
-                                <strong>Câu {index + 1}. {question.prompt}</strong>
-                                <div className="exercise-options">
-                                  {question.options.filter(Boolean).map((option) => (
-                                    <span key={option} className="answer-pill">
-                                      {option}
-                                    </span>
-                                  ))}
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div className="assignment-studio__actions">
-                        <button
-                          type="button"
-                          className="button-ghost"
-                          onClick={() => setShowTeacherStudentView((value) => !value)}
-                        >
-                          {showTeacherStudentView ? 'Ẩn Student view' : 'Xem Student view'}
-                        </button>
-                        <button type="button" className="button" onClick={saveAssignmentToSupabase} disabled={teacherSaving}>
-                          {teacherSaving ? 'Đang giao bài...' : 'Giao bài cho học sinh'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              ) : null}
-
               <div className="learning-lesson-title-row">
                 <h1>{currentLesson.title}</h1>
                 {currentLesson.note ? <p>{currentLesson.note}</p> : null}
+                
+                {isTeacher && (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span className="pill" style={{ opacity: currentLesson.videoUrl ? 1 : 0.5 }}>{currentLesson.videoUrl ? '✓ Video' : '✕ Video'}</span>
+                    <span className="pill" style={{ opacity: lessonAudio ? 1 : 0.5 }}>{lessonAudio ? '✓ Audio' : '✕ Audio'}</span>
+                    <span className="pill" style={{ opacity: lessonFile ? 1 : 0.5 }}>{lessonFile ? '✓ Tài liệu' : '✕ Tài liệu'}</span>
+                    <span className="pill">{currentLessonExercises.length} Câu video</span>
+                    <span className="pill">{visibleAssignments.length} Bài tập đã giao</span>
+                    
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                      <label className="button-ghost" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                        Tải PDF
+                        <input
+                          type="file"
+                          accept=".pdf,.zip,.txt,.md,.doc,.docx,image/*"
+                          style={{ display: 'none' }}
+                          onChange={(event) => void handleTeacherSourceFile(event.target.files?.[0])}
+                        />
+                      </label>
+                      <a className="button" href="#teacher-assignment-studio" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>
+                        Giao bài
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
@@ -2431,6 +2168,279 @@ export default function LearningPage() {
                   <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
                 </section>
               )}
+
+              {isTeacher ? (
+                <details id="teacher-assignment-studio" className="content-card content-card--enterprise lesson-teacher-panel assignment-studio" style={{ marginTop: '1.5rem' }}>
+                  <summary className="section-head" style={{ cursor: 'pointer', listStyle: 'none', margin: 0 }}>
+                    <div>
+                      <span className="eyebrow">Giao bài cho học sinh</span>
+                      <h2>Tạo bài tập bổ sung (từ PDF/Ảnh/Drive)</h2>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <span className="pill">{ocrStatusLabels[ocrStatus]}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Mở rộng ▼</span>
+                    </div>
+                  </summary>
+
+                  <div style={{ paddingTop: '1.5rem' }}>
+                    {teacherSaveStatus.text ? (
+                      <div className={`auth-message ${teacherSaveStatus.type === 'success' ? 'auth-message--success' : ''}`}>
+                        {teacherSaveStatus.text}
+                      </div>
+                    ) : null}
+
+                    <div className="assignment-studio__layout">
+                      <div className="assignment-studio__panel">
+                        <label
+                          className="teacher-dropzone"
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={handleTeacherDrop}
+                        >
+                          <input
+                            type="file"
+                            accept=".pdf,.zip,.txt,.md,.doc,.docx,image/*"
+                            onChange={(event) => void handleTeacherSourceFile(event.target.files?.[0])}
+                          />
+                          <strong>Thả PDF, ảnh, ZIP hoặc worksheet vào đây</strong>
+                          <span>{teacherSource.name ? `Nguồn hiện tại: ${teacherSource.name}` : 'Chưa có tài liệu'}</span>
+                        </label>
+
+                        <label className="auth-field auth-field--full">
+                          <span>Link Drive / tài liệu</span>
+                          <div className="teacher-drive-row">
+                            <input
+                              type="url"
+                              value={driveLink}
+                              onChange={(event) => setDriveLink(event.target.value)}
+                              placeholder="Dán link Google Drive hoặc URL tài liệu"
+                            />
+                            <button type="button" className="button-ghost" onClick={handleDriveImport}>
+                              Đọc Drive
+                            </button>
+                          </div>
+                        </label>
+
+                        <div className="ocr-pipeline">
+                          {['Nhận tài liệu', 'Giải nén / OCR', 'Sinh câu hỏi'].map((step, index) => (
+                            <span
+                              key={step}
+                              className={
+                                ocrStatus === 'ready' || (ocrStatus === 'processing' && index < 2)
+                                  ? 'ocr-step is-active'
+                                  : 'ocr-step'
+                              }
+                            >
+                              {step}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="assignment-studio__fields">
+                          <label className="auth-field">
+                            <span>Khóa học</span>
+                            <select
+                              value={teacherDraft.courseKey}
+                              onChange={(event) => {
+                                const nextCourse = teacherCourseOptions.find((course) => course.key === event.target.value) || teacherCourseOptions[0];
+                                setTeacherDraft((previous) => ({
+                                  ...previous,
+                                  courseKey: nextCourse?.key || previous.courseKey,
+                                  courseTitle: nextCourse?.title || previous.courseTitle
+                                }));
+                              }}
+                            >
+                              {teacherCourseOptions.map((course) => (
+                                <option key={course.key} value={course.key}>
+                                  {course.title}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="auth-field">
+                            <span>Tên bài giao</span>
+                            <input
+                              value={teacherDraft.title}
+                              onChange={(event) => setTeacherDraft((previous) => ({ ...previous, title: event.target.value }))}
+                              placeholder="Ví dụ: Bài tập phát âm tuần 1"
+                            />
+                          </label>
+
+                          <label className="auth-field auth-field--full">
+                            <span>Yêu cầu cho học sinh</span>
+                            <textarea
+                              rows="3"
+                              value={teacherDraft.description}
+                              onChange={(event) => setTeacherDraft((previous) => ({ ...previous, description: event.target.value }))}
+                              placeholder="Nhập hướng dẫn ngắn trước khi học sinh làm bài"
+                            />
+                          </label>
+
+                          <label className="auth-field">
+                            <span>Phạm vi giao bài</span>
+                            <select
+                              value={teacherDraft.assignmentScope}
+                              onChange={(event) =>
+                                setTeacherDraft((previous) => ({
+                                  ...previous,
+                                  assignmentScope: event.target.value
+                                }))
+                              }
+                            >
+                              <option value="course_buyers">Học viên đã mua khóa</option>
+                              <option value="selected_students">Email học sinh được chọn</option>
+                            </select>
+                          </label>
+
+                          {teacherDraft.assignmentScope === 'selected_students' ? (
+                            <label className="auth-field auth-field--full">
+                              <span>Email học sinh</span>
+                              <textarea
+                                rows="3"
+                                value={teacherDraft.recipientsText}
+                                onChange={(event) =>
+                                  setTeacherDraft((previous) => ({
+                                    ...previous,
+                                    recipientsText: event.target.value
+                                  }))
+                                }
+                                placeholder="Mỗi dòng một email, hoặc phân tách bằng dấu phẩy"
+                              />
+                            </label>
+                          ) : null}
+                        </div>
+
+                        <div className="assignment-studio__mini">
+                          <strong>Audio nghe kèm</strong>
+                          <p>{lessonAudio?.name || 'Có thể bỏ qua nếu bài này chỉ dùng PDF/Drive.'}</p>
+                          <label className="upload-button">
+                            Chọn audio
+                            <input type="file" accept="audio/*" onChange={handleAudioUpload} />
+                          </label>
+                        </div>
+
+                        <label className="auth-field auth-field--full">
+                          <span>Nội dung OCR</span>
+                          <textarea
+                            rows="8"
+                            value={ocrText}
+                            onChange={(event) => setOcrText(event.target.value)}
+                            placeholder="Nội dung đọc được từ tài liệu sẽ nằm ở đây. Giáo viên có thể sửa trước khi sinh bài tập."
+                          />
+                        </label>
+
+                        <div className="assignment-studio__actions">
+                          <button type="button" className="button-ghost" onClick={regenerateExercisesFromOcr}>
+                            Sinh lại câu hỏi
+                          </button>
+                          <span className="pill">{formatAssignmentScope(teacherDraft.assignmentScope)}</span>
+                        </div>
+                      </div>
+
+                      <div className="assignment-studio__panel">
+                        <div className="assignment-studio__head">
+                          <div>
+                            <span className="eyebrow">Bài tập được tạo</span>
+                            <h3>Chọn đáp án đúng trước khi giao</h3>
+                          </div>
+                          <span className="pill">{selectedGeneratedExercises.length}/{generatedExercises.length} câu</span>
+                        </div>
+
+                        <div className="ocr-question-list">
+                          {generatedExercises.map((question, questionIndex) => (
+                            <article
+                              key={question.id}
+                              className={question.enabled ? 'ocr-question-card' : 'ocr-question-card is-disabled'}
+                            >
+                              <div className="ocr-question-card__head">
+                                <label className="ocr-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={question.enabled}
+                                    onChange={(event) => updateGeneratedExercise(questionIndex, { enabled: event.target.checked })}
+                                  />
+                                  <span>Giao câu {questionIndex + 1}</span>
+                                </label>
+                                <span className="pill">Trắc nghiệm</span>
+                              </div>
+
+                              <label className="auth-field auth-field--full">
+                                <span>Câu hỏi</span>
+                                <input
+                                  type="text"
+                                  value={question.prompt}
+                                  onChange={(event) => updateGeneratedExercise(questionIndex, { prompt: event.target.value })}
+                                />
+                              </label>
+
+                              <div className="ocr-options-grid">
+                                {question.options.map((option, optionIndex) => (
+                                  <label
+                                    key={`${question.id}-${optionIndex}`}
+                                    className={question.correctAnswer === option ? 'ocr-option is-correct' : 'ocr-option'}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`ocr-correct-${question.id}`}
+                                      checked={question.correctAnswer === option}
+                                      onChange={() => updateGeneratedExercise(questionIndex, { correctAnswer: option })}
+                                    />
+                                    <span>Đáp án {optionIndex + 1}</span>
+                                    <input
+                                      type="text"
+                                      value={option}
+                                      onChange={(event) => updateGeneratedOption(questionIndex, optionIndex, event.target.value)}
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+
+                        {showTeacherStudentView ? (
+                          <div className="student-view-preview">
+                            <div className="section-head">
+                              <div>
+                                <span className="eyebrow">Student view</span>
+                                <h3>Học sinh sẽ thấy bộ bài này</h3>
+                              </div>
+                              <span className="pill">{teacherDraft.courseTitle}</span>
+                            </div>
+                            <div className="generated-question-preview">
+                              {selectedGeneratedExercises.map((question, index) => (
+                                <article key={`${question.id}-preview`} className="generated-question-preview__item">
+                                  <strong>Câu {index + 1}. {question.prompt}</strong>
+                                  <div className="exercise-options">
+                                    {question.options.filter(Boolean).map((option) => (
+                                      <span key={option} className="answer-pill">
+                                        {option}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="assignment-studio__actions">
+                          <button
+                            type="button"
+                            className="button-ghost"
+                            onClick={() => setShowTeacherStudentView((value) => !value)}
+                          >
+                            {showTeacherStudentView ? 'Ẩn Student view' : 'Xem Student view'}
+                          </button>
+                          <button type="button" className="button" onClick={saveAssignmentToSupabase} disabled={teacherSaving}>
+                            {teacherSaving ? 'Đang giao bài...' : 'Giao bài cho học sinh'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              ) : null}
 
               {!isTeacher ? (
                 <section className="content-card content-card--enterprise lesson-action-strip">

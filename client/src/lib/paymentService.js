@@ -119,7 +119,7 @@ export function revokeManualPaymentOrder(orderId) {
 
   const nextOrder = upsertPaymentOrder({
     ...order,
-    status: 'cancelled',
+    status: 'failed',
     revokedAt: new Date().toISOString()
   });
 

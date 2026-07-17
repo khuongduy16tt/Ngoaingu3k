@@ -788,7 +788,7 @@ export async function revokePaymentOrder(order, accessToken) {
 
     revokedOrder = upsertPaymentOrder({
       ...order,
-      status: response.status || 'cancelled',
+      status: response.status || 'failed',
       revokedAt: response.revokedAt || new Date().toISOString()
     });
   } else {
@@ -797,7 +797,7 @@ export async function revokePaymentOrder(order, accessToken) {
 
   const nextOrder = revokedOrder || upsertPaymentOrder({
     ...order,
-    status: 'cancelled',
+    status: 'failed',
     revokedAt: new Date().toISOString()
   });
 

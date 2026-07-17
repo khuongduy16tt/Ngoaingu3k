@@ -241,7 +241,7 @@ router.post('/:orderId/revoke', requireAuth, requireRole('admin'), async (req, r
   if (!isSupabaseAdminReady()) {
     return res.json({
       orderId,
-      status: 'cancelled',
+      status: 'failed',
       revokedAt: new Date().toISOString(),
       mode: 'mock'
     });
@@ -250,7 +250,7 @@ router.post('/:orderId/revoke', requireAuth, requireRole('admin'), async (req, r
   try {
     const { data: order, error } = await supabaseAdmin
       .from('orders')
-      .update({ status: 'cancelled' })
+      .update({ status: 'failed' })
       .eq('id', orderId)
       .select('id, status')
       .single();

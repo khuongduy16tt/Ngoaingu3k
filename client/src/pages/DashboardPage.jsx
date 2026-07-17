@@ -912,6 +912,20 @@ export function TeacherDashboardPage() {
     addDraftLessonAfter(lastSectionIndex, lastLessonIndex);
   }
 
+  function addDraftSectionAtEnd() {
+    setCourseDraft((previous) => {
+      const nextSectionNumber = previous.sections.length + 1;
+      const nextSections = [
+        ...previous.sections,
+        {
+          title: `Chương ${nextSectionNumber}`,
+          lessons: []
+        }
+      ];
+      return { ...previous, sections: nextSections };
+    });
+  }
+
   function reorderDraftLesson(sectionIndex, fromIndex, toIndex) {
     if (sectionIndex < 0 || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
       return;
@@ -1367,40 +1381,49 @@ export function TeacherDashboardPage() {
       return;
     }
 
-    const parsedRows = rows.map((row, index) => {
-      const parts = row.split('|').map((part) => part.trim()).filter(Boolean);
-      const rawUrl = parts.length > 1 ? parts[parts.length - 1] : parts[0];
-      const title = parts.length > 1 ? parts.slice(0, -1).join(' | ') : `Bài ${index + 1}`;
-      return { rawUrl, title };
-    });
-    const invalidRow = parsedRows.find(({ rawUrl }) => getVideoEmbedIssue(rawUrl));
-    if (invalidRow) {
-      setImportMessage({ type: 'error', text: getVideoEmbedIssue(invalidRow.rawUrl) });
-      return;
+    const sections = [];
+    let currentSection = { title: 'Video bài giảng', lessons: [] };
+    const now = Date.now();
+    let globalLessonIndex = 0;
+
+    for (const row of rows) {
+      if (row.includes('drive.google.com') || row.includes('|')) {
+        const parts = row.split('|').map((part) => part.trim()).filter(Boolean);
+        const rawUrl = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+        const title = parts.length > 1 ? parts.slice(0, -1).join(' | ') : `Bài ${globalLessonIndex + 1}`;
+        
+        const invalidIssue = getVideoEmbedIssue(rawUrl);
+        if (invalidIssue) {
+          setImportMessage({ type: 'error', text: invalidIssue });
+          return;
+        }
+
+        currentSection.lessons.push({
+          id: `drive-video-lesson-${now}-${globalLessonIndex}`,
+          title,
+          lessonNumber: String(globalLessonIndex + 1),
+          exerciseType: 'Video bài giảng',
+          status: 'active',
+          note: `${title} · Video Google Drive`,
+          videoTitle: title,
+          videoUrl: rawUrl,
+          videoEmbedUrl: getEmbeddableVideoUrl(rawUrl),
+          questionCount: 0,
+          questions: [],
+          exercises: []
+        });
+        globalLessonIndex++;
+      } else {
+        if (currentSection.lessons.length > 0 || currentSection.title !== 'Video bài giảng') {
+          sections.push(currentSection);
+        }
+        currentSection = { title: row, lessons: [] };
+      }
     }
 
-    const now = Date.now();
-    const sections = [
-      {
-        title: 'Video bài giảng',
-        lessons: parsedRows.map(({ rawUrl, title }, index) => {
-          return {
-            id: `drive-video-lesson-${now}-${index}`,
-            title,
-            lessonNumber: String(index + 1),
-            exerciseType: 'Video bài giảng',
-            status: 'active',
-            note: `Bài ${index + 1} · Video Google Drive`,
-            videoTitle: title,
-            videoUrl: rawUrl,
-            videoEmbedUrl: getEmbeddableVideoUrl(rawUrl),
-            questionCount: 0,
-            questions: [],
-            exercises: []
-          };
-        })
-      }
-    ];
+    if (currentSection.lessons.length > 0 || sections.length === 0) {
+      sections.push(currentSection);
+    }
 
     updateDraftSections(sections);
     if (!courseDraft.title.trim()) {
@@ -1411,7 +1434,7 @@ export function TeacherDashboardPage() {
         summary: previous.summary || 'Khóa học gồm các video bài giảng được nhúng từ Google Drive.'
       }));
     }
-    setImportMessage({ type: 'success', text: `Đã tạo ${rows.length} bài học video từ Google Drive.` });
+    setImportMessage({ type: 'success', text: `Đã tạo ${sections.length} chương và ${globalLessonIndex} bài học video từ Google Drive.` });
   }
 
   function handleCreateManualLessons() {
@@ -2053,6 +2076,9 @@ export function TeacherDashboardPage() {
                   <div className="import-lesson-strip-actions">
                     <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd}>
                       + Thêm bài mới vào cuối khóa
+                    </button>
+                    <button type="button" className="button-ghost" onClick={addDraftSectionAtEnd} style={{ marginLeft: '8px' }}>
+                      + Thêm chương mới
                     </button>
                   </div>
                 </div>
