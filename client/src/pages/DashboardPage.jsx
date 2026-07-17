@@ -1897,19 +1897,20 @@ export function TeacherDashboardPage() {
             {courseInputMode === 'drive' ? (
               <label className="auth-field auth-field--full">
                 <span>Danh sách video Google Drive</span>
-                <div className="field-with-button">
+                <div className="field-with-button" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
                   <textarea
-                    rows="5"
+                    rows="6"
                     value={importDriveLink}
                     onChange={(event) => setImportDriveLink(event.target.value)}
-                    placeholder={'Bài 1 | https://drive.google.com/file/d/.../view\nBài 2 | https://drive.google.com/file/d/.../view'}
+                    placeholder={'Chương 1: Mở đầu\nBài 1 | https://drive.google.com/file/d/.../view\nBài 2 | https://drive.google.com/file/d/.../view\nChương 2: Tăng tốc\nBài 3 | https://drive.google.com/file/d/.../view'}
+                    style={{ width: '100%' }}
                   />
-                  <button type="button" className="button-ghost" onClick={handleImportDriveLink}>
-                    Tạo bài video
+                  <button type="button" className="button" onClick={handleImportDriveLink}>
+                    Tạo danh sách & Chương
                   </button>
                 </div>
                 <small className="field-hint">
-                  Mỗi dòng tạo một bài. Dùng link file video /file/d/.../view và mở quyền Drive: Anyone with the link / Viewer.
+                  Mỗi dòng chứa link Google Drive sẽ tạo thành 1 Bài học. Những dòng không chứa link sẽ tự động tạo thành <strong>Chương mới</strong> chứa các bài học bên dưới nó. (Nhớ mở quyền Viewer cho link Drive)
                 </small>
               </label>
             ) : null}
@@ -1954,6 +1955,14 @@ export function TeacherDashboardPage() {
               </div>
 
               <div className="lesson-import-workbench">
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <button type="button" className="button-ghost" onClick={addDraftSectionAtEnd} style={{ padding: '0.5rem 1rem' }}>
+                    + Thêm chương mới
+                  </button>
+                  <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd} style={{ padding: '0.5rem 1rem' }}>
+                    + Thêm bài vào cuối
+                  </button>
+                </div>
                 <div
                   className="import-lesson-strip"
                   ref={importLessonStripRef}
@@ -2073,14 +2082,6 @@ export function TeacherDashboardPage() {
                     </section>
                   ))}
 
-                  <div className="import-lesson-strip-actions">
-                    <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd}>
-                      + Thêm bài mới vào cuối khóa
-                    </button>
-                    <button type="button" className="button-ghost" onClick={addDraftSectionAtEnd} style={{ marginLeft: '8px' }}>
-                      + Thêm chương mới
-                    </button>
-                  </div>
                 </div>
 
                 {selectedDraftLesson ? (
