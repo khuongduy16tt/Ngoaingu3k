@@ -1955,19 +1955,19 @@ export function TeacherDashboardPage() {
               </div>
 
               <div className="lesson-import-workbench">
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <button type="button" className="button-ghost" onClick={addDraftSectionAtEnd} style={{ padding: '0.5rem 1rem' }}>
-                    + Thêm chương mới
-                  </button>
-                  <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd} style={{ padding: '0.5rem 1rem' }}>
-                    + Thêm bài vào cuối
-                  </button>
-                </div>
                 <div
                   className="import-lesson-strip"
                   ref={importLessonStripRef}
                   onDragOver={scrollDraftLessonStripWhileDragging}
                 >
+                  <div className="import-lesson-strip-actions" style={{ justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <button type="button" className="button-ghost" onClick={addDraftSectionAtEnd} style={{ flex: 1, marginRight: '0.25rem' }}>
+                      + Thêm chương mới
+                    </button>
+                    <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd} style={{ flex: 1, marginLeft: '0.25rem' }}>
+                      + Thêm bài vào cuối
+                    </button>
+                  </div>
                   {courseDraft.sections.map((section, sectionIndex) => (
                     <section key={`${section.title}-${sectionIndex}`} className="import-lesson-section">
                       <div className="import-lesson-section__head">
