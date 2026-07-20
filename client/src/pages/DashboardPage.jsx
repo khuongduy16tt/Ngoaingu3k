@@ -26,13 +26,18 @@ import {
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getActivityLogs } from '../lib/activityService';
 import {
-  exportUsersToExcel,
-  exportOrdersToExcel,
+  exportAdminRegistrationsToExcel,
   exportActivityToExcel
 } from '../lib/reportService';
 import { readFileAsDataUrl, uploadLessonVideo, validateImageFile, validateVideoFile } from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
-import { average, buildStudentProgressRows } from '../lib/studentProgressService';
+import {
+  average,
+  buildStudentProgressRows,
+  getPackageStatus,
+  getPackageStatusLabel,
+  getStudentRoster
+} from '../lib/studentProgressService';
 import { formatVnd, normalizeVndAmount } from '../lib/money';
 import { parseExcelCourseFile, parseExcelQuestionFile } from '../lib/excelCourseParser';
 import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
@@ -354,6 +359,8 @@ function normalizeManagedCourse(course, index = 0) {
     price: formatVnd(priceValue),
     status: course.status || 'published',
     publishedAt: course.publishedAt || 'Đã đăng',
+    packageTotalSessions: course.packageTotalSessions ?? course.package_total_sessions ?? null,
+    packageDurationMonths: course.packageDurationMonths ?? course.package_duration_months ?? null,
     sections: Array.isArray(course.sections) ? course.sections : []
   };
 }
@@ -368,6 +375,8 @@ function createEmptyCourseDraft() {
     price: '490000',
     summary: '',
     bannerUrl: null,
+    packageTotalSessions: '',
+    packageDurationMonths: '',
     sections: []
   };
 }
@@ -1171,6 +1180,8 @@ export function TeacherDashboardPage() {
       lessonsCount: String(course.lessonsCount || 1),
       price: String(course.priceValue ?? normalizeVndAmount(course.price)),
       summary: course.summary || '',
+      packageTotalSessions: course.packageTotalSessions ? String(course.packageTotalSessions) : '',
+      packageDurationMonths: course.packageDurationMonths ? String(course.packageDurationMonths) : '',
       sections: Array.isArray(course.sections) ? course.sections : []
     });
     setCourseInputMode('excel');
@@ -1627,6 +1638,8 @@ export function TeacherDashboardPage() {
         status: savedCourseRecord?.status || nextCourse.status,
         instructor: auth.user?.user_metadata?.full_name || nextCourse.instructor,
         lessonsCount: persistedLessonsCount || nextCourse.lessonsCount,
+        packageTotalSessions: savedCourseRecord?.package_total_sessions ?? nextCourse.packageTotalSessions ?? null,
+        packageDurationMonths: savedCourseRecord?.package_duration_months ?? nextCourse.packageDurationMonths ?? null,
         sections: persistedSections
       };
 
@@ -1909,6 +1922,34 @@ export function TeacherDashboardPage() {
                 value={courseDraft.price}
                 onChange={(event) => updateDraft('price', event.target.value)}
               />
+            </label>
+
+            <label className="auth-field">
+              <span>Tổng số buổi trong gói</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="Để trống nếu không giới hạn"
+                value={courseDraft.packageTotalSessions}
+                onChange={(event) => updateDraft('packageTotalSessions', event.target.value)}
+              />
+              <small className="field-hint">
+                Dùng để tính "buổi đã học / còn lại" ở trang Tiến độ học sinh — đếm tự động theo số bài học học sinh đã hoàn thành.
+              </small>
+            </label>
+
+            <label className="auth-field">
+              <span>Thời hạn gói (tháng)</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="Để trống nếu không giới hạn"
+                value={courseDraft.packageDurationMonths}
+                onChange={(event) => updateDraft('packageDurationMonths', event.target.value)}
+              />
+              <small className="field-hint">
+                Tính từ ngày học sinh mua/gia hạn khóa gần nhất. Dùng để cảnh báo sắp hết hạn cho telesale.
+              </small>
             </label>
 
             <label className="auth-field auth-field--full">
@@ -2609,7 +2650,10 @@ export function AdminDashboardPage() {
   // ── New feature state ──────────────────────────────────
   const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'activity'
   const [usersWithOrders, setUsersWithOrders] = useState({ profiles: [], orders: [] });
+  const [studentRoster, setStudentRoster] = useState([]);
   const [userFilter, setUserFilter] = useState('all'); // 'all' | 'purchased' | 'not_purchased'
+  const [userSearch, setUserSearch] = useState('');
+  const [detailUserId, setDetailUserId] = useState('');
   const [activityLogs, setActivityLogs] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityFilter, setActivityFilter] = useState('');
@@ -2623,13 +2667,15 @@ export function AdminDashboardPage() {
 
   async function reloadAdminData() {
     setLoading(true);
-    const [nextData, nextUsers] = await Promise.all([
+    const [nextData, nextUsers, nextRoster] = await Promise.all([
       getAdminDashboardData(),
       getUsersWithPurchaseInfo(),
+      getStudentRoster({ accessToken: auth.session?.access_token }),
     ]);
     setAdminData(nextData);
     setPermissionDraft(nextData.rolePermissions);
     setUsersWithOrders(nextUsers);
+    setStudentRoster(nextRoster);
     setLoading(false);
   }
 
@@ -2755,24 +2801,57 @@ export function AdminDashboardPage() {
       }),
     [adminData.orders, adminData.progress, students]
   );
-  const filteredUsers = useMemo(
-    () =>
-      usersWithOrders.profiles.filter((user) => {
-        const paidCount = usersWithOrders.orders.filter(
-          (order) => order.userId === user.id && order.status === 'paid'
-        ).length;
+  // Gộp bảng "Khóa học hệ thống" (export) + "Người dùng" thành 1 nguồn: mỗi
+  // học sinh có bao nhiêu khóa đã đăng ký/mua, buổi học & hạn gói tính theo
+  // lần mua GẦN NHẤT của khóa đó (studentRoster đã tính sẵn qua getStudentRoster).
+  const enrollmentsByUserId = useMemo(() => {
+    const map = new Map();
+    studentRoster.forEach((row) => {
+      const bucket = map.get(row.studentId) || [];
+      bucket.push(row);
+      map.set(row.studentId, bucket);
+    });
+    map.forEach((bucket) => bucket.sort((a, b) => new Date(b.enrolledAt) - new Date(a.enrolledAt)));
+    return map;
+  }, [studentRoster]);
 
-        if (userFilter === 'purchased') return paidCount > 0;
-        if (userFilter === 'not_purchased') return paidCount === 0;
-        if (['student', 'teacher', 'admin'].includes(userFilter)) return user.role === userFilter;
-        return true;
-      }),
-    [userFilter, usersWithOrders.orders, usersWithOrders.profiles]
-  );
+  function normalizeUserSearchValue(value) {
+    return String(value || '').toLowerCase().trim();
+  }
+
+  function normalizeUserSearchPhone(value) {
+    return String(value || '').replace(/\D/g, '');
+  }
+
+  const filteredUsers = useMemo(() => {
+    const normalizedSearch = normalizeUserSearchValue(userSearch);
+    const searchDigits = normalizeUserSearchPhone(userSearch);
+
+    return usersWithOrders.profiles.filter((user) => {
+      const paidCount = usersWithOrders.orders.filter(
+        (order) => order.userId === user.id && order.status === 'paid'
+      ).length;
+
+      if (userFilter === 'purchased' && paidCount === 0) return false;
+      if (userFilter === 'not_purchased' && paidCount > 0) return false;
+      if (['student', 'teacher', 'admin'].includes(userFilter) && user.role !== userFilter) return false;
+
+      if (normalizedSearch) {
+        const matchesName = normalizeUserSearchValue(user.fullName).includes(normalizedSearch);
+        const matchesEmail = normalizeUserSearchValue(user.email).includes(normalizedSearch);
+        const matchesPhone = Boolean(searchDigits) && normalizeUserSearchPhone(user.phone).includes(searchDigits);
+        if (!matchesName && !matchesEmail && !matchesPhone) return false;
+      }
+
+      return true;
+    });
+  }, [userFilter, userSearch, usersWithOrders.orders, usersWithOrders.profiles]);
   const usersPagination = usePagination(filteredUsers, {
     pageSize: 10,
-    resetKey: `${userFilter}|${filteredUsers.length}`
+    resetKey: `${userFilter}|${userSearch}|${filteredUsers.length}`
   });
+  const detailUser = detailUserId ? usersWithOrders.profiles.find((user) => user.id === detailUserId) : null;
+  const detailEnrollments = detailUserId ? enrollmentsByUserId.get(detailUserId) || [] : [];
   const filteredActivityLogs = useMemo(
     () => activityLogs.filter((log) => !activityFilter || log.action === activityFilter),
     [activityFilter, activityLogs]
@@ -3286,31 +3365,39 @@ export function AdminDashboardPage() {
           <div className="section-head">
             <div>
               <span className="eyebrow">Quản lý người dùng</span>
-              <h2>Thông tin đăng ký &amp; mua hàng</h2>
+              <h2>Đăng ký &amp; mua hàng</h2>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <select
-                className="text-control"
-                value={userFilter}
-                onChange={(e) => setUserFilter(e.target.value)}
-                style={{ padding: '0.4rem 0.75rem', borderRadius: '0.4rem' }}
-              >
-                <option value="all">Tất cả</option>
-                <option value="purchased">Đã mua</option>
-                <option value="not_purchased">Chưa mua</option>
-                <option value="student">Học viên</option>
-                <option value="teacher">Giảng viên</option>
-                <option value="admin">Quản trị</option>
-              </select>
-              <button
-                type="button"
-                className="button button-ghost"
-                onClick={() => exportUsersToExcel(usersWithOrders.profiles, usersWithOrders.orders)}
-                title="Xuất Excel danh sách người dùng"
-              >
-                ⬇ Xuất Excel
-              </button>
-            </div>
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => exportAdminRegistrationsToExcel(filteredUsers, studentRoster)}
+              title="Xuất Excel gộp người dùng + đăng ký/mua hàng"
+            >
+              ⬇ Xuất Excel
+            </button>
+          </div>
+
+          <div className="student-filter-bar">
+            <input
+              type="search"
+              className="student-filter-bar__search"
+              placeholder="Tìm theo tên, SĐT hoặc email..."
+              value={userSearch}
+              onChange={(event) => setUserSearch(event.target.value)}
+            />
+            <select
+              className="text-control"
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              style={{ padding: '0.4rem 0.75rem', borderRadius: '0.4rem' }}
+            >
+              <option value="all">Tất cả</option>
+              <option value="purchased">Đã mua</option>
+              <option value="not_purchased">Chưa mua</option>
+              <option value="student">Học viên</option>
+              <option value="teacher">Giảng viên</option>
+              <option value="admin">Quản trị</option>
+            </select>
           </div>
 
           <div className="admin-table-wrap">
@@ -3322,40 +3409,127 @@ export function AdminDashboardPage() {
                   <th>SĐT</th>
                   <th>Vai trò</th>
                   <th>Ngày đăng ký</th>
-                  <th>Đã mua</th>
+                  <th>Khóa gần nhất</th>
+                  <th>Buổi học</th>
+                  <th>Hạn gói</th>
                   <th>Trạng thái</th>
+                  <th>Chi tiết</th>
                 </tr>
               </thead>
               <tbody>
-                {usersPagination.pageItems
-                  .map((u) => {
-                    const paidCourses = usersWithOrders.orders.filter(
-                      (o) => o.userId === u.id && o.status === 'paid'
-                    );
-                    return (
-                      <tr key={u.id}>
-                        <td>{u.fullName || '—'}</td>
-                        <td>{u.email}</td>
-                        <td>{u.phone || '—'}</td>
-                        <td><span className="pill">{u.role}</span></td>
-                        <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
-                        <td>{paidCourses.length} khóa</td>
-                        <td>
-                          <span className={`pill ${paidCourses.length > 0 ? 'pill--success' : ''}`}>
-                            {paidCourses.length > 0 ? 'Đã mua' : 'Chưa mua'}
+                {usersPagination.pageItems.map((u) => {
+                  const enrollments = enrollmentsByUserId.get(u.id) || [];
+                  const latest = enrollments[0] || null;
+                  const packageStatus = latest ? getPackageStatus(latest) : null;
+
+                  return (
+                    <tr key={u.id}>
+                      <td>{u.fullName || '—'}</td>
+                      <td>{u.email}</td>
+                      <td>{u.phone || '—'}</td>
+                      <td><span className="pill">{u.role}</span></td>
+                      <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
+                      <td>
+                        {latest ? latest.courseTitle : '—'}
+                        {enrollments.length > 1 ? <small> +{enrollments.length - 1} khóa khác</small> : null}
+                      </td>
+                      <td>
+                        {latest
+                          ? latest.sessionsTotal === null || latest.sessionsTotal === undefined
+                            ? `${latest.sessionsUsed} buổi (không giới hạn)`
+                            : `${latest.sessionsUsed}/${latest.sessionsTotal} buổi`
+                          : '—'}
+                      </td>
+                      <td>
+                        {packageStatus ? (
+                          <span className={`package-status-badge package-status-badge--${packageStatus}`}>
+                            {getPackageStatusLabel(packageStatus)}
                           </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>
+                        <span className={`pill ${enrollments.length > 0 ? 'pill--success' : ''}`}>
+                          {enrollments.length > 0 ? `Đã mua (${enrollments.length} khóa)` : 'Chưa mua'}
+                        </span>
+                      </td>
+                      <td>
+                        {enrollments.length > 0 ? (
+                          <button type="button" className="button-ghost" onClick={() => setDetailUserId(u.id)}>
+                            Xem chi tiết
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredUsers.length === 0 ? (
-                  <tr><td colSpan={7} className="empty-state">Không có dữ liệu người dùng.</td></tr>
+                  <tr><td colSpan={10} className="empty-state">Không có dữ liệu người dùng.</td></tr>
                 ) : null}
               </tbody>
             </table>
           </div>
           <PaginationControls {...usersPagination} label="người dùng" />
         </section>
+      ) : null}
+
+      {detailUser ? (
+        <div className="payment-screen" role="dialog" aria-modal="true" aria-label={`Chi tiết gói đã mua của ${detailUser.fullName || detailUser.email}`}>
+          <button type="button" className="payment-screen__backdrop" onClick={() => setDetailUserId('')} aria-label="Đóng chi tiết" />
+          <div className="payment-screen__panel content-card content-card--enterprise">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">Chi tiết các gói đã mua</span>
+                <h2>{detailUser.fullName || detailUser.email}</h2>
+              </div>
+              <button type="button" className="button-ghost" onClick={() => setDetailUserId('')}>
+                Đóng
+              </button>
+            </div>
+            <p style={{ color: 'var(--muted)' }}>
+              {detailUser.email} · {detailUser.phone || 'Chưa có SĐT'}
+            </p>
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Khóa học</th>
+                    <th>Ngày vào học</th>
+                    <th>Buổi học</th>
+                    <th>Hạn gói</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailEnrollments.map((enrollment) => {
+                    const status = getPackageStatus(enrollment);
+                    return (
+                      <tr key={`${enrollment.studentId}-${enrollment.courseId}`}>
+                        <td>{enrollment.courseTitle}</td>
+                        <td>{new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</td>
+                        <td>
+                          {enrollment.sessionsTotal === null || enrollment.sessionsTotal === undefined
+                            ? `${enrollment.sessionsUsed} buổi (không giới hạn)`
+                            : `${enrollment.sessionsUsed}/${enrollment.sessionsTotal} buổi · còn ${enrollment.sessionsRemaining}`}
+                        </td>
+                        <td>
+                          <span className={`package-status-badge package-status-badge--${status}`}>
+                            {getPackageStatusLabel(status)}
+                          </span>
+                          {enrollment.expiresAt ? (
+                            <small style={{ display: 'block', color: 'var(--muted)' }}>
+                              {new Date(enrollment.expiresAt).toLocaleDateString('vi-VN')}
+                            </small>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* ── Tab: Lịch sử hoạt động ── */}
@@ -3487,13 +3661,8 @@ export function AdminDashboardPage() {
         </div>
 
         <div className="admin-overview-actions">
-          <button
-            type="button"
-            className="button button-ghost"
-            onClick={() => exportOrdersToExcel(adminData.orders, profiles, adminData.courses)}
-            title="Xuất Excel danh sách đơn hàng"
-          >
-            ⬇ Xuất Excel đơn hàng
+          <button type="button" className="button button-ghost" onClick={() => setAdminTab('users')}>
+            ⬇ Xuất Excel đăng ký &amp; mua hàng (tab Người dùng)
           </button>
         </div>
       </section>

@@ -304,6 +304,8 @@ function normalizeCourse(course, fallbackIndex = 0) {
     language: course.language || 'Tiếng Anh',
     certificate: course.certificate ?? true,
     whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : [],
+    packageTotalSessions: course.package_total_sessions ?? course.packageTotalSessions ?? null,
+    packageDurationMonths: course.package_duration_months ?? course.packageDurationMonths ?? null,
     sections
   };
 
@@ -337,7 +339,9 @@ export function buildCourseRecordPayload(course, options = {}) {
     price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
     status: course?.status || 'draft',
     teacher_id: getTeacherIdForCourseStorage(options.teacherId || course?.teacherId || null),
-    banner_url: course?.bannerUrl || course?.banner_url || null
+    banner_url: course?.bannerUrl || course?.banner_url || null,
+    package_total_sessions: course?.packageTotalSessions || null,
+    package_duration_months: course?.packageDurationMonths || null
   };
 }
 
@@ -376,7 +380,9 @@ export async function saveCourseToSupabase(course, options = {}) {
   const { data, error } = await supabase
     .from('courses')
     .upsert(upsertPayload, { onConflict })
-    .select('id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at')
+    .select(
+      'id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at, package_total_sessions, package_duration_months'
+    )
     .single();
 
   if (error) {
@@ -664,7 +670,9 @@ export async function getCourseBySlug(courseSlug) {
 
   let courseQuery = supabase
     .from('courses')
-    .select('id, slug, title, description, price, status, banner_url, updated_at');
+    .select(
+      'id, slug, title, description, price, status, banner_url, updated_at, package_total_sessions, package_duration_months'
+    );
 
   courseQuery = isUuid(courseSlug)
     ? courseQuery.or(`id.eq.${courseSlug},slug.eq.${courseSlug}`)

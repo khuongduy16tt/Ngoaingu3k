@@ -27,6 +27,17 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(normalized) ? normalized : fallback;
 }
 
+// Unlike normalizeNumber, an empty/invalid value here means "unlimited"
+// (NULL in the DB) rather than 0 — 0 buổi/0 tháng would be a nonsensical
+// package, so there's no real fallback value to coerce to.
+function normalizeNullableNumber(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const normalized = Math.round(Number(value));
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : null;
+}
+
 function buildCoursePayload(course, teacherId) {
   const title = String(course?.title || '').trim();
 
@@ -37,7 +48,9 @@ function buildCoursePayload(course, teacherId) {
     price: normalizeNumber(course?.priceValue ?? course?.price, 0),
     status: course?.status || 'draft',
     teacher_id: teacherId,
-    banner_url: course?.bannerUrl || course?.banner_url || null
+    banner_url: course?.bannerUrl || course?.banner_url || null,
+    package_total_sessions: normalizeNullableNumber(course?.packageTotalSessions ?? course?.package_total_sessions),
+    package_duration_months: normalizeNullableNumber(course?.packageDurationMonths ?? course?.package_duration_months)
   };
 }
 
@@ -262,7 +275,9 @@ async function saveCourseRecord(course, user) {
     const { data, error } = await supabaseAdmin
       .from('courses')
       .upsert({ id: existingCourseId, ...payload }, { onConflict: 'id' })
-      .select('id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at')
+      .select(
+        'id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at, package_total_sessions, package_duration_months'
+      )
       .single();
 
     if (error) {
@@ -433,7 +448,9 @@ router.get('/', async (_req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('courses')
-      .select('id, slug, title, description, price, status, banner_url, teacher_id, updated_at')
+      .select(
+        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months'
+      )
       .eq('status', 'published')
       .order('updated_at', { ascending: false });
 
@@ -621,7 +638,9 @@ router.get('/:courseId', async (req, res) => {
   try {
     let courseQuery = supabaseAdmin
       .from('courses')
-      .select('id, slug, title, description, price, status, banner_url, teacher_id, updated_at');
+      .select(
+        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months'
+      );
 
     courseQuery = isUuid(courseId)
       ? courseQuery.or(`id.eq.${courseId},slug.eq.${courseId}`)

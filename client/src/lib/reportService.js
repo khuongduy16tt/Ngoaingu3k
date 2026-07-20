@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { getPackageStatus, getPackageStatusLabel } from './studentProgressService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -28,74 +29,87 @@ function formatDate(value) {
   }
 }
 
-// ─── Export Báo cáo Người dùng ────────────────────────────────────────────────
+// ─── Export Báo cáo Người dùng & Đăng ký/Mua hàng (gộp 1 bảng) ────────────────
 
 /**
- * Xuất danh sách users ra Excel.
+ * Xuất 1 sheet duy nhất gộp người dùng + khóa học đã đăng ký/mua — thay cho
+ * 2 file riêng (users/orders) trước đây, để không phải tách lẻ khi báo cáo.
+ * Mỗi user không mua gì ra đúng 1 dòng ("Chưa mua"); mỗi khóa họ đã mua ra
+ * 1 dòng riêng (đủ chi tiết từng gói, không chỉ gói gần nhất) — enrollments
+ * lấy từ getStudentRoster() nên buổi học/hạn gói luôn tính theo lần mua gần
+ * nhất của khóa đó.
  * @param {Array} users - Mảng profile objects
- * @param {Array} orders - Mảng order objects (để tính đã mua)
+ * @param {Array} enrollments - Mảng row từ getStudentRoster() (1 dòng / học sinh-khóa)
  */
-export function exportUsersToExcel(users = [], orders = []) {
-  // Build lookup: userId → [courseId, ...]
-  const purchaseMap = new Map();
-  orders.forEach((o) => {
-    if (o.status === 'paid') {
-      const list = purchaseMap.get(o.userId || o.user_id) || [];
-      list.push(o.courseId || o.course_id || '');
-      purchaseMap.set(o.userId || o.user_id, list);
+export function exportAdminRegistrationsToExcel(users = [], enrollments = []) {
+  const enrollmentsByUserId = new Map();
+  enrollments.forEach((row) => {
+    const list = enrollmentsByUserId.get(row.studentId) || [];
+    list.push(row);
+    enrollmentsByUserId.set(row.studentId, list);
+  });
+
+  const headers = [
+    'Họ tên',
+    'Email',
+    'Số điện thoại',
+    'Vai trò',
+    'Ngày đăng ký',
+    'Khóa học',
+    'Ngày vào học',
+    'Buổi đã học',
+    'Tổng số buổi',
+    'Buổi còn lại',
+    'Ngày hết hạn',
+    'Trạng thái gói',
+    'Trạng thái mua'
+  ];
+
+  const rows = [];
+  users.forEach((user) => {
+    const userEnrollments = enrollmentsByUserId.get(user.id) || [];
+
+    if (!userEnrollments.length) {
+      rows.push([
+        user.fullName || user.full_name || '',
+        user.email || '',
+        user.phone || '',
+        user.role || '',
+        formatDate(user.createdAt || user.created_at),
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'Chưa mua'
+      ]);
+      return;
     }
-  });
 
-  const headers = ['Họ tên', 'Email', 'Số điện thoại', 'Vai trò', 'Ngày đăng ký', 'Đã mua (số khóa)', 'Trạng thái'];
-  const rows = users.map((u) => {
-    const id = u.id;
-    const purchased = purchaseMap.get(id) || [];
-    return [
-      u.fullName || u.full_name || '',
-      u.email || '',
-      u.phone || '',
-      u.role || '',
-      formatDate(u.createdAt || u.created_at),
-      purchased.length,
-      purchased.length > 0 ? 'Đã mua' : 'Chưa mua',
-    ];
-  });
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), 'Người dùng');
-  downloadWorkbook(wb, `bao-cao-nguoi-dung_${_today()}.xlsx`);
-}
-
-// ─── Export Báo cáo Đơn hàng ─────────────────────────────────────────────────
-
-/**
- * @param {Array} orders
- * @param {Array} users  - để tra tên user
- * @param {Array} courses - để tra tên khóa học
- */
-export function exportOrdersToExcel(orders = [], users = [], courses = []) {
-  const userMap = new Map(users.map((u) => [u.id, u.fullName || u.full_name || u.email]));
-  const courseMap = new Map(courses.map((c) => [c.id, c.title]));
-
-  const headers = ['Mã đơn', 'Học viên', 'Email', 'Khóa học', 'Số tiền', 'Trạng thái', 'Ngày mua'];
-  const rows = orders.map((o) => {
-    const uid = o.userId || o.user_id || '';
-    const cid = o.courseId || o.course_id || '';
-    const user = users.find((u) => u.id === uid);
-    return [
-      o.id?.slice(0, 8) || '',
-      userMap.get(uid) || uid,
-      user?.email || '',
-      courseMap.get(cid) || cid,
-      typeof o.amount === 'number' ? o.amount.toLocaleString('vi-VN') + ' đ' : (o.amount || ''),
-      _statusLabel(o.status),
-      formatDate(o.createdAt || o.created_at),
-    ];
+    userEnrollments.forEach((enrollment) => {
+      rows.push([
+        user.fullName || user.full_name || '',
+        user.email || '',
+        user.phone || '',
+        user.role || '',
+        formatDate(user.createdAt || user.created_at),
+        enrollment.courseTitle || '',
+        formatDate(enrollment.enrolledAt),
+        enrollment.sessionsUsed ?? 0,
+        enrollment.sessionsTotal ?? 'Không giới hạn',
+        enrollment.sessionsRemaining ?? 'Không giới hạn',
+        enrollment.expiresAt ? formatDate(enrollment.expiresAt) : 'Không giới hạn',
+        getPackageStatusLabel(getPackageStatus(enrollment)),
+        'Đã mua'
+      ]);
+    });
   });
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), 'Đơn hàng');
-  downloadWorkbook(wb, `bao-cao-don-hang_${_today()}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), 'Người dùng & Đăng ký');
+  downloadWorkbook(wb, `bao-cao-dang-ky-mua-hang_${_today()}.xlsx`);
 }
 
 // ─── Export Báo cáo Tiến độ ──────────────────────────────────────────────────
@@ -117,6 +131,53 @@ export function exportProgressToExcel(progressRows = []) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), 'Tiến độ');
   downloadWorkbook(wb, `bao-cao-tien-do_${_today()}.xlsx`);
+}
+
+// ─── Export Tiến độ học sinh (buổi học + hạn gói) ────────────────────────────
+
+const PACKAGE_STATUS_EXPORT_LABELS = {
+  unlimited: 'Không giới hạn',
+  active: 'Còn hạn',
+  expiring_soon: 'Sắp hết hạn',
+  expired: 'Đã hết hạn'
+};
+
+/**
+ * Xuất danh sách học sinh (roster) ra Excel — dùng cho trang Tiến độ học
+ * sinh. Nhận roster rows kèm packageStatus đã tính sẵn (getPackageStatus)
+ * để không phải import lại logic tính hạn gói vào file report thuần này.
+ * @param {Array} rows - { fullName, email, phone, courseTitle, enrolledAt, sessionsUsed, sessionsTotal, sessionsRemaining, expiresAt, packageStatus }
+ */
+export function exportStudentRosterToExcel(rows = []) {
+  const headers = [
+    'Học sinh',
+    'Số điện thoại',
+    'Email',
+    'Khóa học',
+    'Ngày vào học',
+    'Buổi đã học',
+    'Tổng số buổi',
+    'Buổi còn lại',
+    'Ngày hết hạn',
+    'Trạng thái gói'
+  ];
+
+  const sheetRows = rows.map((row) => [
+    row.fullName || '',
+    row.phone || '',
+    row.email || '',
+    row.courseTitle || '',
+    formatDate(row.enrolledAt),
+    row.sessionsUsed ?? 0,
+    row.sessionsTotal ?? 'Không giới hạn',
+    row.sessionsRemaining ?? 'Không giới hạn',
+    row.expiresAt ? formatDate(row.expiresAt) : 'Không giới hạn',
+    PACKAGE_STATUS_EXPORT_LABELS[row.packageStatus] || ''
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, makeSheet(headers, sheetRows), 'Tiến độ học sinh');
+  downloadWorkbook(wb, `tien-do-hoc-sinh_${_today()}.xlsx`);
 }
 
 // ─── Export Lịch sử hoạt động ─────────────────────────────────────────────────
@@ -156,16 +217,4 @@ export function exportActivityToExcel(logs = [], users = []) {
 
 function _today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function _statusLabel(status) {
-  const labels = {
-    paid: 'Đã thanh toán',
-    pending: 'Chờ thanh toán',
-    pending_payment: 'Chờ chuyển khoản',
-    awaiting_admin: 'Chờ admin mở khóa',
-    failed: 'Thất bại',
-    refunded: 'Hoàn tiền'
-  };
-  return labels[status] || status || '';
 }
