@@ -48,6 +48,25 @@ as $$
   );
 $$;
 
+-- security definer để tránh đệ quy RLS giữa lesson_assignments và
+-- lesson_assignment_recipients/lesson_assignment_attempts (lỗi Postgres
+-- 42P17 "infinite recursion detected in policy"). Xem chú thích chi tiết
+-- trong schema.sql.
+create or replace function public.owns_lesson_assignment(p_assignment_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.lesson_assignments assignment
+    where assignment.id = p_assignment_id
+      and assignment.teacher_id = auth.uid()
+  );
+$$;
+
 create table if not exists public.lesson_assignments (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid not null references public.profiles(id) on delete cascade,
@@ -375,22 +394,8 @@ drop policy if exists "teachers manage lesson assignment recipients" on public.l
 create policy "teachers manage lesson assignment recipients"
 on public.lesson_assignment_recipients
 for all
-using (
-  exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_recipients.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_recipients.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
-);
+using (public.owns_lesson_assignment(assignment_id))
+with check (public.owns_lesson_assignment(assignment_id));
 
 drop policy if exists "admins manage lesson assignment recipients" on public.lesson_assignment_recipients;
 create policy "admins manage lesson assignment recipients"
@@ -405,12 +410,7 @@ on public.lesson_assignment_recipients
 for select
 using (
   lower(student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  or exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_recipients.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
+  or public.owns_lesson_assignment(assignment_id)
 );
 
 drop policy if exists "students manage own lesson assignment attempts" on public.lesson_assignment_attempts;
@@ -424,14 +424,7 @@ drop policy if exists "teachers read attempts for own lesson assignments" on pub
 create policy "teachers read attempts for own lesson assignments"
 on public.lesson_assignment_attempts
 for select
-using (
-  exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_attempts.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
-);
+using (public.owns_lesson_assignment(assignment_id));
 
 drop policy if exists "admins manage all lesson assignment attempts" on public.lesson_assignment_attempts;
 create policy "admins manage all lesson assignment attempts"

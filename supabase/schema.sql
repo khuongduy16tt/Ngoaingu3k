@@ -153,6 +153,29 @@ as $$
   );
 $$;
 
+-- security definer để tránh đệ quy RLS: lesson_assignments đọc
+-- lesson_assignment_recipients, và lesson_assignment_recipients/
+-- lesson_assignment_attempts cũng cần kiểm tra ngược lại "mình có phải giáo
+-- viên sở hữu assignment này không". Nếu kiểm tra ngược đó là 1 subquery
+-- thường (không phải security definer), nó sẽ tự kích hoạt lại RLS của
+-- lesson_assignments, mà RLS đó lại đọc lesson_assignment_recipients —
+-- vòng lặp vô hạn (lỗi Postgres 42P17). Hàm này chạy bỏ qua RLS nên phá
+-- được vòng lặp.
+create or replace function public.owns_lesson_assignment(p_assignment_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.lesson_assignments assignment
+    where assignment.id = p_assignment_id
+      and assignment.teacher_id = auth.uid()
+  );
+$$;
+
 insert into public.role_permissions (role, label, permissions)
 values
   ('student', 'Học viên', '{"viewLearning": true, "manageOwnProgress": true, "manageUsers": false, "manageCourses": false, "manageLessons": false, "manageTeachers": false, "manageSystem": false}'::jsonb),
@@ -454,22 +477,8 @@ drop policy if exists "teachers manage lesson assignment recipients" on public.l
 create policy "teachers manage lesson assignment recipients"
 on public.lesson_assignment_recipients
 for all
-using (
-  exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_recipients.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_recipients.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
-);
+using (public.owns_lesson_assignment(assignment_id))
+with check (public.owns_lesson_assignment(assignment_id));
 
 drop policy if exists "admins manage lesson assignment recipients" on public.lesson_assignment_recipients;
 create policy "admins manage lesson assignment recipients"
@@ -484,12 +493,7 @@ on public.lesson_assignment_recipients
 for select
 using (
   lower(student_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  or exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_recipients.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
+  or public.owns_lesson_assignment(assignment_id)
 );
 
 drop policy if exists "students manage own lesson assignment attempts" on public.lesson_assignment_attempts;
@@ -510,14 +514,7 @@ drop policy if exists "teachers read attempts for own lesson assignments" on pub
 create policy "teachers read attempts for own lesson assignments"
 on public.lesson_assignment_attempts
 for select
-using (
-  exists (
-    select 1
-    from public.lesson_assignments assignment
-    where assignment.id = lesson_assignment_attempts.assignment_id
-      and assignment.teacher_id = auth.uid()
-  )
-);
+using (public.owns_lesson_assignment(assignment_id));
 
 drop policy if exists "authenticated users read role permissions" on public.role_permissions;
 create policy "authenticated users read role permissions"
