@@ -37,6 +37,8 @@ import { formatVnd, normalizeVndAmount } from '../lib/money';
 import { parseExcelCourseFile, parseExcelQuestionFile } from '../lib/excelCourseParser';
 import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 import { uploadCourseImage } from '../lib/storageService';
+import { TeacherExamPanel } from './dashboard/TeacherExamPanel';
+import { AdminExamResultsPanel } from './dashboard/AdminExamResultsPanel';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -613,6 +615,8 @@ export function TeacherDashboardPage() {
   const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
   const [draggedDraftLessonId, setDraggedDraftLessonId] = useState('');
   const [draftLessonDropTarget, setDraftLessonDropTarget] = useState(null);
+  const [draggedDraftSectionIndex, setDraggedDraftSectionIndex] = useState(null);
+  const [draftSectionDropTarget, setDraftSectionDropTarget] = useState(null);
   const [draftHydratedTeacherId, setDraftHydratedTeacherId] = useState('');
   const [coursePublisherOpen, setCoursePublisherOpen] = useState(false);
   const [activeCoursesOpen, setActiveCoursesOpen] = useState(false);
@@ -924,6 +928,81 @@ export function TeacherDashboardPage() {
       ];
       return { ...previous, sections: nextSections };
     });
+  }
+
+  function reorderDraftSections(fromIndex, toIndex) {
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+      return;
+    }
+
+    const sections = [...courseDraft.sections];
+    if (fromIndex >= sections.length || toIndex > sections.length) {
+      return;
+    }
+
+    const [movedSection] = sections.splice(fromIndex, 1);
+    if (!movedSection) {
+      return;
+    }
+
+    const nextIndex = Math.max(0, Math.min(fromIndex < toIndex ? toIndex - 1 : toIndex, sections.length));
+    sections.splice(nextIndex, 0, movedSection);
+
+    updateDraftSectionsInPlace(sections);
+  }
+
+  function handleDraftSectionDragStart(event, sectionIndex) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `section-${sectionIndex}`);
+    setDraggedDraftSectionIndex(sectionIndex);
+  }
+
+  function handleDraftSectionDragEnd() {
+    setDraggedDraftSectionIndex(null);
+    setDraftSectionDropTarget(null);
+  }
+
+  // Guarded on draggedDraftSectionIndex !== null nên các sự kiện dragover/drop nổi
+  // bọt lên từ lesson pill bên trong (khi đang kéo lesson, không phải kéo chương)
+  // sẽ tự bị bỏ qua — không cần stopPropagation ở phía lesson handlers.
+  function handleDraftSectionDragOver(event, sectionIndex) {
+    if (draggedDraftSectionIndex === null) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+
+    if (sectionIndex === draggedDraftSectionIndex) {
+      setDraftSectionDropTarget(null);
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+    const nextTarget = { sectionIndex, placement };
+
+    setDraftSectionDropTarget((currentTarget) =>
+      currentTarget?.sectionIndex === nextTarget.sectionIndex && currentTarget?.placement === nextTarget.placement
+        ? currentTarget
+        : nextTarget
+    );
+  }
+
+  function handleDraftSectionDrop(event, sectionIndex) {
+    if (draggedDraftSectionIndex === null) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const placement =
+      draftSectionDropTarget?.sectionIndex === sectionIndex ? draftSectionDropTarget.placement : 'before';
+    const insertionIndex = placement === 'after' ? sectionIndex + 1 : sectionIndex;
+
+    reorderDraftSections(draggedDraftSectionIndex, insertionIndex);
+    setDraggedDraftSectionIndex(null);
+    setDraftSectionDropTarget(null);
   }
 
   function reorderDraftLesson(sectionIndex, fromIndex, toIndex) {
@@ -1968,14 +2047,45 @@ export function TeacherDashboardPage() {
                       + Thêm bài vào cuối
                     </button>
                   </div>
-                  {courseDraft.sections.map((section, sectionIndex) => (
-                    <section key={`${section.title}-${sectionIndex}`} className="import-lesson-section">
-                      <div className="import-lesson-section__head">
+                  {courseDraft.sections.map((section, sectionIndex) => {
+                    const isSectionDragging = sectionIndex === draggedDraftSectionIndex;
+                    const isSectionDropBefore =
+                      !isSectionDragging &&
+                      draftSectionDropTarget?.sectionIndex === sectionIndex &&
+                      draftSectionDropTarget?.placement === 'before';
+                    const isSectionDropAfter =
+                      !isSectionDragging &&
+                      draftSectionDropTarget?.sectionIndex === sectionIndex &&
+                      draftSectionDropTarget?.placement === 'after';
+
+                    return (
+                    <section
+                      key={`${section.title}-${sectionIndex}`}
+                      className={[
+                        'import-lesson-section',
+                        isSectionDragging ? 'is-dragging' : '',
+                        isSectionDropBefore ? 'is-drop-before' : '',
+                        isSectionDropAfter ? 'is-drop-after' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onDragOver={(event) => handleDraftSectionDragOver(event, sectionIndex)}
+                      onDrop={(event) => handleDraftSectionDrop(event, sectionIndex)}
+                    >
+                      <div
+                        className="import-lesson-section__head"
+                        draggable
+                        onDragStart={(event) => handleDraftSectionDragStart(event, sectionIndex)}
+                        onDragEnd={handleDraftSectionDragEnd}
+                      >
+                        <span className="import-lesson-section__drag" aria-hidden="true">
+                          ⠿
+                        </span>
                         <div>
                           <span className="eyebrow">{section.title || 'Nội dung chính'}</span>
                           <strong>{Array.isArray(section.lessons) ? section.lessons.length : 0} bài</strong>
                         </div>
-                        <span className="pill">Giữ và kéo để đổi vị trí</span>
+                        <span className="pill">Giữ và kéo để đổi vị trí chương</span>
                       </div>
 
                       <div className="import-lesson-section__list">
@@ -2080,7 +2190,8 @@ export function TeacherDashboardPage() {
                         </div>
                       </div>
                     </section>
-                  ))}
+                    );
+                  })}
 
                 </div>
 
@@ -2358,6 +2469,8 @@ export function TeacherDashboardPage() {
           ) : null}
         </form>
         ) : null}
+
+          <TeacherExamPanel teacherId={teacherId} accessToken={auth.session?.access_token} />
 
           </div>
         </div>
@@ -3023,6 +3136,7 @@ export function AdminDashboardPage() {
             { id: 'overview', label: '📊 Tổng quan' },
             { id: 'payments', label: '💳 Thanh toán' },
             { id: 'users', label: '👥 Người dùng' },
+            { id: 'exams', label: '📝 Đề thi' },
             { id: 'activity', label: '📋 Lịch sử hoạt động' },
           ].map((tab) => (
             <button
@@ -3038,6 +3152,8 @@ export function AdminDashboardPage() {
           ))}
         </div>
       </section>
+
+      {adminTab === 'exams' ? <AdminExamResultsPanel /> : null}
 
       {adminTab === 'payments' ? (
         <section className="content-card content-card--enterprise admin-panel">

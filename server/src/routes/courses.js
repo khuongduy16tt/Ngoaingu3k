@@ -127,18 +127,42 @@ function normalizeCorrectAnswer(answer, options) {
   return byText?.label || rawAnswer;
 }
 
+// Giữ đồng bộ với LESSON_QUESTION_TYPES ở client/src/lib/lessonQuestions.js.
+const LESSON_QUESTION_TYPES = ['multiple_choice', 'true_false', 'fill_blank', 'matching', 'listening', 'writing'];
+
 function normalizeLessonQuestion(question, index) {
+  const type = LESSON_QUESTION_TYPES.includes(question?.type) ? question.type : 'multiple_choice';
   const options = Array.isArray(question?.options)
     ? question.options.map(normalizeLessonQuestionOption).filter((option) => option.text)
     : [];
   const prompt = String(question?.prompt || question?.question || '').trim();
-  const correctAnswer = normalizeCorrectAnswer(question?.correctAnswer || question?.answer || '', options);
+  const correctAnswer =
+    type === 'true_false'
+      ? (question?.correctAnswer === 'false' ? 'false' : 'true')
+      : normalizeCorrectAnswer(question?.correctAnswer || question?.answer || '', options);
+  const pairs = Array.isArray(question?.pairs)
+    ? question.pairs
+        .map((pair) => ({
+          left: String(pair?.left ?? pair?.term ?? '').trim(),
+          right: String(pair?.right ?? pair?.answer ?? '').trim()
+        }))
+        .filter((pair) => pair.left && pair.right)
+    : [];
+  const acceptedAnswers = Array.isArray(question?.acceptedAnswers)
+    ? question.acceptedAnswers.map((answer) => String(answer).trim()).filter(Boolean)
+    : [];
 
   return {
     id: String(question?.id || `video-question-${index + 1}`).trim(),
+    type,
     prompt,
-    options,
-    correctAnswer,
+    options: type === 'multiple_choice' ? options : [],
+    correctAnswer: type === 'multiple_choice' || type === 'true_false' ? correctAnswer : '',
+    acceptedAnswers: type === 'fill_blank' || type === 'listening' ? acceptedAnswers : [],
+    pairs: type === 'matching' ? pairs : [],
+    sampleAnswer: type === 'writing' ? String(question?.sampleAnswer || '').trim() : '',
+    audioUrl: String(question?.audioUrl || '').trim(),
+    audioName: String(question?.audioName || '').trim(),
     explanation: String(question?.explanation || question?.note || '').trim()
   };
 }

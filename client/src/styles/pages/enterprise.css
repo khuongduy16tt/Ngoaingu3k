@@ -1724,6 +1724,24 @@ textarea:focus-visible {
   color: var(--accent);
 }
 
+.teacher-course-publisher .import-lesson-section {
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+}
+
+.teacher-course-publisher .import-lesson-section.is-dragging {
+  opacity: 0.4;
+}
+
+.teacher-course-publisher .import-lesson-section.is-drop-before::before,
+.teacher-course-publisher .import-lesson-section.is-drop-after::after {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 .teacher-course-publisher .lesson-edit-panel,
 .teacher-course-publisher .lesson-question-editor__item {
   padding: 14px;
