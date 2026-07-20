@@ -4,17 +4,7 @@ import { confirmCoursePayment, getCourseCatalog, getOwnedCourseIds, purchaseCour
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { PaginationControls, usePagination } from '../components/Pagination';
 import { PaymentInstructions } from '../components/PaymentInstructions';
-
-const initialFilters = {
-  search: '',
-  level: 'all',
-  category: 'all',
-  price: 'all',
-  status: 'all',
-  sort: 'featured'
-};
 
 const roleLabels = {
   student: 'học viên',
@@ -32,21 +22,18 @@ function MarketplaceStat({ label, value, note }) {
   );
 }
 
-function FilterButton({ active, children, onClick }) {
-  return (
-    <button
-      type="button"
-      className={`answer-pill marketplace-filter-pill ${active ? 'is-active' : ''}`}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
 function isHskCourse(course) {
   const haystack = `${course.title || ''} ${course.category || ''} ${course.language || ''}`.toLowerCase();
   return haystack.includes('hsk') || haystack.includes('tiếng trung');
+}
+
+// Danh mục chỉ ~10-20 khóa nên không cần bộ lọc/sắp xếp/phân trang — sắp xếp
+// cố định theo đánh giá + số học viên để khóa nổi bật lên trước, không lộ
+// thành 1 control cho người dùng chỉnh.
+function sortCoursesDefault(courses) {
+  return [...courses].sort(
+    (left, right) => right.rating - left.rating || right.studentsCount - left.studentsCount
+  );
 }
 
 function CourseCard({ course, isOwned, authSession, currentRole, purchasingCourseId, feedback, onPurchase }) {
@@ -144,7 +131,6 @@ function CourseGroupSection({
   eyebrow,
   description,
   courses,
-  pagination,
   emptyMessage,
   ownedCourseIdSet,
   authSession,
@@ -161,74 +147,29 @@ function CourseGroupSection({
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
+        <span className="pill">{courses.length} khóa</span>
       </div>
 
       {courses.length ? (
-        <>
-          <PaginationControls {...pagination} label={title.toLowerCase()} />
-          <div className="card-grid marketplace-grid">
-            {pagination.pageItems.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                isOwned={ownedCourseIdSet.has(course.id)}
-                authSession={authSession}
-                currentRole={currentRole}
-                purchasingCourseId={purchasingCourseId}
-                feedback={feedback}
-                onPurchase={onPurchase}
-              />
-            ))}
-          </div>
-          <PaginationControls {...pagination} label={title.toLowerCase()} />
-        </>
+        <div className="card-grid marketplace-grid">
+          {courses.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              isOwned={ownedCourseIdSet.has(course.id)}
+              authSession={authSession}
+              currentRole={currentRole}
+              purchasingCourseId={purchasingCourseId}
+              feedback={feedback}
+              onPurchase={onPurchase}
+            />
+          ))}
+        </div>
       ) : (
         <p className="empty-state">{emptyMessage}</p>
       )}
     </section>
   );
-}
-
-function matchesPriceTier(course, priceTier) {
-  if (priceTier === 'all') {
-    return true;
-  }
-
-  if (priceTier === 'under-600') {
-    return course.priceValue < 600000;
-  }
-
-  if (priceTier === '600-899') {
-    return course.priceValue >= 600000 && course.priceValue < 900000;
-  }
-
-  return course.priceValue >= 900000;
-}
-
-function sortCourses(courses, sortKey) {
-  const sorted = [...courses];
-
-  sorted.sort((left, right) => {
-    if (sortKey === 'price-low') {
-      return left.priceValue - right.priceValue;
-    }
-
-    if (sortKey === 'price-high') {
-      return right.priceValue - left.priceValue;
-    }
-
-    if (sortKey === 'rating') {
-      return right.rating - left.rating || right.studentsCount - left.studentsCount;
-    }
-
-    return (
-      right.progress - left.progress ||
-      right.rating - left.rating ||
-      right.studentsCount - left.studentsCount
-    );
-  });
-
-  return sorted;
 }
 
 export default function CoursesPage() {
@@ -238,15 +179,12 @@ export default function CoursesPage() {
   const currentRole = getEffectiveRole(auth);
   const [courses, setCourses] = useState([]);
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
-  const [filters, setFilters] = useState(initialFilters);
   const [loading, setLoading] = useState(true);
   const [purchasingCourseId, setPurchasingCourseId] = useState('');
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [confirmingOrderId, setConfirmingOrderId] = useState('');
   const [feedback, setFeedback] = useState({ courseId: '', text: '' });
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [coursePageSize, setCoursePageSize] = useState(6);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -283,75 +221,17 @@ export default function CoursesPage() {
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [loading, location.hash]);
 
-  const levels = useMemo(
-    () => ['all', ...new Set(courses.map((course) => course.level))],
-    [courses]
-  );
-  const categories = useMemo(
-    () => ['all', ...new Set(courses.map((course) => course.category))],
-    [courses]
-  );
   const ownedCourseIdSet = useMemo(() => new Set(ownedCourseIds), [ownedCourseIds]);
   const ownedCourses = useMemo(
     () => courses.filter((course) => ownedCourseIdSet.has(course.id)),
     [courses, ownedCourseIdSet]
   );
 
-  const filteredCourses = useMemo(() => {
-    const searchValue = filters.search.trim().toLowerCase();
-
-    const nextCourses = courses.filter((course) => {
-      const isOwned = ownedCourseIdSet.has(course.id);
-      const matchesSearch =
-        !searchValue ||
-        course.title.toLowerCase().includes(searchValue) ||
-        course.summary.toLowerCase().includes(searchValue) ||
-        course.instructor.toLowerCase().includes(searchValue);
-      const matchesLevel = filters.level === 'all' || course.level === filters.level;
-      const matchesCategory = filters.category === 'all' || course.category === filters.category;
-      const matchesOwnership =
-        filters.status === 'all' ||
-        (filters.status === 'owned' && isOwned) ||
-        (filters.status === 'available' && !isOwned);
-
-      return (
-        matchesSearch &&
-        matchesLevel &&
-        matchesCategory &&
-        matchesOwnership &&
-        matchesPriceTier(course, filters.price)
-      );
-    });
-
-    return sortCourses(nextCourses, filters.sort);
-  }, [courses, filters, ownedCourseIdSet]);
-
-  const activeFilterCount = useMemo(() => {
-    return [
-      filters.search.trim(),
-      filters.level !== 'all',
-      filters.category !== 'all',
-      filters.price !== 'all',
-      filters.status !== 'all'
-    ].filter(Boolean).length;
-  }, [filters]);
   const ieltsCourses = useMemo(
-    () => filteredCourses.filter((course) => !isHskCourse(course)),
-    [filteredCourses]
+    () => sortCoursesDefault(courses.filter((course) => !isHskCourse(course))),
+    [courses]
   );
-  const hskCourses = useMemo(
-    () => filteredCourses.filter(isHskCourse),
-    [filteredCourses]
-  );
-  const filterResetKey = `${filters.search}|${filters.level}|${filters.category}|${filters.price}|${filters.status}|${filters.sort}|${courses.length}`;
-  const ieltsPagination = usePagination(ieltsCourses, {
-    pageSize: coursePageSize,
-    resetKey: `ielts|${filterResetKey}`
-  });
-  const hskPagination = usePagination(hskCourses, {
-    pageSize: coursePageSize,
-    resetKey: `hsk|${filterResetKey}`
-  });
+  const hskCourses = useMemo(() => sortCoursesDefault(courses.filter(isHskCourse)), [courses]);
 
   async function handlePurchase(course) {
     if (!auth.session || currentRole !== 'student') {
@@ -414,14 +294,6 @@ export default function CoursesPage() {
     }
   }
 
-  function resetFilters() {
-    setFilters(initialFilters);
-  }
-
-  function toggleFilters() {
-    setFiltersOpen((currentValue) => !currentValue);
-  }
-
   return (
     <div className="page course-market-page">
       <PaymentInstructions
@@ -439,267 +311,88 @@ export default function CoursesPage() {
             <span className="eyebrow">Danh mục đào tạo</span>
             <h1>Khóa học</h1>
           </div>
-          <p>Tìm, lọc và mua khóa học phù hợp.</p>
+          <p>Chọn khóa học IELTS hoặc HSK phù hợp — hoặc gõ nhanh tên khóa ở menu "Khóa học" trên thanh điều hướng.</p>
 
           <div className="marketplace-hero__actions">
-            <a className="button" href="#course-market-grid">
-              Xem khóa học
+            <a className="button" href="#khoa-hoc-ielts">
+              Xem khóa IELTS
             </a>
-            {auth.session ? (
-              <Link className="button-ghost" to="/dashboard/student">
-                Mở bảng điều khiển học viên
-              </Link>
-            ) : (
-              <Link className="button-ghost" to="/auth">
-                Đăng nhập để mua
-              </Link>
-            )}
+            <a className="button-ghost" href="#khoa-hoc-hsk">
+              Xem khóa HSK
+            </a>
           </div>
         </div>
 
         <div className="marketplace-hero__stats">
           <MarketplaceStat label="Khóa học" value={courses.length || '0'} note="công khai" />
           <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="trong thư viện" />
-          <MarketplaceStat label="Nhóm" value={categories.length - 1 || 0} note="năng lực" />
         </div>
       </section>
 
-      <section className={`catalog-layout marketplace-layout ${filtersOpen ? 'marketplace-layout--filters-open' : 'marketplace-layout--filters-closed'}`}>
-        <aside
-          id="course-marketplace-filters"
-          className="content-card content-card--enterprise catalog-filters marketplace-filters"
-          hidden={!filtersOpen}
-        >
-          <div className="marketplace-filters__head">
-            <div>
-              <span className="eyebrow">Bộ lọc</span>
-              <h2>Tinh chỉnh danh mục</h2>
+      <div className="marketplace-results">
+        {ownedCourses.length ? (
+          <section className="content-card content-card--enterprise marketplace-owned-strip">
+            <div className="marketplace-owned-strip__head">
+              <div>
+                <span className="eyebrow">Thư viện sở hữu</span>
+                <h3>Khóa học đã mua</h3>
+              </div>
+              <span className="pill">{ownedCourses.length} khóa</span>
             </div>
-            <button type="button" className="text-control marketplace-reset" onClick={resetFilters}>
-              Đặt lại
-            </button>
-          </div>
 
-          <label className="marketplace-field">
-            <span>Tìm theo khóa học hoặc giảng viên</span>
-            <input
-              className="lesson-input marketplace-search"
-              type="search"
-              value={filters.search}
-              onChange={(event) => setFilters((previous) => ({ ...previous, search: event.target.value }))}
-              placeholder="Ví dụ: IELTS, giao tiếp, doanh nghiệp..."
+            <div className="marketplace-owned-strip__list">
+              {ownedCourses.map((course) => (
+                <Link key={course.id} className="marketplace-owned-tile" to={`/learn/${course.id}`}>
+                  <strong>{course.title}</strong>
+                  <span>
+                    {course.category} · {course.level}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {!loading && auth.session ? (
+          <p className="marketplace-results__meta">Vai trò hiện tại: {roleLabels[currentRole] || currentRole}</p>
+        ) : null}
+
+        {loading ? (
+          <p className="empty-state">Đang tải danh mục khóa học...</p>
+        ) : (
+          <div className="marketplace-program-groups">
+            <CourseGroupSection
+              id="khoa-hoc-ielts"
+              title="Khóa học IELTS"
+              eyebrow="Tiếng Anh"
+              description="Nền tảng, giao tiếp, luyện thi IELTS/TOEIC và tiếng Anh công sở."
+              courses={ieltsCourses}
+              emptyMessage="Chưa có khóa học IELTS nào được đăng."
+              ownedCourseIdSet={ownedCourseIdSet}
+              authSession={auth.session}
+              currentRole={currentRole}
+              purchasingCourseId={purchasingCourseId}
+              feedback={feedback}
+              onPurchase={handlePurchase}
             />
-          </label>
 
-          <div className="marketplace-filter-group">
-            <span>Trạng thái sở hữu</span>
-            <div className="marketplace-chip-row">
-              <FilterButton active={filters.status === 'all'} onClick={() => setFilters((previous) => ({ ...previous, status: 'all' }))}>
-                Tất cả
-              </FilterButton>
-              <FilterButton
-                active={filters.status === 'available'}
-                onClick={() => setFilters((previous) => ({ ...previous, status: 'available' }))}
-              >
-                Có thể mua
-              </FilterButton>
-              <FilterButton active={filters.status === 'owned'} onClick={() => setFilters((previous) => ({ ...previous, status: 'owned' }))}>
-                Đã sở hữu
-              </FilterButton>
-            </div>
+            <CourseGroupSection
+              id="khoa-hoc-hsk"
+              title="Khóa học HSK"
+              eyebrow="Tiếng Trung"
+              description="Luyện thi HSK theo từng cấp độ, xây nền tảng đến tăng tốc phản xạ."
+              courses={hskCourses}
+              emptyMessage="Chưa có khóa học HSK nào được đăng."
+              ownedCourseIdSet={ownedCourseIdSet}
+              authSession={auth.session}
+              currentRole={currentRole}
+              purchasingCourseId={purchasingCourseId}
+              feedback={feedback}
+              onPurchase={handlePurchase}
+            />
           </div>
-
-          <div className="marketplace-filter-group">
-            <span>Cấp độ</span>
-            <div className="marketplace-chip-row">
-              {levels.map((level) => (
-                <FilterButton
-                  key={level}
-                  active={filters.level === level}
-                  onClick={() => setFilters((previous) => ({ ...previous, level }))}
-                >
-                  {level === 'all' ? 'Tất cả cấp độ' : level}
-                </FilterButton>
-              ))}
-            </div>
-          </div>
-
-          <div className="marketplace-filter-group">
-            <span>Chủ đề</span>
-            <div className="marketplace-chip-row">
-              {categories.map((category) => (
-                <FilterButton
-                  key={category}
-                  active={filters.category === category}
-                  onClick={() => setFilters((previous) => ({ ...previous, category }))}
-                >
-                  {category === 'all' ? 'Tất cả chủ đề' : category}
-                </FilterButton>
-              ))}
-            </div>
-          </div>
-
-          <div className="marketplace-filter-group">
-            <span>Ngân sách</span>
-            <div className="marketplace-chip-row">
-              <FilterButton active={filters.price === 'all'} onClick={() => setFilters((previous) => ({ ...previous, price: 'all' }))}>
-                Tất cả mức giá
-              </FilterButton>
-              <FilterButton
-                active={filters.price === 'under-600'}
-                onClick={() => setFilters((previous) => ({ ...previous, price: 'under-600' }))}
-              >
-                Dưới 600.000 đ
-              </FilterButton>
-              <FilterButton active={filters.price === '600-899'} onClick={() => setFilters((previous) => ({ ...previous, price: '600-899' }))}>
-                600.000 - 899.000 đ
-              </FilterButton>
-              <FilterButton active={filters.price === '90-plus'} onClick={() => setFilters((previous) => ({ ...previous, price: '90-plus' }))}>
-                Từ 900.000 đ
-              </FilterButton>
-            </div>
-          </div>
-        </aside>
-
-        <div className="marketplace-results">
-          <div className="section-head marketplace-results__head">
-            <div className="section-head__copy">
-              <span className="eyebrow">Danh mục học viên</span>
-              <h2>{filters.status === 'owned' ? 'Khóa học đã sở hữu' : 'Khóa học sẵn sàng đăng ký'}</h2>
-              <p>
-                {auth.session
-                  ? 'Học viên đã đăng nhập có thể tạo yêu cầu thanh toán, sau đó chờ admin mở khóa sau khi kế toán kiểm tra.'
-                  : 'Bạn có thể xem danh mục công khai. Hãy đăng nhập tài khoản học viên khi cần mua khóa học.'}
-              </p>
-            </div>
-
-            <div className="marketplace-results__tools">
-              <button
-                type="button"
-                className={`button-ghost marketplace-filter-toggle ${filtersOpen ? 'is-active' : ''}`}
-                onClick={toggleFilters}
-                aria-expanded={filtersOpen}
-                aria-controls="course-marketplace-filters"
-              >
-                {filtersOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'}
-                {activeFilterCount ? <span>{activeFilterCount}</span> : null}
-              </button>
-
-              {activeFilterCount ? (
-                <button type="button" className="button-ghost marketplace-quick-reset" onClick={resetFilters}>
-                  Đặt lại
-                </button>
-              ) : null}
-
-              <label className="marketplace-sort">
-                <span>Sắp xếp</span>
-                <select
-                  value={filters.sort}
-                  onChange={(event) => setFilters((previous) => ({ ...previous, sort: event.target.value }))}
-                >
-                  <option value="featured">Nổi bật</option>
-                  <option value="rating">Đánh giá cao</option>
-                  <option value="price-low">Giá tăng dần</option>
-                  <option value="price-high">Giá giảm dần</option>
-                </select>
-              </label>
-
-              <label className="marketplace-sort marketplace-page-size">
-                <span>Hiển thị</span>
-                <select
-                  value={coursePageSize}
-                  onChange={(event) => setCoursePageSize(Number(event.target.value))}
-                >
-                  <option value={4}>4 khóa/trang</option>
-                  <option value={6}>6 khóa/trang</option>
-                  <option value={8}>8 khóa/trang</option>
-                  <option value={12}>12 khóa/trang</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          {ownedCourses.length ? (
-            <section className="content-card content-card--enterprise marketplace-owned-strip">
-              <div className="marketplace-owned-strip__head">
-                <div>
-                  <span className="eyebrow">Thư viện sở hữu</span>
-                  <h3>Khóa học đã mua</h3>
-                </div>
-                <span className="pill">{ownedCourses.length} khóa</span>
-              </div>
-
-              <div className="marketplace-owned-strip__list">
-                {ownedCourses.map((course) => (
-                  <Link key={course.id} className="marketplace-owned-tile" to={`/learn/${course.id}`}>
-                    <strong>{course.title}</strong>
-                    <span>
-                      {course.category} · {course.level}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <div className="marketplace-results__meta">
-            <span>{filteredCourses.length} khóa học phù hợp</span>
-            <span>{activeFilterCount} bộ lọc đang áp dụng</span>
-            <span>
-              IELTS trang {ieltsPagination.page}/{ieltsPagination.pageCount} · HSK trang {hskPagination.page}/
-              {hskPagination.pageCount}
-            </span>
-            <span>{auth.session ? `Vai trò hiện tại: ${roleLabels[currentRole] || currentRole}` : 'Chế độ xem khách'}</span>
-          </div>
-
-          {loading ? (
-            <p className="empty-state">Đang tải danh mục khóa học...</p>
-          ) : filteredCourses.length ? (
-            <div id="course-market-grid" className="marketplace-program-groups">
-              <CourseGroupSection
-                id="khoa-hoc-ielts"
-                title="Khóa học IELTS"
-                eyebrow="Tiếng Anh"
-                description="Nền tảng, giao tiếp, luyện thi IELTS/TOEIC và tiếng Anh công sở."
-                courses={ieltsCourses}
-                pagination={ieltsPagination}
-                emptyMessage="Chưa có khóa học IELTS phù hợp với bộ lọc hiện tại."
-                ownedCourseIdSet={ownedCourseIdSet}
-                authSession={auth.session}
-                currentRole={currentRole}
-                purchasingCourseId={purchasingCourseId}
-                feedback={feedback}
-                onPurchase={handlePurchase}
-              />
-
-              <CourseGroupSection
-                id="khoa-hoc-hsk"
-                title="Khóa học HSK"
-                eyebrow="Tiếng Trung"
-                description="Luyện thi HSK theo từng cấp độ, xây nền tảng đến tăng tốc phản xạ."
-                courses={hskCourses}
-                pagination={hskPagination}
-                emptyMessage="Chưa có khóa học HSK phù hợp với bộ lọc hiện tại."
-                ownedCourseIdSet={ownedCourseIdSet}
-                authSession={auth.session}
-                currentRole={currentRole}
-                purchasingCourseId={purchasingCourseId}
-                feedback={feedback}
-                onPurchase={handlePurchase}
-              />
-            </div>
-          ) : (
-            <section className="content-card content-card--enterprise marketplace-empty">
-              <span className="eyebrow">Không có kết quả</span>
-              <h3>Chưa có khóa học phù hợp với bộ lọc hiện tại.</h3>
-              <p>Hãy bỏ bớt điều kiện lọc để xem thêm khóa học có thể mua hoặc đã sở hữu.</p>
-              <button type="button" className="button" onClick={resetFilters}>
-                Xóa bộ lọc
-              </button>
-            </section>
-          )}
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   );
 }

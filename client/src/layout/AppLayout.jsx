@@ -5,7 +5,8 @@ import { useAuth } from '../providers/AuthProvider';
 import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
-import { ConsultationBanner } from '../components/ConsultationBanner';
+import { ConsultationPopup } from '../components/ConsultationPopup';
+import { getCourseCatalog } from '../lib/courseService';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
@@ -37,7 +38,7 @@ export function AppLayout({ children }) {
 
   return (
     <div className="app-shell">
-      <ConsultationBanner />
+      <ConsultationPopup />
       <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} />
       <main className="site-frame site-main">{children}</main>
       <Footer />
@@ -316,6 +317,10 @@ const NAV_DROPDOWN_CLOSE_DELAY_MS = 300;
 
 function CoursesNavItem({ label, onNavigate }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  // null = chưa tải; danh mục chỉ ~10-20 khóa nên tải 1 lần khi mở dropdown
+  // lần đầu là đủ, không cần fetch lại mỗi lần hover.
+  const [courses, setCourses] = useState(null);
   const wrapperRef = useRef(null);
   const closeTimeoutRef = useRef(null);
 
@@ -339,6 +344,20 @@ function CoursesNavItem({ label, onNavigate }) {
   useEffect(() => clearCloseTimeout, []);
 
   useEffect(() => {
+    if (!open || courses !== null) {
+      return undefined;
+    }
+
+    let alive = true;
+    void getCourseCatalog().then((list) => {
+      if (alive) setCourses(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, courses]);
+
+  useEffect(() => {
     if (!open) return;
     function onOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
@@ -357,8 +376,16 @@ function CoursesNavItem({ label, onNavigate }) {
   function handleSelect() {
     clearCloseTimeout();
     setOpen(false);
+    setSearch('');
     onNavigate?.();
   }
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const searchResults = normalizedSearch
+    ? (courses || [])
+        .filter((course) => course.title.toLowerCase().includes(normalizedSearch))
+        .slice(0, 6)
+    : [];
 
   return (
     <div
@@ -389,13 +416,46 @@ function CoursesNavItem({ label, onNavigate }) {
       </span>
 
       {open ? (
-        <div className="nav-dropdown__menu" role="menu">
-          {coursesNavSubmenu.map((item) => (
-            <Link key={item.to} to={item.to} className="nav-dropdown__item" role="menuitem" onClick={handleSelect}>
-              <strong>{item.title}</strong>
-              <span>{item.subtitle}</span>
-            </Link>
-          ))}
+        <div className="nav-dropdown__menu nav-dropdown__menu--courses" role="menu">
+          <input
+            type="search"
+            className="nav-dropdown__search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onFocus={openNow}
+            placeholder="Tìm khóa học..."
+            aria-label="Tìm khóa học"
+          />
+
+          {normalizedSearch ? (
+            searchResults.length ? (
+              searchResults.map((course) => (
+                <Link
+                  key={course.id}
+                  to={`/courses/${course.id}`}
+                  className="nav-dropdown__item"
+                  role="menuitem"
+                  onClick={handleSelect}
+                >
+                  <strong>{course.title}</strong>
+                  <span>
+                    {course.category} · {course.level}
+                  </span>
+                </Link>
+              ))
+            ) : (
+              <p className="nav-dropdown__empty">
+                {courses === null ? 'Đang tải khóa học...' : 'Không tìm thấy khóa học phù hợp.'}
+              </p>
+            )
+          ) : (
+            coursesNavSubmenu.map((item) => (
+              <Link key={item.to} to={item.to} className="nav-dropdown__item" role="menuitem" onClick={handleSelect}>
+                <strong>{item.title}</strong>
+                <span>{item.subtitle}</span>
+              </Link>
+            ))
+          )}
         </div>
       ) : null}
     </div>

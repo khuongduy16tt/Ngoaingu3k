@@ -283,6 +283,27 @@
   transform: translateX(4px);
 }
 
+.nav-dropdown__menu--courses {
+  min-width: 280px;
+}
+
+.nav-dropdown__search {
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--ghost-bg);
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.nav-dropdown__empty {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
