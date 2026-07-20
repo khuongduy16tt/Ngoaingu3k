@@ -5,6 +5,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
+import { ConsultationBanner } from '../components/ConsultationBanner';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
@@ -36,6 +37,7 @@ export function AppLayout({ children }) {
 
   return (
     <div className="app-shell">
+      <ConsultationBanner />
       <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} />
       <main className="site-frame site-main">{children}</main>
       <Footer />

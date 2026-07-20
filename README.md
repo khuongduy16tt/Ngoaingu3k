@@ -109,6 +109,14 @@ console (mock mode), so the form still works locally with zero setup.
      return ContentService.createTextOutput(JSON.stringify({ ok: true }))
        .setMimeType(ContentService.MimeType.JSON);
    }
+
+   // Optional: lets you open the Web app URL in a browser to sanity-check the
+   // deployment without hitting "Script function not found: doGet" — the real
+   // lead form only ever calls doPost, this is just for manual testing.
+   function doGet() {
+     return ContentService.createTextOutput(JSON.stringify({ ok: true, hint: 'This webhook only accepts POST.' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
    ```
 
    Leads land in a **"HSK"** tab or an **"IELTS"** tab depending on the
@@ -118,6 +126,20 @@ console (mock mode), so the form still works locally with zero setup.
 3. Save, then **Deploy → New deployment**. Select type **Web app**.
    - Execute as: **Me**
    - Who has access: **Anyone**
-4. Deploy and copy the generated Web app URL.
+4. Deploy and copy the generated **Web app URL** — it's the full link shown in
+   the deployment dialog (`https://script.google.com/macros/s/<deployment
+   id>/exec`), not just the `<deployment id>` part of it.
 5. Set it as `GOOGLE_SHEETS_WEBHOOK_URL` in `server/.env` for local dev, and in
    your Vercel project's environment variables for production.
+6. To test the deployment itself (separate from the app), send a POST request,
+   since Apps Script Web Apps only run `doPost` for POST calls:
+   ```sh
+   curl -X POST "<your Web app URL>" \
+     -H "Content-Type: application/json" \
+     -d '{"fullName":"Test","phone":"0900000000","program":"IELTS"}'
+   ```
+   Opening the URL directly in a browser sends a GET request instead — that's
+   expected to just return the `doGet` hint above, not an error, as long as
+   you redeployed after adding `doGet`. If you still see "Script function not
+   found: doGet", the deployment is serving an older version of the code —
+   redeploy (**Deploy → Manage deployments → edit → New version**).
