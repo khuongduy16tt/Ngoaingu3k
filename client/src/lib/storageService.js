@@ -131,6 +131,66 @@ export async function uploadAssignmentImage(file, assignmentId) {
   return { path: data.path, url };
 }
 
+// ─── Upload Audio đề thi ──────────────────────────────────────────────────────
+
+/**
+ * Upload file audio cho phần Nghe của đề thi.
+ * @param {File} file - File audio (.mp3, .m4a, .wav, .ogg)
+ * @param {string} examId
+ * @returns {{ path: string, url: string } | null}
+ */
+export async function uploadExamAudio(file, examId) {
+  if (!isSupabaseReady()) {
+    const url = await readFileAsDataUrl(file);
+    return { path: 'local', url };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3';
+  const path = `exams/${examId || Date.now()}/${Date.now()}.${ext}`;
+
+  const { data, error } = await supabase.storage
+    .from('exam-audio')
+    .upload(path, file, { cacheControl: '3600', upsert: true });
+
+  if (error) {
+    console.error('[uploadExamAudio]', error.message);
+    return null;
+  }
+
+  const url = getPublicUrl('exam-audio', data.path);
+  return { path: data.path, url };
+}
+
+/**
+ * Upload file audio cho câu hỏi Nghe của bài giảng.
+ * Dùng chung bucket "exam-audio" (đã có policy cho teacher) với prefix lessons/
+ * để không phải tạo thêm bucket mới.
+ * @param {File} file - File audio (.mp3, .m4a, .wav, .ogg)
+ * @param {string} lessonId
+ * @returns {{ path: string, url: string } | null}
+ */
+export async function uploadLessonAudio(file, lessonId) {
+  if (!isSupabaseReady()) {
+    const url = await readFileAsDataUrl(file);
+    return { path: 'local', url };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3';
+  const path = `lessons/${lessonId || Date.now()}/${Date.now()}.${ext}`;
+
+  const { data, error } = await supabase.storage
+    .from('exam-audio')
+    .upload(path, file, { cacheControl: '3600', upsert: true });
+
+  if (error) {
+    console.error('[uploadLessonAudio]', error.message);
+    return null;
+  }
+
+  const url = getPublicUrl('exam-audio', data.path);
+  return { path: data.path, url };
+}
+
 export async function readFileAsDataUrl(file) {
   return await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -185,6 +245,19 @@ export function validateImageFile(file) {
   }
   if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
     return `Ảnh không được vượt quá ${MAX_IMAGE_MB}MB.`;
+  }
+  return null;
+}
+
+const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/x-wav', 'audio/ogg'];
+const MAX_AUDIO_MB = 100;
+
+export function validateAudioFile(file) {
+  if (!AUDIO_TYPES.includes(file.type)) {
+    return 'Chỉ hỗ trợ định dạng MP3, M4A, WAV, OGG.';
+  }
+  if (file.size > MAX_AUDIO_MB * 1024 * 1024) {
+    return `Audio không được vượt quá ${MAX_AUDIO_MB}MB.`;
   }
   return null;
 }
