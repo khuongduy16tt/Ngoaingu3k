@@ -11,9 +11,10 @@ import {
   setExamStatus,
   updateExam
 } from '../../lib/examService';
-import { uploadExamAudio, validateAudioFile } from '../../lib/storageService';
+import { uploadExamAudio } from '../../lib/storageService';
 import { getCourseOptions } from '../../lib/assignmentService';
 import { PaginationControls, usePagination } from '../../components/Pagination';
+import { AudioUploadField } from '../../components/AudioUploadField';
 
 function createEmptyQuestion() {
   return {
@@ -289,9 +290,6 @@ function QuestionEditor({ question, index, onChange, onRemove }) {
 }
 
 function SectionEditor({ section, index, onChange, onRemove, examId }) {
-  const [audioError, setAudioError] = useState('');
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-
   function update(field, value) {
     onChange({ ...section, [field]: value });
   }
@@ -299,31 +297,6 @@ function SectionEditor({ section, index, onChange, onRemove, examId }) {
   function updateQuestion(questionIndex, nextQuestion) {
     const questions = section.questions.map((question, i) => (i === questionIndex ? nextQuestion : question));
     update('questions', questions);
-  }
-
-  async function handleAudioFile(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    const validationError = validateAudioFile(file);
-    if (validationError) {
-      setAudioError(validationError);
-      return;
-    }
-
-    setAudioError('');
-    setUploadingAudio(true);
-    try {
-      const uploaded = await uploadExamAudio(file, examId || 'new');
-      if (uploaded?.url) {
-        onChange({ ...section, audioUrl: uploaded.url, audioName: file.name });
-      } else {
-        setAudioError('Không thể tải file audio lên. Kiểm tra bucket "exam-audio" trong Supabase Storage.');
-      }
-    } finally {
-      setUploadingAudio(false);
-    }
   }
 
   return (
@@ -367,24 +340,14 @@ function SectionEditor({ section, index, onChange, onRemove, examId }) {
       </div>
 
       {section.type === 'listening' ? (
-        <div className="exam-editor-section__media">
-          <label className="auth-field">
-            <span>File nghe (MP3/M4A/WAV/OGG, tối đa 100MB)</span>
-            <input type="file" accept="audio/*" onChange={handleAudioFile} disabled={uploadingAudio} />
-          </label>
-          <label className="auth-field">
-            <span>Hoặc dán link audio</span>
-            <input
-              type="url"
-              value={section.audioUrl}
-              onChange={(event) => update('audioUrl', event.target.value)}
-              placeholder="https://..."
-            />
-          </label>
-          {uploadingAudio ? <p className="field-hint">Đang tải audio lên...</p> : null}
-          {section.audioName ? <p className="field-hint">Đã chọn: {section.audioName}</p> : null}
-          {audioError ? <div className="auth-message auth-message--error">{audioError}</div> : null}
-        </div>
+        <AudioUploadField
+          audioUrl={section.audioUrl}
+          audioName={section.audioName}
+          onUploaded={({ audioUrl, audioName }) => onChange({ ...section, audioUrl, audioName })}
+          onClear={() => onChange({ ...section, audioUrl: '', audioName: '' })}
+          upload={(file, onProgress) => uploadExamAudio(file, examId || 'new', onProgress)}
+          onUseDuration={(seconds) => update('durationMinutes', Math.max(1, Math.ceil(seconds / 60)))}
+        />
       ) : (
         <label className="auth-field">
           <span>Bài đọc (phân đoạn bằng dòng trống)</span>

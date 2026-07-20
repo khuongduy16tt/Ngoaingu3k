@@ -137,11 +137,13 @@ export async function uploadAssignmentImage(file, assignmentId) {
  * Upload file audio cho phần Nghe của đề thi.
  * @param {File} file - File audio (.mp3, .m4a, .wav, .ogg)
  * @param {string} examId
+ * @param {function} [onProgress] - callback(percent: number)
  * @returns {{ path: string, url: string } | null}
  */
-export async function uploadExamAudio(file, examId) {
+export async function uploadExamAudio(file, examId, onProgress) {
   if (!isSupabaseReady()) {
     const url = await readFileAsDataUrl(file);
+    onProgress?.(100);
     return { path: 'local', url };
   }
 
@@ -150,7 +152,11 @@ export async function uploadExamAudio(file, examId) {
 
   const { data, error } = await supabase.storage
     .from('exam-audio')
-    .upload(path, file, { cacheControl: '3600', upsert: true });
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+      onUploadProgress: onProgress ? (evt) => onProgress(Math.round((evt.loaded / evt.total) * 100)) : undefined
+    });
 
   if (error) {
     console.error('[uploadExamAudio]', error.message);
@@ -167,11 +173,13 @@ export async function uploadExamAudio(file, examId) {
  * để không phải tạo thêm bucket mới.
  * @param {File} file - File audio (.mp3, .m4a, .wav, .ogg)
  * @param {string} lessonId
+ * @param {function} [onProgress] - callback(percent: number)
  * @returns {{ path: string, url: string } | null}
  */
-export async function uploadLessonAudio(file, lessonId) {
+export async function uploadLessonAudio(file, lessonId, onProgress) {
   if (!isSupabaseReady()) {
     const url = await readFileAsDataUrl(file);
+    onProgress?.(100);
     return { path: 'local', url };
   }
 
@@ -180,7 +188,11 @@ export async function uploadLessonAudio(file, lessonId) {
 
   const { data, error } = await supabase.storage
     .from('exam-audio')
-    .upload(path, file, { cacheControl: '3600', upsert: true });
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+      onUploadProgress: onProgress ? (evt) => onProgress(Math.round((evt.loaded / evt.total) * 100)) : undefined
+    });
 
   if (error) {
     console.error('[uploadLessonAudio]', error.message);

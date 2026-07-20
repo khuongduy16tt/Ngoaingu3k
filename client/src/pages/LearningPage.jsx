@@ -30,7 +30,8 @@ import {
   scoreLessonQuestion,
   scoreLessonQuestions
 } from '../lib/lessonQuestions';
-import { uploadLessonAudio, validateAudioFile } from '../lib/storageService';
+import { uploadLessonAudio } from '../lib/storageService';
+import { AudioUploadField } from '../components/AudioUploadField';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
@@ -996,55 +997,14 @@ function LessonExercisePreview({ lesson, isTeacher }) {
 }
 
 function QuestionAudioField({ question, lessonId, onChange }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
-
-  async function handleFile(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    const validationError = validateAudioFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setError('');
-    setUploading(true);
-    try {
-      const uploaded = await uploadLessonAudio(file, lessonId);
-      if (uploaded?.url) {
-        onChange({ audioUrl: uploaded.url, audioName: file.name });
-      } else {
-        setError('Không thể tải audio lên. Kiểm tra bucket "exam-audio" trong Supabase Storage.');
-      }
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
-    <div className="video-question-audio">
-      <label className="auth-field">
-        <span>File nghe (MP3/M4A/WAV/OGG, tối đa 100MB)</span>
-        <input type="file" accept="audio/*" onChange={handleFile} disabled={uploading} />
-      </label>
-      <label className="auth-field">
-        <span>Hoặc dán link audio</span>
-        <input
-          type="url"
-          className="lesson-input"
-          value={question.audioUrl}
-          onChange={(event) => onChange({ audioUrl: event.target.value })}
-          placeholder="https://..."
-        />
-      </label>
-      {uploading ? <p className="field-hint">Đang tải audio lên...</p> : null}
-      {question.audioName ? <p className="field-hint">Đã chọn: {question.audioName}</p> : null}
-      {question.audioUrl ? <audio controls src={question.audioUrl} className="lesson-audio" /> : null}
-      {error ? <div className="auth-message auth-message--error">{error}</div> : null}
-    </div>
+    <AudioUploadField
+      audioUrl={question.audioUrl}
+      audioName={question.audioName}
+      onUploaded={({ audioUrl, audioName }) => onChange({ audioUrl, audioName })}
+      onClear={() => onChange({ audioUrl: '', audioName: '' })}
+      upload={(file, onProgress) => uploadLessonAudio(file, lessonId, onProgress)}
+    />
   );
 }
 
