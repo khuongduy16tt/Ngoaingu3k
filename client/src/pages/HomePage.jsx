@@ -29,10 +29,13 @@ function ProgramCard({ title, subtitle, image, href }) {
   );
 }
 
-function PhotoCard({ src, title, subtitle, className = '' }) {
+// placeholder=true bỏ ảnh thật, dùng khối màu trung tính — dùng tạm cho các
+// vị trí chưa có ảnh chụp thật phù hợp (thay vì nhét ảnh banner quảng cáo
+// không đúng ngữ cảnh "ảnh thực tế").
+function PhotoCard({ src, title, subtitle, className = '', placeholder = false }) {
   return (
-    <article className={`photo-card ${className}`.trim()}>
-      <img src={src} alt={title} loading="lazy" />
+    <article className={`photo-card ${placeholder ? 'photo-card--placeholder' : ''} ${className}`.trim()}>
+      {placeholder ? <div className="photo-card__placeholder-art" aria-hidden="true" /> : <img src={src} alt={title} loading="lazy" />}
       <div className="photo-card__copy">
         <span>{subtitle}</span>
         <strong>{title}</strong>
@@ -343,12 +346,6 @@ export default function HomePage() {
   return (
     <div className="page home-page home-page--new">
       <section className="hero hero--new hero--campaign">
-        <img
-          className="hero__cover"
-          src="/images/imported/8.1_Trang-chu_GT-TT.webp"
-          alt="Không gian học tập tại Ngoaingu3k"
-        />
-        <div className="hero__veil" aria-hidden="true" />
         <div className="hero__copy">
           <h1>
             Học ngoại ngữ
@@ -362,6 +359,13 @@ export default function HomePage() {
             giảng viên đồng hành sát sao và bài tập theo dõi tiến độ rõ ràng.
           </p>
 
+          <div className="hero__chips" aria-label="Course highlights">
+            <span>Tiếng Anh · Tiếng Trung</span>
+            <span>Lộ trình cá nhân hóa</span>
+            <span>Giảng viên đồng hành sát sao</span>
+            <span>Học online linh hoạt</span>
+          </div>
+
           <div className="hero__actions">
             <Link to="/courses" className="button">
               Xem khóa học
@@ -370,15 +374,25 @@ export default function HomePage() {
               Kiểm tra trình độ
             </Link>
           </div>
-
-          <ConsultationForm />
         </div>
 
-        <div className="hero__campaign-panel" aria-label="Course highlights">
-          <span>Tiếng Anh · Tiếng Trung</span>
-          <span>Lộ trình cá nhân hóa</span>
-          <span>Giảng viên đồng hành sát sao</span>
-          <span>Học online linh hoạt</span>
+        <div className="hero__media">
+          <img
+            className="hero__cover"
+            src="/images/imported/8.1_Trang-chu_GT-TT.webp"
+            alt="Không gian học tập tại Ngoaingu3k"
+          />
+        </div>
+      </section>
+
+      <section className="home-consult-band">
+        <div className="home-consult-card">
+          <div className="home-consult-card__intro">
+            <span className="eyebrow">Tư vấn miễn phí</span>
+            <h2>Đăng ký nhận tư vấn lộ trình học</h2>
+            <p>Để lại thông tin, đội ngũ Ngoaingu3k liên hệ tư vấn lộ trình phù hợp trong 24h.</p>
+          </div>
+          <ConsultationForm />
         </div>
       </section>
 
@@ -435,7 +449,7 @@ export default function HomePage() {
         </article>
 
         <PhotoCard
-          src="/images/imported/9.3_Trang-chu_lua-chon-tin-cay.webp"
+          placeholder
           title="Mở khóa tương lai"
           subtitle="Bắt đầu ngay"
         />
@@ -513,9 +527,9 @@ export default function HomePage() {
         </div>
 
         <div className="content-band__gallery">
-          <PhotoCard src="/images/imported/11.4_KH-TA-scaled.webp" title="Lớp học" subtitle="English training" />
-          <PhotoCard src="/images/imported/12.4_KH-TT-scaled.webp" title="Lộ trình" subtitle="Chinese training" />
-          <PhotoCard src="/images/imported/10_Trang-chu_footer.png" title="CTA banner" subtitle="Free test now" />
+          <PhotoCard src="/images/imported/8.3_Trang-chu_GT-TT.webp" title="Lớp học" subtitle="English training" />
+          <PhotoCard src="/images/imported/8.4_Trang-chu_GT-TT.webp" title="Đội ngũ" subtitle="Chinese training" />
+          <PhotoCard src="/images/imported/9.1_Trang-chu_lua-chon-tin-cay.webp" title="Tư vấn trực tiếp" subtitle="Free test now" />
         </div>
       </section>
 

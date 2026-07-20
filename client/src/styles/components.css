@@ -565,7 +565,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #61c8ff, #89a6ff, #7ce0b5);
+  background: var(--accent);
 }
 
 .split-layout {
@@ -683,7 +683,7 @@
 }
 
 .lesson-sidebar__progress.is-complete span {
-  color: #4ade80;
+  color: var(--success);
 }
 
 .lesson-sidebar__progress.is-complete .meter span {
@@ -712,7 +712,7 @@
 }
 
 .lesson-sidebar__completed-banner-copy strong {
-  color: #4ade80;
+  color: var(--success);
   font-size: 0.92rem;
 }
 
@@ -747,8 +747,8 @@
 }
 
 .lesson-item.is-selected {
-  border-color: rgba(97, 200, 255, 0.28);
-  box-shadow: 0 0 0 1px rgba(97, 200, 255, 0.08) inset;
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent) inset;
 }
 
 .lesson-item__icon {
@@ -756,10 +756,10 @@
   height: 1.8rem;
   display: inline-grid;
   place-items: center;
-  border: 1px solid rgba(122, 245, 218, 0.32);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   border-radius: 0.5rem;
-  background: rgba(122, 245, 218, 0.08);
-  color: #7af5da;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
   font-size: 0.72rem;
   font-weight: 900;
   flex: 0 0 auto;
@@ -849,7 +849,7 @@
 .sidebar-section__check.is-complete {
   border-color: rgba(74, 222, 128, 0.5);
   background: rgba(74, 222, 128, 0.16);
-  color: #4ade80;
+  color: var(--success);
 }
 
 .sidebar-section__header.is-complete {
@@ -2191,9 +2191,9 @@
 }
 
 .pill--success {
-  color: #86efac;
-  border-color: rgba(134, 239, 172, 0.35);
-  background: rgba(34, 197, 94, 0.12);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 
 .admin-summary-grid,
@@ -2364,6 +2364,20 @@
   display: grid;
   gap: 0.4rem;
   min-width: 150px;
+}
+
+/* ─── Admin filter select ──────────────────────────────────────────────────
+   .text-control là style cho nút toolbar (background: transparent
+   !important) — dùng cho <select> sẽ làm popup danh sách lựa chọn của
+   trình duyệt mất màu nền, chữ sáng trên nền trong suốt/mặc định của OS
+   không đọc được ở dark mode. Class riêng này luôn có nền rõ ràng. */
+
+.admin-filter-select {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--ghost-bg);
+  color: var(--text);
 }
 
 /* ─── Trang Tiến độ học sinh: học sinh mới, xu hướng, lọc, hạn gói ────────── */
@@ -3044,7 +3058,7 @@
 .auth-gallery__label span,
 .auth-gallery__card span {
   display: block;
-  color: #b8ffe9;
+  color: var(--accent);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -3360,6 +3374,55 @@ button:disabled {
   margin: 0;
 }
 
+/* ─── Card tư vấn riêng dưới hero (tách khỏi hero__copy) ──────────────────── */
+.home-consult-band {
+  padding: 0;
+}
+
+.home-consult-card {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.45rem;
+  box-shadow: var(--shadow);
+}
+
+.home-consult-card__intro {
+  display: grid;
+  align-content: center;
+  gap: 0.6rem;
+}
+
+.home-consult-card__intro h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.home-consult-card__intro p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.home-consult-card .hero__consult {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .home-consult-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-consult-card .hero__consult .auth-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ─── Popup quảng cáo đăng ký tư vấn (toàn màn hình) ──────────────────────── */
 
 .consult-popup {
@@ -3586,6 +3649,15 @@ button:disabled {
   display: block;
 }
 
+.photo-card__placeholder-art {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface-strong)), color-mix(in srgb, var(--accent-2) 30%, var(--surface-strong)));
+}
+
 .photo-card__copy {
   position: absolute;
   left: 1rem;
@@ -3620,7 +3692,7 @@ button:disabled {
 }
 
 .quote-card__mark {
-  color: #7af5da;
+  color: var(--accent);
   font-size: 3rem;
   line-height: 1;
 }
@@ -3790,7 +3862,7 @@ button:disabled {
 }
 
 .course-preview-card__copy span {
-  color: #7af5da;
+  color: var(--accent);
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -3828,6 +3900,8 @@ button:disabled {
 .ecosystem-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
   gap: 1rem;
 }
 
@@ -3852,8 +3926,8 @@ button:disabled {
   width: fit-content;
   padding: 0.3rem 0.65rem;
   border-radius: 999px;
-  background: rgba(40, 245, 214, 0.1);
-  color: #7af5da;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -3895,7 +3969,7 @@ button:disabled {
   height: 1.1rem;
   margin-top: 0.15rem;
   fill: none;
-  stroke: #72ffd8;
+  stroke: var(--accent);
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -3904,7 +3978,7 @@ button:disabled {
 .ecosystem-card__link {
   margin-top: auto;
   width: fit-content;
-  color: #7af5da;
+  color: var(--accent);
   font-weight: 700;
   font-size: 0.9rem;
 }
@@ -3932,14 +4006,14 @@ button:disabled {
   width: 3rem;
   height: 3rem;
   border-radius: 1rem;
-  background: rgba(40, 245, 214, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .why-card__icon svg {
   width: 1.6rem;
   height: 1.6rem;
   fill: none;
-  stroke: #72ffd8;
+  stroke: var(--accent);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -3991,7 +4065,7 @@ button:disabled {
   width: 1.2rem;
   height: 1.2rem;
   fill: none;
-  stroke: #7af5da;
+  stroke: var(--accent);
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -4064,7 +4138,7 @@ button:disabled {
 }
 
 .instructor-card__subject {
-  color: #7af5da;
+  color: var(--accent);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -4133,7 +4207,7 @@ button:disabled {
   height: 0.65rem;
   margin-top: 0.35rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, #61c8ff, #7ce0b5);
+  background: var(--accent);
   flex: 0 0 auto;
 }
 
@@ -4603,7 +4677,7 @@ button:disabled {
 }
 
 .marketplace-card__badge {
-  color: #7ce0b5;
+  color: var(--accent);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -5009,34 +5083,8 @@ button:disabled {
   color: var(--text);
 }
 
-:root[data-theme='light'] .ecosystem-card__eyebrow,
-:root[data-theme='light'] .instructor-card__subject,
-:root[data-theme='light'] .ecosystem-card__link {
-  background: rgba(8, 127, 118, 0.12);
-  color: #065b55;
-}
-
-:root[data-theme='light'] .why-card__icon {
-  background: rgba(8, 127, 118, 0.12);
-}
-
-:root[data-theme='light'] .why-card__icon svg,
-:root[data-theme='light'] .check-icon,
-:root[data-theme='light'] .method-card__chevron {
-  stroke: #0a7d73;
-}
-
 :root[data-theme='light'] .hero-visual {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 245, 252, 0.96));
-}
-
-:root[data-theme='light'] .hero-visual__badge,
-:root[data-theme='light'] .eyebrow,
-:root[data-theme='light'] .pill,
-:root[data-theme='light'] .hero__tag {
-  background: rgba(8, 127, 118, 0.12);
-  color: #065b55;
-  border-color: rgba(8, 127, 118, 0.16);
 }
 
 :root[data-theme='light'] .hero-quick-stats div,
@@ -5195,6 +5243,10 @@ button:disabled {
 :root[data-theme='light'] .auth-gallery__label {
   background: rgba(255, 255, 255, 0.82);
   border-color: rgba(21, 36, 57, 0.1);
+}
+
+:root[data-theme='light'] .auth-gallery__label span {
+  color: #065b55;
 }
 
 :root[data-theme='light'] .auth-tabs {

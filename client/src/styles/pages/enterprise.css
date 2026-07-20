@@ -1,28 +1,33 @@
 /* Enterprise UI refresh */
+/* Olive ấm, tin cậy — thay toàn bộ token màu, giữ nguyên mọi giá trị không
+   phải màu (radius/shadow blur/page-max/page-gutter) bên dưới. */
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f6f8fb;
-  --bg-alt: #edf3f8;
-  --surface: #ffffff;
-  --surface-soft: #fbfcfe;
-  --surface-strong: #17324d;
-  --border: #dce4ed;
-  --border-strong: #c3cfdd;
-  --text: #111827;
-  --muted: #607084;
-  --accent: #0f7b73;
-  --accent-2: #315fbd;
-  --accent-warm: #df6b4f;
-  --success: #16815f;
-  --danger: #b42318;
-  --button-bg: #d9583f;
-  --button-text: #ffffff;
-  --button-border: #d9583f;
-  --ghost-bg: #ffffff;
-  --ghost-text: #111827;
-  --ghost-border: #c7d1df;
-  --nav-bg: #ffffff;
+  --bg: oklch(96% 0.015 110);
+  --bg-alt: oklch(93% 0.02 110);
+  --surface: oklch(100% 0 0 / 0.9);
+  --surface-soft: oklch(97% 0.01 110 / 0.9);
+  --surface-strong: oklch(100% 0 0 / 0.96);
+  --border: oklch(30% 0.02 110 / 0.12);
+  --border-strong: oklch(30% 0.02 110 / 0.2);
+  --text: oklch(24% 0.02 110);
+  --muted: oklch(52% 0.02 110);
+  --accent: oklch(52% 0.10 130);
+  --accent-2: oklch(40% 0.08 130);
+  --accent-warm: oklch(52% 0.10 130);
+  --success: oklch(58% 0.12 145);
+  --danger: oklch(55% 0.18 25);
+  --error: oklch(55% 0.18 25);
+  --warning: oklch(60% 0.12 90);
+  --info: oklch(55% 0.10 130);
+  --button-bg: linear-gradient(135deg, oklch(52% 0.10 130), oklch(40% 0.08 130));
+  --button-text: oklch(100% 0 0);
+  --button-border: oklch(40% 0.08 130);
+  --ghost-bg: oklch(100% 0 0);
+  --ghost-text: oklch(24% 0.02 110);
+  --ghost-border: oklch(30% 0.02 110 / 0.16);
+  --nav-bg: oklch(100% 0 0);
   --shadow: 0 1px 2px rgba(17, 24, 39, 0.06), 0 16px 36px rgba(17, 24, 39, 0.07);
   --radius: 8px;
   --page-max: 1240px;
@@ -31,27 +36,30 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #101722;
-  --bg-alt: #152033;
-  --surface: #182233;
-  --surface-soft: #121c2b;
-  --surface-strong: #f8fafc;
-  --border: #2f3d51;
-  --border-strong: #526176;
-  --text: #f4f7fb;
-  --muted: #afbccb;
-  --accent: #4fc4b4;
-  --accent-2: #86a9ff;
-  --accent-warm: #ff9a78;
-  --success: #55c797;
-  --danger: #f97066;
-  --button-bg: #ff8a6b;
-  --button-text: #1c0d08;
-  --button-border: #ff8a6b;
-  --ghost-bg: #182233;
-  --ghost-text: #f4f7fb;
-  --ghost-border: #526176;
-  --nav-bg: #182233;
+  --bg: oklch(20% 0.025 115);
+  --bg-alt: oklch(24% 0.04 115);
+  --surface: oklch(25% 0.036 115);
+  --surface-soft: oklch(22% 0.033 115);
+  --surface-strong: oklch(98% 0.003 115);
+  --border: oklch(36% 0.04 115);
+  --border-strong: oklch(49% 0.039 115);
+  --text: oklch(98% 0.006 115);
+  --muted: oklch(79% 0.026 115);
+  --accent: oklch(75% 0.108 130);
+  --accent-2: oklch(74% 0.131 130);
+  --accent-warm: oklch(75% 0.108 130);
+  --success: oklch(75% 0.126 145);
+  --danger: oklch(71% 0.17 25);
+  --error: oklch(71% 0.17 25);
+  --warning: oklch(75% 0.14 90);
+  --info: oklch(75% 0.108 130);
+  --button-bg: linear-gradient(135deg, oklch(75% 0.108 130), oklch(74% 0.131 130));
+  --button-text: oklch(18% 0.028 115);
+  --button-border: oklch(75% 0.108 130);
+  --ghost-bg: oklch(25% 0.036 115);
+  --ghost-text: oklch(98% 0.006 115);
+  --ghost-border: oklch(49% 0.039 115);
+  --nav-bg: oklch(25% 0.036 115);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 18px 40px rgba(0, 0, 0, 0.2);
 }
 
@@ -338,7 +346,6 @@ small,
 }
 
 .nav-link:hover,
-.nav-link.is-active,
 .nav-link:focus-visible,
 .text-control:hover,
 .google-button:hover,
@@ -346,6 +353,13 @@ small,
 .catalog-filters button:hover,
 .lesson-item:hover {
   color: var(--text);
+  background: transparent !important;
+  border-color: transparent !important;
+  transform: none;
+}
+
+.nav-link.is-active {
+  color: var(--accent);
   background: transparent !important;
   border-color: transparent !important;
   transform: none;
@@ -719,7 +733,8 @@ textarea:focus-visible {
 }
 
 .hero__copy h1 em,
-.program-section h2 em {
+.program-section h2 em,
+.home-section--title em {
   color: var(--accent);
   font-style: normal;
   background: none !important;
@@ -835,6 +850,13 @@ textarea:focus-visible {
   gap: 16px;
 }
 
+/* Thang khoảng cách trang chủ: 4rem đều giữa các section lớn (thay vì lúc
+   24px lúc 42px tùy có tiêu đề hay không như trước) — khoảng cách nội bộ
+   trong card/grid vẫn giữ ~1-1.5rem như hiện có. */
+.page.home-page--new {
+  gap: 4rem;
+}
+
 .hero-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -848,24 +870,24 @@ textarea:focus-visible {
   box-shadow: var(--shadow) !important;
 }
 
+.home-stat span {
+  color: var(--muted);
+}
+
+/* Cùng nền/viền với 2 thẻ còn lại — chỉ nổi bật bằng màu số liệu, tránh
+   nền pha loãng + chữ trắng cứng gây vỡ tương phản (đã xảy ra ở light mode). */
 .home-stat--accent {
-  background: linear-gradient(135deg, var(--surface-strong), color-mix(in srgb, var(--accent-warm) 26%, var(--surface-strong))) !important;
-  color: #ffffff !important;
+  background: var(--surface) !important;
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border)) !important;
   transform: none !important;
 }
 
-.home-stat--accent strong,
+.home-stat--accent strong {
+  color: var(--accent) !important;
+}
+
 .home-stat--accent span {
-  color: #ffffff !important;
-}
-
-:root[data-theme='dark'] .home-stat--accent strong,
-:root[data-theme='dark'] .home-stat--accent span {
-  color: #101722 !important;
-}
-
-.home-section--title {
-  padding-top: 18px;
+  color: var(--muted) !important;
 }
 
 .home-section--title h2 {
@@ -914,7 +936,6 @@ textarea:focus-visible {
   background: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.78) 100%) !important;
 }
 
-.photo-card__copy span,
 .program-card__overlay p {
   color: rgba(255, 255, 255, 0.78) !important;
 }
@@ -936,11 +957,13 @@ textarea:focus-visible {
 
 .mini-panel {
   align-content: center;
-  background: color-mix(in srgb, var(--accent-2) 10%, var(--surface)) !important;
+  /* Dùng chung nền var(--surface) với quote-card/photo-card thay vì nền pha
+     màu riêng — trước đây bị tách biệt trông như khối chưa style. */
+  background: var(--surface) !important;
 }
 
 .mini-panel span {
-  color: var(--accent-2);
+  color: var(--accent);
   font-size: 34px;
 }
 

@@ -355,9 +355,9 @@
 }
 
 .button {
-  color: #06212a;
-  background: linear-gradient(135deg, #48f1ce, #39c9ff);
-  box-shadow: 0 18px 32px rgba(22, 210, 188, 0.18);
+  color: var(--button-text);
+  background: var(--button-bg);
+  box-shadow: 0 18px 32px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .button:hover,
@@ -418,14 +418,7 @@ input:focus-visible {
   height: 40px;
   border-radius: 50%;
   padding: 2.5px;
-  background: conic-gradient(
-    #f97316 0deg,
-    #ef4444 72deg,
-    #8b5cf6 144deg,
-    #3b82f6 216deg,
-    #10b981 288deg,
-    #f97316 360deg
-  );
+  background: var(--accent);
   box-shadow: 0 0 0 1.5px rgba(255,255,255,0.12), 0 4px 14px rgba(0,0,0,0.22);
   transition: box-shadow 0.25s ease;
 }
@@ -511,7 +504,7 @@ input:focus-visible {
   border: 2px solid transparent;
   background:
     linear-gradient(var(--surface), var(--surface)) padding-box,
-    conic-gradient(#f97316, #ef4444, #8b5cf6, #3b82f6, #10b981, #f97316) border-box;
+    var(--accent) border-box;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   transition: transform 0.2s ease;
 }
@@ -580,15 +573,15 @@ input:focus-visible {
 }
 
 .profile-dropdown__role-badge--teacher {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  color: #f59e0b;
-  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 15%, transparent);
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 30%, transparent);
 }
 
 .profile-dropdown__role-badge--admin {
-  background: color-mix(in srgb, #ef4444 15%, transparent);
-  color: #ef4444;
-  border-color: color-mix(in srgb, #ef4444 30%, transparent);
+  background: color-mix(in srgb, var(--muted) 15%, transparent);
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 30%, transparent);
 }
 
 .profile-dropdown__divider {
@@ -646,12 +639,12 @@ input:focus-visible {
 }
 
 .profile-dropdown__action--signout:hover {
-  background: color-mix(in srgb, #ef4444 10%, transparent);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  color: var(--error);
 }
 
 .profile-dropdown__action--signout:hover svg {
-  stroke: #ef4444;
+  stroke: var(--error);
 }
 
 /* Spinner */
@@ -679,7 +672,7 @@ input:focus-visible {
   border: 2px solid transparent;
   background:
     linear-gradient(var(--surface-strong), var(--surface-strong)) padding-box,
-    conic-gradient(#f97316, #ef4444, #8b5cf6, #3b82f6, #10b981, #f97316) border-box;
+    var(--accent) border-box;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
@@ -766,14 +759,7 @@ input:focus-visible {
   height: 110px;
   border-radius: 50%;
   padding: 3px;
-  background: conic-gradient(
-    #f97316 0deg,
-    #ef4444 72deg,
-    #8b5cf6 144deg,
-    #3b82f6 216deg,
-    #10b981 288deg,
-    #f97316 360deg
-  );
+  background: var(--accent);
   box-shadow:
     0 0 0 3px rgba(255,255,255,0.08),
     0 8px 32px rgba(0,0,0,0.3);
@@ -872,9 +858,9 @@ input:focus-visible {
 }
 
 .profile-upload-feedback--error {
-  background: color-mix(in srgb, #ef4444 14%, var(--surface));
-  color: #ef4444;
-  border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
+  background: color-mix(in srgb, var(--error) 14%, var(--surface));
+  color: var(--error);
+  border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
 }
 
 .profile-upload-feedback--success {
@@ -917,15 +903,15 @@ input:focus-visible {
 }
 
 .profile-role-badge--teacher {
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
-  color: #f59e0b;
-  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 28%, transparent);
 }
 
 .profile-role-badge--admin {
-  background: color-mix(in srgb, #ef4444 14%, transparent);
-  color: #ef4444;
-  border-color: color-mix(in srgb, #ef4444 28%, transparent);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 28%, transparent);
 }
 
 /* ── Hero Compact Stats ── */
@@ -1095,9 +1081,9 @@ input:focus-visible {
 }
 
 .profile-form__msg--error {
-  background: color-mix(in srgb, #ef4444 10%, transparent);
-  color: #ef4444;
-  border: 1px solid color-mix(in srgb, #ef4444 25%, transparent);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  color: var(--error);
+  border: 1px solid color-mix(in srgb, var(--error) 25%, transparent);
 }
 
 .profile-form__msg--success {
@@ -1198,9 +1184,9 @@ input:focus-visible {
 }
 
 .profile-badge--google {
-  background: color-mix(in srgb, #4285f4 14%, transparent);
-  color: #4285f4;
-  border-color: color-mix(in srgb, #4285f4 25%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 25%, transparent);
 }
 
 .profile-signout-btn {
@@ -1211,9 +1197,9 @@ input:focus-visible {
   margin: 0.5rem 1.5rem 1.5rem;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
-  border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
-  background: color-mix(in srgb, #ef4444 8%, transparent);
-  color: #ef4444;
+  border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+  color: var(--error);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
@@ -1222,8 +1208,8 @@ input:focus-visible {
 }
 
 .profile-signout-btn:hover {
-  background: color-mix(in srgb, #ef4444 14%, transparent);
-  border-color: color-mix(in srgb, #ef4444 45%, transparent);
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
   transform: translateY(-1px);
 }
 

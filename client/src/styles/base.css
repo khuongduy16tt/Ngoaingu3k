@@ -1,76 +1,78 @@
 :root {
   color-scheme: dark;
-  /* Deep indigo/violet tinted neutrals for a richer dark mode */
-  --bg: oklch(18% 0.02 260);
-  --bg-alt: oklch(22% 0.03 260);
-  --surface: oklch(25% 0.03 260 / 0.9);
-  --surface-soft: oklch(28% 0.03 260 / 0.8);
-  --surface-strong: oklch(20% 0.03 260 / 0.95);
-  --border: oklch(85% 0.02 260 / 0.18);
-  --border-strong: oklch(85% 0.02 260 / 0.28);
-  
-  --text: oklch(95% 0.01 260);
-  --muted: oklch(75% 0.03 260);
-  
-  /* Brand accents */
-  --accent: oklch(84% 0.12 185); /* Teal/Cyan */
-  --accent-2: oklch(75% 0.12 280); /* Indigo/Purple */
-  --accent-warm: oklch(80% 0.15 65); /* Amber/Orange */
-  
-  /* Semantic */
-  --success: oklch(80% 0.15 150);
-  --error: oklch(65% 0.20 20);
-  --warning: oklch(80% 0.16 70);
-  --info: oklch(75% 0.15 240);
+  /* Olive tinted neutrals for dark mode — same lightness/chroma structure
+     as before, hue rotated into the warm olive family (110-130) to match
+     the new "olive ấm, tin cậy" brand tone. */
+  --bg: oklch(18% 0.02 115);
+  --bg-alt: oklch(22% 0.03 115);
+  --surface: oklch(25% 0.03 115 / 0.9);
+  --surface-soft: oklch(28% 0.03 115 / 0.8);
+  --surface-strong: oklch(20% 0.03 115 / 0.95);
+  --border: oklch(85% 0.02 115 / 0.18);
+  --border-strong: oklch(85% 0.02 115 / 0.28);
 
-  --button-bg: linear-gradient(135deg, oklch(84% 0.12 185), oklch(75% 0.12 260));
-  --button-text: oklch(18% 0.02 260);
+  --text: oklch(95% 0.01 115);
+  --muted: oklch(75% 0.03 115);
+
+  /* Brand accents — single olive hue family (130), distinguished by L/C only */
+  --accent: oklch(84% 0.12 130);
+  --accent-2: oklch(75% 0.12 130);
+  --accent-warm: oklch(84% 0.12 130);
+
+  /* Semantic — kept distinct from the brand hue, same target hues as light mode */
+  --success: oklch(80% 0.15 145);
+  --error: oklch(65% 0.20 25);
+  --warning: oklch(80% 0.16 90);
+  --info: oklch(75% 0.15 130);
+
+  --button-bg: linear-gradient(135deg, oklch(84% 0.12 130), oklch(75% 0.12 130));
+  --button-text: oklch(18% 0.02 115);
   --button-border: transparent;
-  
-  --ghost-bg: oklch(95% 0.01 260 / 0.04);
-  --ghost-text: oklch(95% 0.01 260);
-  --ghost-border: oklch(85% 0.02 260 / 0.22);
-  --nav-bg: oklch(95% 0.01 260 / 0.035);
-  
+
+  --ghost-bg: oklch(95% 0.01 115 / 0.04);
+  --ghost-text: oklch(95% 0.01 115);
+  --ghost-border: oklch(85% 0.02 115 / 0.22);
+  --nav-bg: oklch(95% 0.01 115 / 0.035);
+
   --shadow: 0 28px 70px rgba(0, 0, 0, 0.4);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  /* Warm off-white/cream tinted neutrals instead of sterile cold gray */
-  --bg: oklch(98% 0.01 80);
-  --bg-alt: oklch(95% 0.02 80);
-  --surface: oklch(100% 0 0 / 0.88);
-  --surface-soft: oklch(97% 0.01 80 / 0.9);
+  /* Olive ấm, tin cậy */
+  --bg: oklch(96% 0.015 110);
+  --bg-alt: oklch(93% 0.02 110);
+  --surface: oklch(100% 0 0 / 0.9);
+  --surface-soft: oklch(97% 0.01 110 / 0.9);
   --surface-strong: oklch(100% 0 0 / 0.96);
-  --border: oklch(25% 0.02 260 / 0.11);
-  --border-strong: oklch(25% 0.02 260 / 0.18);
-  
-  --text: oklch(25% 0.03 260);
-  --muted: oklch(55% 0.03 260);
-  
-  /* Brand accents */
-  --accent: oklch(50% 0.10 185); /* Dark Teal */
-  --accent-2: oklch(55% 0.14 280); /* Deep Indigo */
-  --accent-warm: oklch(65% 0.18 65); /* Deep Orange */
-  
-  /* Semantic */
-  --success: oklch(55% 0.15 150);
-  --error: oklch(55% 0.20 20);
-  --warning: oklch(65% 0.18 70);
-  --info: oklch(55% 0.15 240);
+  --border: oklch(30% 0.02 110 / 0.12);
+  --border-strong: oklch(30% 0.02 110 / 0.2);
 
-  --button-bg: linear-gradient(135deg, oklch(55% 0.14 260), oklch(50% 0.10 185));
+  --text: oklch(24% 0.02 110);
+  --muted: oklch(52% 0.02 110);
+
+  /* Brand accents — single olive hue family (130), distinguished by L/C only */
+  --accent: oklch(52% 0.10 130);
+  --accent-2: oklch(40% 0.08 130);
+  --accent-warm: oklch(52% 0.10 130);
+
+  /* Semantic */
+  --success: oklch(58% 0.12 145);
+  --error: oklch(55% 0.18 25);
+  --warning: oklch(60% 0.12 90);
+  --info: oklch(55% 0.10 130);
+
+  --button-bg: linear-gradient(135deg, oklch(52% 0.10 130), oklch(40% 0.08 130));
   --button-text: oklch(100% 0 0);
   --button-border: transparent;
-  
-  --ghost-bg: oklch(25% 0.02 260 / 0.04);
-  --ghost-text: oklch(25% 0.03 260);
-  --ghost-border: oklch(25% 0.02 260 / 0.16);
-  --nav-bg: oklch(25% 0.02 260 / 0.04);
-  
-  --shadow: 0 22px 44px oklch(25% 0.03 260 / 0.12);
+
+  --ghost-bg: oklch(24% 0.02 110 / 0.04);
+  --ghost-text: oklch(24% 0.02 110);
+  --ghost-border: oklch(24% 0.02 110 / 0.16);
+  --nav-bg: oklch(24% 0.02 110 / 0.04);
+
+  --shadow: 0 22px 44px oklch(24% 0.02 110 / 0.12);
 }
 
 * {

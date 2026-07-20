@@ -17,7 +17,9 @@ import {
   saveRolePermissions
 } from '../lib/adminService';
 import {
+  dedupeCourseList,
   getCourseCatalog,
+  getMyCourses,
   getOwnedCourseIds,
   readTeacherManagedCourses,
   saveCourseToSupabase,
@@ -639,10 +641,19 @@ export function TeacherDashboardPage() {
       setLoading(true);
       try {
         const storedCourses = readTeacherManagedCourses(teacherId);
+        const remoteCourses = await getMyCourses({ accessToken: auth.session?.access_token });
+        // Supabase là nguồn thật; cache local chỉ để bù các khóa chưa kịp
+        // đồng bộ (hiếm khi xảy ra vì đăng bài luôn cần gọi server thành
+        // công) — remoteCourses đứng trước để dedupeCourseList ưu tiên nó.
+        const mergedCourses = dedupeCourseList([
+          ...remoteCourses,
+          ...(Array.isArray(storedCourses) ? storedCourses : [])
+        ]);
 
         if (active) {
-          setTeacherCourses(Array.isArray(storedCourses) ? storedCourses : []);
+          setTeacherCourses(mergedCourses);
         }
+        writeTeacherManagedCourses(teacherId, mergedCourses);
       } finally {
         if (active) {
           setLoading(false);
@@ -655,7 +666,7 @@ export function TeacherDashboardPage() {
     return () => {
       active = false;
     };
-  }, [teacherId]);
+  }, [teacherId, auth.session?.access_token]);
 
   useEffect(() => {
     setDraftHydratedTeacherId('');
@@ -2653,6 +2664,9 @@ export function AdminDashboardPage() {
   const [studentRoster, setStudentRoster] = useState([]);
   const [userFilter, setUserFilter] = useState('all'); // 'all' | 'purchased' | 'not_purchased'
   const [userSearch, setUserSearch] = useState('');
+  const [userCourseFilter, setUserCourseFilter] = useState('all');
+  const [userStartDate, setUserStartDate] = useState('');
+  const [userEndDate, setUserEndDate] = useState('');
   const [detailUserId, setDetailUserId] = useState('');
   const [activityLogs, setActivityLogs] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -2823,9 +2837,36 @@ export function AdminDashboardPage() {
     return String(value || '').replace(/\D/g, '');
   }
 
+  const userCourseOptions = useMemo(() => {
+    const map = new Map();
+    studentRoster.forEach((row) => {
+      if (row.courseId && !map.has(row.courseId)) {
+        map.set(row.courseId, row.courseTitle);
+      }
+    });
+    return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
+  }, [studentRoster]);
+
+  const hasActiveUserFilters = Boolean(
+    userSearch || userFilter !== 'all' || userCourseFilter !== 'all' || userStartDate || userEndDate
+  );
+
+  function clearUserFilters() {
+    setUserSearch('');
+    setUserFilter('all');
+    setUserCourseFilter('all');
+    setUserStartDate('');
+    setUserEndDate('');
+  }
+
   const filteredUsers = useMemo(() => {
     const normalizedSearch = normalizeUserSearchValue(userSearch);
     const searchDigits = normalizeUserSearchPhone(userSearch);
+    // Lọc theo "Ngày đăng ký" — đúng cột ngày đang hiển thị trên bảng này
+    // (khác với Tiến độ học sinh, nơi mỗi dòng là 1 lượt mua nên lọc theo
+    // ngày mua; ở đây mỗi dòng là 1 user nên lọc theo ngày tạo tài khoản).
+    const startTime = userStartDate ? new Date(userStartDate).setHours(0, 0, 0, 0) : null;
+    const endTime = userEndDate ? new Date(userEndDate).setHours(23, 59, 59, 999) : null;
 
     return usersWithOrders.profiles.filter((user) => {
       const paidCount = usersWithOrders.orders.filter(
@@ -2836,6 +2877,18 @@ export function AdminDashboardPage() {
       if (userFilter === 'not_purchased' && paidCount > 0) return false;
       if (['student', 'teacher', 'admin'].includes(userFilter) && user.role !== userFilter) return false;
 
+      if (userCourseFilter !== 'all') {
+        const enrollments = enrollmentsByUserId.get(user.id) || [];
+        if (!enrollments.some((enrollment) => enrollment.courseId === userCourseFilter)) return false;
+      }
+
+      if (startTime !== null || endTime !== null) {
+        const createdTime = user.createdAt ? new Date(user.createdAt).getTime() : null;
+        if (createdTime === null) return false;
+        if (startTime !== null && createdTime < startTime) return false;
+        if (endTime !== null && createdTime > endTime) return false;
+      }
+
       if (normalizedSearch) {
         const matchesName = normalizeUserSearchValue(user.fullName).includes(normalizedSearch);
         const matchesEmail = normalizeUserSearchValue(user.email).includes(normalizedSearch);
@@ -2845,10 +2898,19 @@ export function AdminDashboardPage() {
 
       return true;
     });
-  }, [userFilter, userSearch, usersWithOrders.orders, usersWithOrders.profiles]);
+  }, [
+    userFilter,
+    userSearch,
+    userCourseFilter,
+    userStartDate,
+    userEndDate,
+    usersWithOrders.orders,
+    usersWithOrders.profiles,
+    enrollmentsByUserId
+  ]);
   const usersPagination = usePagination(filteredUsers, {
     pageSize: 10,
-    resetKey: `${userFilter}|${userSearch}|${filteredUsers.length}`
+    resetKey: `${userFilter}|${userSearch}|${userCourseFilter}|${userStartDate}|${userEndDate}|${filteredUsers.length}`
   });
   const detailUser = detailUserId ? usersWithOrders.profiles.find((user) => user.id === detailUserId) : null;
   const detailEnrollments = detailUserId ? enrollmentsByUserId.get(detailUserId) || [] : [];
@@ -3386,10 +3448,9 @@ export function AdminDashboardPage() {
               onChange={(event) => setUserSearch(event.target.value)}
             />
             <select
-              className="text-control"
+              className="admin-filter-select"
               value={userFilter}
               onChange={(e) => setUserFilter(e.target.value)}
-              style={{ padding: '0.4rem 0.75rem', borderRadius: '0.4rem' }}
             >
               <option value="all">Tất cả</option>
               <option value="purchased">Đã mua</option>
@@ -3398,6 +3459,30 @@ export function AdminDashboardPage() {
               <option value="teacher">Giảng viên</option>
               <option value="admin">Quản trị</option>
             </select>
+            <label className="student-filter-bar__select">
+              <span>Khóa học</span>
+              <select value={userCourseFilter} onChange={(event) => setUserCourseFilter(event.target.value)}>
+                <option value="all">Tất cả khóa</option>
+                {userCourseOptions.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="student-filter-bar__date">
+              <span>Từ ngày</span>
+              <input type="date" value={userStartDate} onChange={(event) => setUserStartDate(event.target.value)} />
+            </label>
+            <label className="student-filter-bar__date">
+              <span>Đến ngày</span>
+              <input type="date" value={userEndDate} onChange={(event) => setUserEndDate(event.target.value)} />
+            </label>
+            {hasActiveUserFilters ? (
+              <button type="button" className="button-ghost student-filter-bar__clear" onClick={clearUserFilters}>
+                Xóa lọc
+              </button>
+            ) : null}
           </div>
 
           <div className="admin-table-wrap">
@@ -3542,10 +3627,9 @@ export function AdminDashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <select
-                className="text-control"
+                className="admin-filter-select"
                 value={activityFilter}
                 onChange={(e) => setActivityFilter(e.target.value)}
-                style={{ padding: '0.4rem 0.75rem', borderRadius: '0.4rem' }}
               >
                 <option value="">Tất cả hành động</option>
                 <option value="login">Đăng nhập</option>

@@ -127,7 +127,7 @@ function getCourseIdentityKey(course) {
   return title ? `title:${title}|teacher:${teacherId}` : '';
 }
 
-function dedupeCourseList(courses = []) {
+export function dedupeCourseList(courses = []) {
   const seenKeys = new Set();
 
   return (Array.isArray(courses) ? courses : []).filter((course) => {
@@ -390,6 +390,45 @@ export async function saveCourseToSupabase(course, options = {}) {
   }
 
   return data;
+}
+
+// Nguồn dữ liệu THẬT cho "khóa học của tôi" ở dashboard giảng viên — trước
+// đây dashboard chỉ đọc từ localStorage (ghi lúc đăng bài), nên khóa học đã
+// đăng thành công lên Supabase vẫn "biến mất" nếu xem từ trình duyệt/thiết bị
+// khác hoặc sau khi xóa dữ liệu trình duyệt. Hàm này lấy đúng khóa học của
+// giáo viên (mọi trạng thái, kể cả draft) từ server.
+export async function getMyCourses({ accessToken } = {}) {
+  if (!isSupabaseReady() || !accessToken) {
+    return [];
+  }
+
+  try {
+    const response = await apiFetch('/api/courses/mine', { token: accessToken, timeoutMs: 10000 });
+    const rows = Array.isArray(response?.data) ? response.data : [];
+
+    return rows.map((course) => {
+      const normalized = normalizeManagedCourse({
+        id: course.slug || course.id,
+        databaseId: course.id,
+        slug: course.slug,
+        title: course.title,
+        summary: course.description,
+        price: course.price,
+        bannerUrl: course.banner_url,
+        packageTotalSessions: course.package_total_sessions,
+        packageDurationMonths: course.package_duration_months,
+        sections: normalizeRemoteSections(course.sections)
+      });
+
+      return {
+        ...normalized,
+        status: course.status || 'draft'
+      };
+    });
+  } catch (error) {
+    console.warn('[getMyCourses]', error.message);
+    return [];
+  }
 }
 
 export async function saveLessonQuestionsToSupabase({ lessonId, questions = [], accessToken } = {}) {

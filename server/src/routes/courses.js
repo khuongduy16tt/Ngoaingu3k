@@ -623,6 +623,81 @@ router.patch('/lessons/:lessonId/questions', requireAuth, requireRole('teacher',
 });
 
 /**
+ * GET /api/courses/mine
+ * Returns the current teacher's own courses (any status — draft or
+ * published) with sections/lessons, so the "my courses" list on the teacher
+ * dashboard reflects Supabase instead of only the per-browser localStorage
+ * cache written at publish time. Must be registered before GET /:courseId
+ * or "mine" would be swallowed as a courseId param.
+ */
+router.get('/mine', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
+  if (!isSupabaseAdminReady()) {
+    return res.json({ data: [], mode: 'mock' });
+  }
+
+  try {
+    const { data: courses, error: coursesError } = await supabaseAdmin
+      .from('courses')
+      .select(
+        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months'
+      )
+      .eq('teacher_id', req.user.id)
+      .order('updated_at', { ascending: false });
+
+    if (coursesError) throw coursesError;
+
+    const courseIds = (courses || []).map((course) => course.id);
+
+    let chapters = [];
+    if (courseIds.length) {
+      const { data, error } = await supabaseAdmin
+        .from('chapters')
+        .select('id, course_id, title, position')
+        .in('course_id', courseIds)
+        .order('position', { ascending: true });
+      if (error) throw error;
+      chapters = data || [];
+    }
+
+    const chapterIds = chapters.map((chapter) => chapter.id);
+    let lessons = [];
+    if (chapterIds.length) {
+      const { data, error } = await supabaseAdmin
+        .from('lessons')
+        .select('id, chapter_id, title, video_url, content, position, is_preview')
+        .in('chapter_id', chapterIds)
+        .order('position', { ascending: true });
+      if (error) throw error;
+      lessons = data || [];
+    }
+
+    const lessonsByChapter = new Map();
+    lessons.forEach((lesson) => {
+      const bucket = lessonsByChapter.get(lesson.chapter_id) || [];
+      bucket.push(lesson);
+      lessonsByChapter.set(lesson.chapter_id, bucket);
+    });
+
+    const chaptersByCourse = new Map();
+    chapters.forEach((chapter) => {
+      const bucket = chaptersByCourse.get(chapter.course_id) || [];
+      bucket.push({ title: chapter.title, lessons: lessonsByChapter.get(chapter.id) || [] });
+      chaptersByCourse.set(chapter.course_id, bucket);
+    });
+
+    const data = (courses || []).map((course) => ({
+      ...course,
+      sections: chaptersByCourse.get(course.id) || []
+    }));
+
+    return res.json({ data, mode: 'supabase' });
+  } catch (err) {
+    console.error('[GET /api/courses/mine]', err.message);
+    return res.status(500).json({ message: 'Không thể tải danh sách khóa học của bạn.' });
+  }
+});
+
+/**
  * GET /api/courses/:courseId
  * Returns a single course with its chapters and lessons.
  */

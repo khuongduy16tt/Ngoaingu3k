@@ -334,6 +334,17 @@ export function AuthProvider({ children }) {
         }
       }
 
+      // Supabase tự refresh access token định kỳ trong nền — người dùng
+      // không hề đổi, chỉ token đổi. Trước đây sự kiện này cũng làm
+      // `ready` về false, khiến ProtectedRoute bật lại toàn màn hình
+      // "Đang tải phiên..." và xóa mất giao diện đang thao tác (VD giữa
+      // lúc giảng viên đang sửa khóa học). Chỉ cập nhật session, giữ
+      // nguyên `ready`/`loading`.
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(nextSession);
+        return;
+      }
+
       setLoading(true);
       setReady(false);
       setSession(nextSession);
