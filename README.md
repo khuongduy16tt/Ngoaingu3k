@@ -65,3 +65,59 @@ directly and starts the same local server.
 3. Enable Email/Password and Google auth in Supabase Auth.
 4. Add the site URL and redirect URLs for local dev and Vercel.
 5. Set the two `VITE_SUPABASE_*` env vars in local `.env` and Vercel.
+
+## Consultation form (Google Sheets)
+
+The homepage hero has a "Đăng ký tư vấn" form (`POST /api/leads/consultation`
+in `server/src/routes/leads.js`) that forwards submissions to a Google Sheet
+through a small Apps Script Web App — no Google Cloud service account or JSON
+key needed. Without this set up, submissions are just logged to the server
+console (mock mode), so the form still works locally with zero setup.
+
+1. Create a new Google Sheet (the tabs below are created automatically, no
+   manual header row needed).
+2. In the Sheet, go to **Extensions → Apps Script**, delete the sample code, and paste:
+
+   ```js
+   var SHEET_HEADER = ['Thời gian', 'Họ tên', 'SĐT', 'Email', 'Chương trình', 'Nhu cầu', 'Nguồn'];
+
+   function getOrCreateSheet(spreadsheet, name) {
+     var sheet = spreadsheet.getSheetByName(name);
+     if (!sheet) {
+       sheet = spreadsheet.insertSheet(name);
+       sheet.appendRow(SHEET_HEADER);
+     }
+     return sheet;
+   }
+
+   function doPost(e) {
+     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+     var data = JSON.parse(e.postData.contents);
+     // Route each lead into its own tab: "HSK" or "IELTS".
+     var sheetName = data.program === 'HSK' ? 'HSK' : 'IELTS';
+     var sheet = getOrCreateSheet(spreadsheet, sheetName);
+
+     sheet.appendRow([
+       new Date(),
+       data.fullName || '',
+       data.phone || '',
+       data.email || '',
+       data.program || '',
+       data.needs || '',
+       data.source || ''
+     ]);
+     return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+   ```
+
+   Leads land in a **"HSK"** tab or an **"IELTS"** tab depending on the
+   "Chương trình quan tâm" the visitor picked — each tab is created with its
+   header row on the first submission for that program.
+
+3. Save, then **Deploy → New deployment**. Select type **Web app**.
+   - Execute as: **Me**
+   - Who has access: **Anyone**
+4. Deploy and copy the generated Web app URL.
+5. Set it as `GOOGLE_SHEETS_WEBHOOK_URL` in `server/.env` for local dev, and in
+   your Vercel project's environment variables for production.

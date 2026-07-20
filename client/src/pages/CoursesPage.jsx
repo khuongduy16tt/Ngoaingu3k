@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { confirmCoursePayment, getCourseCatalog, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
@@ -41,6 +41,151 @@ function FilterButton({ active, children, onClick }) {
     >
       {children}
     </button>
+  );
+}
+
+function isHskCourse(course) {
+  const haystack = `${course.title || ''} ${course.category || ''} ${course.language || ''}`.toLowerCase();
+  return haystack.includes('hsk') || haystack.includes('tiếng trung');
+}
+
+function CourseCard({ course, isOwned, authSession, currentRole, purchasingCourseId, feedback, onPurchase }) {
+  const canBuy = authSession && currentRole === 'student' && !isOwned;
+  const buyLabel = purchasingCourseId === course.id ? 'Đang xử lý...' : isOwned ? 'Đã sở hữu' : 'Mua ngay';
+  const hasBanner = Boolean(course.bannerUrl);
+
+  return (
+    <article className={`course-card course-card--enterprise marketplace-card ${isOwned ? 'is-owned' : ''}`}>
+      <div className={`marketplace-card__media ${hasBanner ? 'has-banner' : 'is-placeholder'}`}>
+        {hasBanner ? (
+          <img src={course.bannerUrl} alt={course.title} loading="lazy" />
+        ) : (
+          <div className="marketplace-card__fallback">
+            <span>{course.category}</span>
+            <strong>{course.title}</strong>
+            <p>{course.summary}</p>
+          </div>
+        )}
+
+        <div className="marketplace-card__badges">
+          <span className="pill">{course.level}</span>
+          <span className="pill marketplace-pill">{course.category}</span>
+          {isOwned ? <span className="marketplace-owned-tag">Đã sở hữu</span> : null}
+        </div>
+      </div>
+
+      <div className="marketplace-card__body">
+        <div className="marketplace-card__headline">
+          <div>
+            <span className="marketplace-card__badge">{course.badge}</span>
+            <h3>{course.title}</h3>
+          </div>
+          <span className="marketplace-card__rating">{course.rating.toFixed(1)}</span>
+        </div>
+
+        <p>{course.summary}</p>
+
+        <div className="marketplace-card__facts">
+          <span>{course.duration}</span>
+          <span>{course.lessonsCount} bài học</span>
+          <span>{course.instructor}</span>
+        </div>
+
+        <div className="marketplace-card__audience">
+          <div className="meter">
+            <span style={{ width: `${course.progress}%` }} />
+          </div>
+          <small>{course.studentsCount.toLocaleString('vi-VN')} học viên đã đăng ký</small>
+        </div>
+
+        <div className="marketplace-card__footer">
+          <div className="marketplace-card__price">
+            <strong>{course.price}</strong>
+            <span>Thanh toán một lần · truy cập dài hạn</span>
+          </div>
+
+          <div className="marketplace-card__actions">
+            <Link className="button-ghost" to={`/courses/${course.id}`}>
+              Chi tiết
+            </Link>
+
+            {isOwned ? (
+              <Link className="button" to={`/learn/${course.id}`}>
+                Vào học
+              </Link>
+            ) : authSession ? (
+              <button
+                type="button"
+                className="button"
+                disabled={!canBuy || purchasingCourseId === course.id}
+                onClick={() => onPurchase(course)}
+              >
+                {currentRole === 'student' ? buyLabel : 'Chỉ dành cho học viên'}
+              </button>
+            ) : (
+              <Link className="button" to="/auth">
+                Đăng nhập để mua
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {feedback.text && feedback.courseId === course.id ? (
+          <div className="inline-feedback marketplace-card__feedback">{feedback.text}</div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function CourseGroupSection({
+  id,
+  title,
+  eyebrow,
+  description,
+  courses,
+  pagination,
+  emptyMessage,
+  ownedCourseIdSet,
+  authSession,
+  currentRole,
+  purchasingCourseId,
+  feedback,
+  onPurchase
+}) {
+  return (
+    <section id={id} className="marketplace-program-group">
+      <div className="section-head">
+        <div className="section-head__copy">
+          <span className="eyebrow">{eyebrow}</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+      </div>
+
+      {courses.length ? (
+        <>
+          <PaginationControls {...pagination} label={title.toLowerCase()} />
+          <div className="card-grid marketplace-grid">
+            {pagination.pageItems.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                isOwned={ownedCourseIdSet.has(course.id)}
+                authSession={authSession}
+                currentRole={currentRole}
+                purchasingCourseId={purchasingCourseId}
+                feedback={feedback}
+                onPurchase={onPurchase}
+              />
+            ))}
+          </div>
+          <PaginationControls {...pagination} label={title.toLowerCase()} />
+        </>
+      ) : (
+        <p className="empty-state">{emptyMessage}</p>
+      )}
+    </section>
   );
 }
 
@@ -89,6 +234,7 @@ function sortCourses(courses, sortKey) {
 export default function CoursesPage() {
   usePageTitle('Khóa học');
   const auth = useAuth();
+  const location = useLocation();
   const currentRole = getEffectiveRole(auth);
   const [courses, setCourses] = useState([]);
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
@@ -127,6 +273,15 @@ export default function CoursesPage() {
       alive = false;
     };
   }, [auth.ready, auth.user?.id]);
+
+  useEffect(() => {
+    if (loading || !location.hash) {
+      return;
+    }
+
+    const target = document.getElementById(location.hash.slice(1));
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, location.hash]);
 
   const levels = useMemo(
     () => ['all', ...new Set(courses.map((course) => course.level))],
@@ -180,9 +335,22 @@ export default function CoursesPage() {
       filters.status !== 'all'
     ].filter(Boolean).length;
   }, [filters]);
-  const coursePagination = usePagination(filteredCourses, {
+  const ieltsCourses = useMemo(
+    () => filteredCourses.filter((course) => !isHskCourse(course)),
+    [filteredCourses]
+  );
+  const hskCourses = useMemo(
+    () => filteredCourses.filter(isHskCourse),
+    [filteredCourses]
+  );
+  const filterResetKey = `${filters.search}|${filters.level}|${filters.category}|${filters.price}|${filters.status}|${filters.sort}|${courses.length}`;
+  const ieltsPagination = usePagination(ieltsCourses, {
     pageSize: coursePageSize,
-    resetKey: `${filters.search}|${filters.level}|${filters.category}|${filters.price}|${filters.status}|${filters.sort}|${courses.length}`
+    resetKey: `ielts|${filterResetKey}`
+  });
+  const hskPagination = usePagination(hskCourses, {
+    pageSize: coursePageSize,
+    resetKey: `hsk|${filterResetKey}`
   });
 
   async function handlePurchase(course) {
@@ -478,7 +646,8 @@ export default function CoursesPage() {
             <span>{filteredCourses.length} khóa học phù hợp</span>
             <span>{activeFilterCount} bộ lọc đang áp dụng</span>
             <span>
-              Trang {coursePagination.page}/{coursePagination.pageCount}
+              IELTS trang {ieltsPagination.page}/{ieltsPagination.pageCount} · HSK trang {hskPagination.page}/
+              {hskPagination.pageCount}
             </span>
             <span>{auth.session ? `Vai trò hiện tại: ${roleLabels[currentRole] || currentRole}` : 'Chế độ xem khách'}</span>
           </div>
@@ -486,107 +655,39 @@ export default function CoursesPage() {
           {loading ? (
             <p className="empty-state">Đang tải danh mục khóa học...</p>
           ) : filteredCourses.length ? (
-            <>
-              <PaginationControls {...coursePagination} label="khóa học" />
-              <div id="course-market-grid" className="card-grid marketplace-grid">
-                {coursePagination.pageItems.map((course) => {
-                const isOwned = ownedCourseIdSet.has(course.id);
-                const canBuy = auth.session && currentRole === 'student' && !isOwned;
-                const buyLabel =
-                  purchasingCourseId === course.id ? 'Đang xử lý...' : isOwned ? 'Đã sở hữu' : 'Mua ngay';
-                const hasBanner = Boolean(course.bannerUrl);
+            <div id="course-market-grid" className="marketplace-program-groups">
+              <CourseGroupSection
+                id="khoa-hoc-ielts"
+                title="Khóa học IELTS"
+                eyebrow="Tiếng Anh"
+                description="Nền tảng, giao tiếp, luyện thi IELTS/TOEIC và tiếng Anh công sở."
+                courses={ieltsCourses}
+                pagination={ieltsPagination}
+                emptyMessage="Chưa có khóa học IELTS phù hợp với bộ lọc hiện tại."
+                ownedCourseIdSet={ownedCourseIdSet}
+                authSession={auth.session}
+                currentRole={currentRole}
+                purchasingCourseId={purchasingCourseId}
+                feedback={feedback}
+                onPurchase={handlePurchase}
+              />
 
-                return (
-                  <article
-                    key={course.id}
-                    className={`course-card course-card--enterprise marketplace-card ${isOwned ? 'is-owned' : ''}`}
-                  >
-                    <div className={`marketplace-card__media ${hasBanner ? 'has-banner' : 'is-placeholder'}`}>
-                      {hasBanner ? (
-                        <img src={course.bannerUrl} alt={course.title} loading="lazy" />
-                      ) : (
-                        <div className="marketplace-card__fallback">
-                          <span>{course.category}</span>
-                          <strong>{course.title}</strong>
-                          <p>{course.summary}</p>
-                        </div>
-                      )}
-
-                      <div className="marketplace-card__badges">
-                        <span className="pill">{course.level}</span>
-                        <span className="pill marketplace-pill">{course.category}</span>
-                        {isOwned ? <span className="marketplace-owned-tag">Đã sở hữu</span> : null}
-                      </div>
-                    </div>
-
-                    <div className="marketplace-card__body">
-                      <div className="marketplace-card__headline">
-                        <div>
-                          <span className="marketplace-card__badge">{course.badge}</span>
-                          <h3>{course.title}</h3>
-                        </div>
-                        <span className="marketplace-card__rating">{course.rating.toFixed(1)}</span>
-                      </div>
-
-                      <p>{course.summary}</p>
-
-                      <div className="marketplace-card__facts">
-                        <span>{course.duration}</span>
-                        <span>{course.lessonsCount} bài học</span>
-                        <span>{course.instructor}</span>
-                      </div>
-
-                      <div className="marketplace-card__audience">
-                        <div className="meter">
-                          <span style={{ width: `${course.progress}%` }} />
-                        </div>
-                        <small>{course.studentsCount.toLocaleString('vi-VN')} học viên đã đăng ký</small>
-                      </div>
-
-                      <div className="marketplace-card__footer">
-                        <div className="marketplace-card__price">
-                          <strong>{course.price}</strong>
-                          <span>Thanh toán một lần · truy cập dài hạn</span>
-                        </div>
-
-                        <div className="marketplace-card__actions">
-                          <Link className="button-ghost" to={`/courses/${course.id}`}>
-                            Chi tiết
-                          </Link>
-
-                          {isOwned ? (
-                            <Link className="button" to={`/learn/${course.id}`}>
-                              Vào học
-                            </Link>
-                          ) : auth.session ? (
-                            <button
-                              type="button"
-                              className="button"
-                              disabled={!canBuy || purchasingCourseId === course.id}
-                              onClick={() => handlePurchase(course)}
-                            >
-                              {currentRole === 'student' ? buyLabel : 'Chỉ dành cho học viên'}
-                            </button>
-                          ) : (
-                            <Link className="button" to="/auth">
-                              Đăng nhập để mua
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-
-                      {feedback.text && feedback.courseId === course.id ? (
-                        <div className="inline-feedback marketplace-card__feedback">
-                          {feedback.text}
-                        </div>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-                })}
-              </div>
-              <PaginationControls {...coursePagination} label="khóa học" />
-            </>
+              <CourseGroupSection
+                id="khoa-hoc-hsk"
+                title="Khóa học HSK"
+                eyebrow="Tiếng Trung"
+                description="Luyện thi HSK theo từng cấp độ, xây nền tảng đến tăng tốc phản xạ."
+                courses={hskCourses}
+                pagination={hskPagination}
+                emptyMessage="Chưa có khóa học HSK phù hợp với bộ lọc hiện tại."
+                ownedCourseIdSet={ownedCourseIdSet}
+                authSession={auth.session}
+                currentRole={currentRole}
+                purchasingCourseId={purchasingCourseId}
+                feedback={feedback}
+                onPurchase={handlePurchase}
+              />
+            </div>
           ) : (
             <section className="content-card content-card--enterprise marketplace-empty">
               <span className="eyebrow">Không có kết quả</span>

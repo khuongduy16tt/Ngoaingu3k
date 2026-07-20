@@ -21,6 +21,8 @@ const AdminDashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((module) => ({ default: module.AdminDashboardPage }))
 );
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const ExamsPage = lazy(() => import('./pages/ExamsPage'));
+const ExamRoomPage = lazy(() => import('./pages/ExamRoomPage'));
 
 function LoadingScreen() {
   return (
@@ -117,6 +119,22 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
               <LearningPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exams"
+          element={
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <ExamsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam/:examId"
+          element={
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <ExamRoomPage />
             </ProtectedRoute>
           }
         />

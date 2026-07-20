@@ -1,12 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { navLinks } from '../data/mock';
 import { useAuth } from '../providers/AuthProvider';
 import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
+import { getAvatarGradient, getInitials } from '../lib/avatar';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
+  const location = useLocation();
+  // The exam room needs full focus: hide the topbar/footer/floating widgets
+  // while a student is inside /exam/:examId.
+  const immersive = location.pathname.startsWith('/exam/');
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -18,6 +23,16 @@ export function AppLayout({ children }) {
   }, [theme]);
 
   const themeLabel = useMemo(() => (theme === 'dark' ? ui.darkMode : ui.lightMode), [theme]);
+
+  if (immersive) {
+    return (
+      <div className="app-shell app-shell--immersive">
+        <main className="site-frame site-main">{children}</main>
+        <div className="background-accent background-accent--blue" aria-hidden="true" />
+        <div className="background-accent background-accent--violet" aria-hidden="true" />
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -174,36 +189,6 @@ function ThemeIcon({ theme }) {
   );
 }
 
-// ─── Avatar helpers ───────────────────────────────────────────────────────────
-const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #f97316, #ef4444)',
-  'linear-gradient(135deg, #8b5cf6, #6366f1)',
-  'linear-gradient(135deg, #06b6d4, #3b82f6)',
-  'linear-gradient(135deg, #10b981, #059669)',
-  'linear-gradient(135deg, #f59e0b, #f97316)',
-  'linear-gradient(135deg, #ec4899, #8b5cf6)',
-  'linear-gradient(135deg, #14b8a6, #06b6d4)',
-];
-
-function getAvatarGradient(seed) {
-  if (!seed) return AVATAR_GRADIENTS[0];
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
-}
-
-function getInitials(name, email) {
-  if (name) {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return parts[0][0].toUpperCase();
-  }
-  if (email) return email[0].toUpperCase();
-  return '?';
-}
-
 // ─── UserAvatar mini dropdown ─────────────────────────────────────────────────
 function UserAvatar() {
   const auth = useAuth();
@@ -311,6 +296,110 @@ function UserAvatar() {
   );
 }
 
+// ─── Courses nav dropdown ──────────────────────────────────────────────────────
+const coursesNavSubmenu = [
+  {
+    to: '/courses#khoa-hoc-ielts',
+    title: 'Khóa học IELTS',
+    subtitle: 'Tiếng Anh · nền tảng, giao tiếp, luyện thi'
+  },
+  {
+    to: '/courses#khoa-hoc-hsk',
+    title: 'Khóa học HSK',
+    subtitle: 'Tiếng Trung · các cấp độ HSK'
+  }
+];
+
+const NAV_DROPDOWN_CLOSE_DELAY_MS = 300;
+
+function CoursesNavItem({ label, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+  const closeTimeoutRef = useRef(null);
+
+  function clearCloseTimeout() {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }
+
+  function openNow() {
+    clearCloseTimeout();
+    setOpen(true);
+  }
+
+  function closeWithDelay() {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => setOpen(false), NAV_DROPDOWN_CLOSE_DELAY_MS);
+  }
+
+  useEffect(() => clearCloseTimeout, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function handleSelect() {
+    clearCloseTimeout();
+    setOpen(false);
+    onNavigate?.();
+  }
+
+  return (
+    <div
+      className={`nav-dropdown ${open ? 'is-open' : ''}`}
+      ref={wrapperRef}
+      onMouseEnter={openNow}
+      onMouseLeave={closeWithDelay}
+    >
+      <span className="nav-dropdown__trigger">
+        <NavLink
+          to="/courses"
+          className={({ isActive }) => `nav-link ${isActive ? 'is-active' : ''}`}
+          onClick={handleSelect}
+        >
+          {label}
+        </NavLink>
+        <button
+          type="button"
+          className="nav-dropdown__caret"
+          aria-label={open ? `Đóng danh sách ${label}` : `Mở danh sách ${label}`}
+          aria-expanded={open}
+          onClick={openNow}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      </span>
+
+      {open ? (
+        <div className="nav-dropdown__menu" role="menu">
+          {coursesNavSubmenu.map((item) => (
+            <Link key={item.to} to={item.to} className="nav-dropdown__item" role="menuitem" onClick={handleSelect}>
+              <strong>{item.title}</strong>
+              <span>{item.subtitle}</span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
@@ -335,16 +424,20 @@ function TopBar({ theme, setTheme, themeLabel }) {
         </Link>
 
         <nav className="nav">
-          {visibleLinks.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) => `nav-link ${isActive && activeHeaderLink !== 'contact' ? 'is-active' : ''}`}
-              onClick={() => setActiveHeaderLink('')}
-            >
-              {link.label}
-            </NavLink>
-          ))}
+          {visibleLinks.map((link) =>
+            link.to === '/courses' ? (
+              <CoursesNavItem key={link.to} label={link.label} onNavigate={() => setActiveHeaderLink('')} />
+            ) : (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) => `nav-link ${isActive && activeHeaderLink !== 'contact' ? 'is-active' : ''}`}
+                onClick={() => setActiveHeaderLink('')}
+              >
+                {link.label}
+              </NavLink>
+            )
+          )}
           <a
             className={`nav-link ${activeHeaderLink === 'contact' ? 'is-active' : ''}`}
             href="#contact"

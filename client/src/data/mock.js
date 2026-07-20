@@ -4,6 +4,7 @@ export const navLinks = [
   { label: 'Trang chủ', to: '/home' },
   { label: 'Khóa học', to: '/courses' },
   { label: 'Phòng học', to: '/learn' },
+  { label: 'Phòng thi', to: '/exams' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'teacher' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'admin' },
   { label: 'Bảng điều khiển', to: '/dashboard/student', role: 'student' },
@@ -125,6 +126,26 @@ export const featuredCourses = [
     bannerUrl: '/images/imported/9.1_Trang-chu_lua-chon-tin-cay.webp',
     hero: 'Khóa học tăng điểm cho học viên cần năng lực TOEIC sẵn sàng cho tuyển dụng và công việc.',
     whatYouGet: ['Bài luyện mẫu nghe', 'Bài tăng tốc độ đọc', 'Mini test mô phỏng đầy đủ']
+  },
+  {
+    id: 'hsk-accelerator',
+    slug: 'hsk-accelerator',
+    title: 'Tăng tốc HSK 3 - Giao tiếp phản xạ',
+    level: 'Trung cấp',
+    price: 890000,
+    progress: 22,
+    instructor: 'Cô Vy',
+    summary: 'Luyện phản xạ giao tiếp tiếng Trung theo chuẩn HSK 3, tăng tốc từ nền tảng.',
+    category: 'HSK',
+    language: 'Tiếng Trung',
+    duration: '8 tuần',
+    lessonsCount: 20,
+    rating: 4.7,
+    studentsCount: 480,
+    badge: 'HSK',
+    bannerUrl: '/images/imported/12.3_KH-TT-scaled.webp',
+    hero: 'Lộ trình tăng tốc HSK 3 giúp học viên phản xạ giao tiếp nhanh, luyện đề theo đúng cấu trúc bài thi HSK.',
+    whatYouGet: ['20 bài học theo lộ trình HSK 3', 'Luyện phản xạ giao tiếp theo tình huống', 'Đề luyện tập theo cấu trúc HSK thật']
   }
 ];
 
@@ -157,6 +178,95 @@ export const learningExercises = [
   { type: 'Đúng / Sai', title: 'Đánh giá nhận định' },
   { type: 'Nối cặp', title: 'Ghép từ với nghĩa' },
   { type: 'Điền khuyết', title: 'Hoàn thành câu' }
+];
+
+// Seed exam for mock mode (snake_case: same shape examService persists to localStorage).
+export const demoExams = [
+  {
+    id: 'demo-exam-1',
+    teacher_id: 'local-teacher',
+    title: 'Đề thi thử tổng hợp: Nghe + Đọc',
+    description: 'Đề mẫu mô phỏng phòng thi với hai phần thi tính giờ riêng.',
+    course_key: '',
+    assignment_scope: 'selected_students',
+    status: 'published',
+    created_at: '2026-07-01T08:00:00.000Z',
+    updated_at: '2026-07-01T08:00:00.000Z',
+    recipients: [
+      { student_email: 'student.demo@ngoaingu3k.local' },
+      { student_email: 'google.demo@ngoaingu3k.local' }
+    ],
+    sections: [
+      {
+        id: 'demo-listening',
+        type: 'listening',
+        title: 'Phần 1: Nghe hiểu',
+        durationMinutes: 5,
+        audioUrl: '',
+        audioName: '',
+        passage: '',
+        questions: [
+          {
+            id: 'demo-l1',
+            type: 'multiple_choice',
+            prompt: 'Người nói đang đặt bàn cho mấy người?',
+            options: ['2 người', '3 người', '4 người', '5 người'],
+            correctAnswer: '4 người',
+            explanation: 'Đoạn hội thoại nhắc "a table for four".'
+          },
+          {
+            id: 'demo-l2',
+            type: 'true_false',
+            prompt: 'Cuộc hẹn diễn ra vào buổi tối.',
+            correctAnswer: 'true'
+          },
+          {
+            id: 'demo-l3',
+            type: 'fill_blank',
+            prompt: 'Điền số điện thoại người nói để lại (4 chữ số cuối).',
+            acceptedAnswers: ['1234'],
+            correctAnswer: '1234'
+          }
+        ]
+      },
+      {
+        id: 'demo-reading',
+        type: 'reading',
+        title: 'Phần 2: Đọc hiểu',
+        durationMinutes: 8,
+        audioUrl: '',
+        audioName: '',
+        passage:
+          'Học ngoại ngữ đều đặn mỗi ngày hiệu quả hơn học dồn vào cuối tuần. Nghiên cứu cho thấy 25 phút mỗi ngày giúp ghi nhớ từ vựng tốt hơn 3 giờ học liên tục.\n\nNgoài ra, việc ôn tập cách quãng (spaced repetition) giúp chuyển kiến thức từ trí nhớ ngắn hạn sang trí nhớ dài hạn.',
+        questions: [
+          {
+            id: 'demo-r1',
+            type: 'multiple_choice',
+            prompt: 'Theo bài đọc, cách học nào hiệu quả hơn?',
+            options: ['Học dồn cuối tuần', 'Học đều đặn mỗi ngày', 'Chỉ học khi có hứng', 'Học 3 giờ liên tục'],
+            correctAnswer: 'Học đều đặn mỗi ngày'
+          },
+          {
+            id: 'demo-r2',
+            type: 'fill_blank',
+            prompt: 'Bài đọc gợi ý học bao nhiêu phút mỗi ngày?',
+            acceptedAnswers: ['25', '25 phút'],
+            correctAnswer: '25'
+          },
+          {
+            id: 'demo-r3',
+            type: 'matching',
+            prompt: 'Nối thuật ngữ với mô tả đúng.',
+            pairs: [
+              { left: 'Spaced repetition', right: 'Ôn tập cách quãng' },
+              { left: 'Trí nhớ ngắn hạn', right: 'Lưu thông tin tạm thời' },
+              { left: 'Trí nhớ dài hạn', right: 'Lưu thông tin bền vững' }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 ];
 
 export const stats = [
