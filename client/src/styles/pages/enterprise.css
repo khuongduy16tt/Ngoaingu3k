@@ -19,6 +19,7 @@
   --text: oklch(20% 0.02 110);
   --muted: oklch(45% 0.02 110);
   --accent: oklch(52% 0.10 130);
+  --accent-hover: oklch(45% 0.10 130);
   --accent-2: oklch(40% 0.08 130);
   --accent-warm: oklch(52% 0.10 130);
   --success: oklch(58% 0.12 145);
@@ -27,6 +28,8 @@
   --warning: oklch(60% 0.12 90);
   --info: oklch(55% 0.10 130);
   --button-bg: linear-gradient(135deg, oklch(52% 0.10 130), oklch(40% 0.08 130));
+  /* hover: đậm hơn ~7% lightness — chữ trắng nên tối đi thì tương phản tăng */
+  --button-bg-hover: linear-gradient(135deg, oklch(45% 0.10 130), oklch(34% 0.08 130));
   --button-text: oklch(100% 0 0);
   --button-border: oklch(40% 0.08 130);
   --ghost-bg: oklch(100% 0 0);
@@ -51,6 +54,7 @@
   --text: oklch(98% 0.006 115);
   --muted: oklch(74% 0.028 115);
   --accent: oklch(75% 0.108 130);
+  --accent-hover: oklch(83% 0.108 130);
   --accent-2: oklch(74% 0.131 130);
   --accent-warm: oklch(75% 0.108 130);
   --success: oklch(75% 0.126 145);
@@ -59,6 +63,8 @@
   --warning: oklch(75% 0.14 90);
   --info: oklch(75% 0.108 130);
   --button-bg: linear-gradient(135deg, oklch(75% 0.108 130), oklch(74% 0.131 130));
+  /* dark mode chữ nút là màu tối, nên hover sáng lên để giữ tương phản */
+  --button-bg-hover: linear-gradient(135deg, oklch(83% 0.108 130), oklch(82% 0.131 130));
   --button-text: oklch(18% 0.028 115);
   --button-border: oklch(75% 0.108 130);
   --ghost-bg: oklch(27% 0.038 115);
@@ -485,14 +491,19 @@ small,
   transform: translateY(-1px);
 }
 
+/* --accent đảo độ sáng giữa 2 theme (light 52% / dark 75%) nên chữ trắng cứng
+   chỉ đọc được ở light mode; sang dark mode thành trắng trên xanh nhạt (~2:1).
+   Dùng --button-text (trắng ở light, tối ở dark) cho đúng cặp màu. */
 .topbar-auth--solid {
-  color: #ffffff;
+  color: var(--button-text);
   background: var(--accent);
   border: 1px solid transparent;
 }
 
+/* hover cũng phải đổi chiều: light mode tối đi, dark mode sáng lên — nếu chỉ
+   trộn thêm đen thì dark mode (chữ tối) sẽ mất tương phản. */
 .topbar-auth--solid:hover {
-  background: color-mix(in srgb, var(--accent) 85%, black 15%);
+  background: var(--accent-hover);
   transform: translateY(-1px);
 }
 
@@ -626,9 +637,14 @@ small,
   font-weight: 800;
 }
 
+/* --button-bg là GRADIENT, không phải màu. color-mix() chỉ nhận <color>, nên
+   sau khi thay var() biểu thức thành "invalid at computed-value time" -> thuộc
+   tính background bị trả về giá trị khởi tạo (transparent). Kết quả: mọi nút
+   nền xanh biến mất khi hover, chỉ còn chữ trắng trên nền trang trắng.
+   Dùng token gradient hover riêng cho từng theme thay vì trộn màu. */
 .button:hover,
 .hero__search button:hover {
-  background: color-mix(in srgb, var(--button-bg) 88%, #000000 12%) !important;
+  background: var(--button-bg-hover) !important;
   transform: translateY(-1px);
 }
 

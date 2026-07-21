@@ -16,6 +16,7 @@
 
   /* Brand accents — single olive hue family (130), distinguished by L/C only */
   --accent: oklch(75% 0.108 130);
+  --accent-hover: oklch(83% 0.108 130);
   --accent-2: oklch(74% 0.131 130);
   --accent-warm: oklch(75% 0.108 130);
 
@@ -26,6 +27,7 @@
   --info: oklch(75% 0.108 130);
 
   --button-bg: linear-gradient(135deg, oklch(75% 0.108 130), oklch(74% 0.131 130));
+  --button-bg-hover: linear-gradient(135deg, oklch(83% 0.108 130), oklch(82% 0.131 130));
   --button-text: oklch(18% 0.028 115);
   --button-border: oklch(75% 0.108 130);
 
@@ -53,6 +55,7 @@
 
   /* Brand accents — single olive hue family (130), distinguished by L/C only */
   --accent: oklch(52% 0.10 130);
+  --accent-hover: oklch(45% 0.10 130);
   --accent-2: oklch(40% 0.08 130);
   --accent-warm: oklch(52% 0.10 130);
 
@@ -63,6 +66,7 @@
   --info: oklch(55% 0.10 130);
 
   --button-bg: linear-gradient(135deg, oklch(52% 0.10 130), oklch(40% 0.08 130));
+  --button-bg-hover: linear-gradient(135deg, oklch(45% 0.10 130), oklch(34% 0.08 130));
   --button-text: oklch(100% 0 0);
   --button-border: oklch(40% 0.08 130);
 
