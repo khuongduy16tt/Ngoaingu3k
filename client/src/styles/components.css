@@ -1751,7 +1751,11 @@
 
 .import-lesson-pill {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* tay cầm kéo · nội dung bài — trước đây khai báo ngược nên tay cầm ăn hết
+     1fr còn nội dung bị ép về auto. Nút xóa đặt absolute ở góc để không
+     chiếm thêm cột (cột danh sách chỉ rộng ~230px). */
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.65rem;
   align-items: center;
   padding: 0.6rem 0.7rem;
@@ -1845,29 +1849,123 @@
   bottom: -6px;
 }
 
+/* Cột danh sách bài chỉ rộng ~230px nên head phải xếp 2 hàng: hàng 1 là tay
+   cầm + ô đổi tên (chiếm hết bề ngang còn lại), hàng 2 là các nút thao tác —
+   để một hàng ngang thì ô đổi tên bị bóp còn ~78px, không gõ được. */
 .import-lesson-section__head {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  cursor: grab;
-}
-
-.import-lesson-section__head:active {
-  cursor: grabbing;
-}
-
-.import-lesson-section__head > div {
   display: grid;
-  flex: 1;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+}
+
+/* nhắm đúng khối tiêu đề, không dùng "> div" — selector đó cũng trúng cả khối
+   nút thao tác và ghi đè display:flex của nó (specificity cao hơn). */
+.import-lesson-section__meta {
+  display: grid;
   min-width: 0;
   gap: 0.15rem;
 }
 
+/* Chỉ tay cầm mới kéo được — phần còn lại của head giữ con trỏ text để ô đổi
+   tên chương bôi đen/sửa được bình thường. */
 .import-lesson-section__drag {
   color: var(--muted);
   font-size: 1.1rem;
   line-height: 1;
   flex: 0 0 auto;
+  cursor: grab;
+  user-select: none;
+}
+
+.import-lesson-section__drag:active {
+  cursor: grabbing;
+}
+
+.import-lesson-section__title-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.import-lesson-section__title-input::placeholder {
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.import-lesson-section__title-input:hover {
+  border-color: var(--border);
+}
+
+.import-lesson-section__title-input:focus {
+  outline: none;
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.import-lesson-section__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.import-lesson-section__action {
+  flex: 1;
+  min-height: 30px !important;
+  padding: 0 0.5rem !important;
+  font-size: 0.76rem !important;
+}
+
+.import-lesson-section__action--danger:hover {
+  color: var(--error) !important;
+  border-color: color-mix(in srgb, var(--error) 45%, transparent) !important;
+  background: color-mix(in srgb, var(--error) 10%, transparent) !important;
+}
+
+/* Nút xóa bài chỉ hiện khi hover/focus vào pill để danh sách bài không bị rối
+   bởi một hàng dấu ✕. */
+.import-lesson-pill__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.import-lesson-pill:hover .import-lesson-pill__remove,
+.import-lesson-pill:focus-within .import-lesson-pill__remove,
+.import-lesson-pill__remove:focus-visible {
+  opacity: 1;
+}
+
+.import-lesson-pill__remove:hover {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  color: var(--error);
 }
 
 .import-lesson-section__list {
@@ -2094,7 +2192,12 @@
   }
 
   .import-lesson-pill {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  /* màn nhỏ không hover được nên luôn hiện nút xóa */
+  .import-lesson-pill__remove {
+    opacity: 1;
   }
 
   .import-lesson-pill__main {
@@ -5132,17 +5235,9 @@ button:disabled {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 248, 253, 0.96));
 }
 
-:root[data-theme='light'] .home-stat strong {
-  color: #0a7d73;
-}
-
 :root[data-theme='light'] .home-stat--accent {
   background: linear-gradient(180deg, rgba(7, 203, 178, 0.16), rgba(13, 93, 244, 0.1));
   color: var(--text);
-}
-
-:root[data-theme='light'] .home-stat--accent strong {
-  color: #0a5ccf;
 }
 
 :root[data-theme='light'] .quote-card p {
@@ -5184,7 +5279,6 @@ button:disabled {
   border-color: var(--border-strong);
 }
 
-:root[data-theme='light'] .nav-link,
 :root[data-theme='light'] .button-ghost,
 :root[data-theme='light'] .role-switch,
 :root[data-theme='light'] .lesson-item,

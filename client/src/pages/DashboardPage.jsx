@@ -471,6 +471,19 @@ function isCourseDraftDirty(draftState) {
   );
 }
 
+// Gợi ý cho ô "Dạng bài" trong panel soạn bài — không giới hạn cứng, giảng
+// viên vẫn nhập được dạng khác (ví dụ dạng lấy từ file Excel).
+const DRAFT_LESSON_EXERCISE_TYPES = [
+  'Video bài giảng',
+  'Nhập thủ công',
+  'Luyện nghe',
+  'Luyện đọc',
+  'Từ vựng',
+  'Ngữ pháp',
+  'Luyện nói',
+  'Bài kiểm tra'
+];
+
 function flattenDraftLessons(sections = []) {
   return sections.flatMap((section, sectionIndex) =>
     (section.lessons || []).map((lesson, lessonIndex) => ({
@@ -948,6 +961,63 @@ export function TeacherDashboardPage() {
       ];
       return { ...previous, sections: nextSections };
     });
+  }
+
+  // Đổi tên chương: đồng bộ luôn sectionTitle đang lưu trong từng bài học của
+  // chương đó, vì bài học giữ bản sao tên chương (dùng khi hiển thị/đăng bài).
+  function renameDraftSection(sectionIndex, title) {
+    setCourseDraft((previous) => ({
+      ...previous,
+      sections: previous.sections.map((section, index) =>
+        index === sectionIndex
+          ? {
+              ...section,
+              title,
+              lessons: (section.lessons || []).map((lesson) => ({ ...lesson, sectionTitle: title }))
+            }
+          : section
+      )
+    }));
+  }
+
+  function removeDraftSection(sectionIndex) {
+    const section = courseDraft.sections[sectionIndex];
+    const lessonCount = Array.isArray(section?.lessons) ? section.lessons.length : 0;
+
+    if (
+      lessonCount > 0 &&
+      !window.confirm(`Xóa chương "${section?.title || 'Chưa đặt tên'}" cùng ${lessonCount} bài học bên trong?`)
+    ) {
+      return;
+    }
+
+    updateDraftSectionsInPlace(courseDraft.sections.filter((_, index) => index !== sectionIndex));
+  }
+
+  function removeDraftLesson(sectionIndex, lessonIndex) {
+    const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
+    if (!window.confirm(`Xóa bài "${lesson?.title || 'Bài học'}"?`)) {
+      return;
+    }
+
+    const nextSections = courseDraft.sections.map((section, index) =>
+      index === sectionIndex
+        ? { ...section, lessons: (section.lessons || []).filter((_, current) => current !== lessonIndex) }
+        : section
+    );
+
+    // Bài đang mở bị xóa → chuyển sang bài liền kề để panel soạn bài không bị
+    // trống đột ngột.
+    const remaining = nextSections[sectionIndex]?.lessons || [];
+    const neighbour = remaining[lessonIndex] || remaining[lessonIndex - 1];
+    const focusId = getDraftLessonKey(lesson) === selectedDraftLessonId ? neighbour?.id : selectedDraftLessonId;
+
+    updateDraftSectionsInPlace(nextSections, { focusLessonId: focusId, previewLessonId: focusId });
+  }
+
+  function addDraftLessonToSection(sectionIndex) {
+    const lessons = courseDraft.sections[sectionIndex]?.lessons;
+    addDraftLessonAfter(sectionIndex, Array.isArray(lessons) ? lessons.length - 1 : -1);
   }
 
   function reorderDraftSections(fromIndex, toIndex) {
@@ -2112,7 +2182,10 @@ export function TeacherDashboardPage() {
 
                     return (
                     <section
-                      key={`${section.title}-${sectionIndex}`}
+                      // Không đưa section.title vào key: tên chương đổi theo
+                      // từng ký tự khi gõ, key đổi theo sẽ khiến React huỷ và
+                      // dựng lại ô input → mất focus ngay sau 1 ký tự.
+                      key={sectionIndex}
                       className={[
                         'import-lesson-section',
                         isSectionDragging ? 'is-dragging' : '',
@@ -2124,20 +2197,49 @@ export function TeacherDashboardPage() {
                       onDragOver={(event) => handleDraftSectionDragOver(event, sectionIndex)}
                       onDrop={(event) => handleDraftSectionDrop(event, sectionIndex)}
                     >
-                      <div
-                        className="import-lesson-section__head"
-                        draggable
-                        onDragStart={(event) => handleDraftSectionDragStart(event, sectionIndex)}
-                        onDragEnd={handleDraftSectionDragEnd}
-                      >
-                        <span className="import-lesson-section__drag" aria-hidden="true">
+                      {/* draggable chỉ đặt trên tay cầm ⠿, không phải cả khối
+                          head — nếu cả head kéo được thì bôi đen chữ trong ô
+                          đổi tên sẽ kích hoạt drag thay vì chọn text. */}
+                      <div className="import-lesson-section__head">
+                        <span
+                          className="import-lesson-section__drag"
+                          role="button"
+                          tabIndex={-1}
+                          aria-label="Kéo để đổi vị trí chương"
+                          title="Giữ và kéo để đổi vị trí chương"
+                          draggable
+                          onDragStart={(event) => handleDraftSectionDragStart(event, sectionIndex)}
+                          onDragEnd={handleDraftSectionDragEnd}
+                        >
                           ⠿
                         </span>
-                        <div>
-                          <span className="eyebrow">{section.title || 'Nội dung chính'}</span>
+                        <div className="import-lesson-section__meta">
+                          <input
+                            className="import-lesson-section__title-input"
+                            value={section.title || ''}
+                            onChange={(event) => renameDraftSection(sectionIndex, event.target.value)}
+                            placeholder="Tên chương"
+                            aria-label={`Tên chương ${sectionIndex + 1}`}
+                          />
                           <strong>{Array.isArray(section.lessons) ? section.lessons.length : 0} bài</strong>
                         </div>
-                        <span className="pill">Giữ và kéo để đổi vị trí chương</span>
+                        <div className="import-lesson-section__actions">
+                          <button
+                            type="button"
+                            className="button-ghost import-lesson-section__action"
+                            onClick={() => addDraftLessonToSection(sectionIndex)}
+                          >
+                            + Bài
+                          </button>
+                          <button
+                            type="button"
+                            className="button-ghost import-lesson-section__action import-lesson-section__action--danger"
+                            onClick={() => removeDraftSection(sectionIndex)}
+                            aria-label={`Xóa chương ${section.title || sectionIndex + 1}`}
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </div>
 
                       <div className="import-lesson-section__list">
@@ -2214,6 +2316,18 @@ export function TeacherDashboardPage() {
                                     .join(' · ')}
                                 </small>
                               </div>
+                              <button
+                                type="button"
+                                className="import-lesson-pill__remove"
+                                aria-label={`Xóa bài ${lesson.title || lessonIndex + 1}`}
+                                title="Xóa bài học"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  removeDraftLesson(sectionIndex, lessonIndex);
+                                }}
+                              >
+                                ✕
+                              </button>
                             </article>
                           );
                         })}
@@ -2281,14 +2395,24 @@ export function TeacherDashboardPage() {
 
                       <label className="auth-field">
                         <span>Dạng bài</span>
+                        {/* datalist thay vì select: giảng viên chọn nhanh dạng
+                            hay dùng nhưng vẫn gõ được giá trị tự do — dạng bài
+                            nhập từ Excel không bị mất khi mở lại. */}
                         <input
+                          list="draft-lesson-exercise-types"
                           value={selectedDraftLesson.exerciseType || ''}
                           onChange={(event) =>
                             updateDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, {
                               exerciseType: event.target.value
                             })
                           }
+                          placeholder="Chọn hoặc nhập dạng bài"
                         />
+                        <datalist id="draft-lesson-exercise-types">
+                          {DRAFT_LESSON_EXERCISE_TYPES.map((type) => (
+                            <option key={type} value={type} />
+                          ))}
+                        </datalist>
                       </label>
 
                       <label className="auth-field auth-field--full">

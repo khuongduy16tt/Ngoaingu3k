@@ -1,144 +1,735 @@
-/* Hero trang chủ — 1 khối card duy nhất: text bên trái, ảnh full-bleed bên
-   phải trong cùng khung bo góc. Chỉ dùng token màu toàn cục (--surface/
-   --text/--muted/--accent/...) nên tự thích ứng sáng/tối, không cần block
-   :root[data-theme='dark'] riêng như trước. */
-.hero--campaign {
-  width: 100%;
-  min-height: 460px;
-  margin: 0 0 24px;
-  transform: none;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
-  align-items: stretch;
-  padding: 0 !important;
+/* Hero trang chủ — full-bleed SaaS landing hero: ảnh phủ toàn viewport width,
+   gradient tối phía dưới-trái để chữ trắng đọc rõ. Thanh menu pill (xem
+   .topbar trong enterprise.css, tổng cao ~88px) nổi đè lên nhờ margin-top
+   âm đúng bằng chiều cao topbar — ảnh trượt lên nằm dưới phần trong suốt
+   quanh pill, còn nội dung/form được đẩy xuống bằng padding-top riêng để
+   không bị pill che. Form tư vấn gộp thẳng vào cột nội dung, không còn
+   card tư vấn tách section riêng phía dưới hero như bản cũ. */
+.landing-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 88vh;
+  margin-top: -88px;
   overflow: hidden;
-  border-radius: 1.5rem !important;
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: var(--shadow) !important;
 }
 
-.hero--campaign .hero__copy {
-  max-width: none;
-  margin: 0;
-  padding: 48px 44px !important;
+.landing-hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.landing-hero__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.landing-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.18) 42%, rgba(0, 0, 0, 0.58) 100%),
+    linear-gradient(100deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.38) 36%, rgba(0, 0, 0, 0) 66%);
+  pointer-events: none;
+}
+
+/* Light mode: ngả tông đen sang nâu ấm thay vì đen thuần, và giảm độ tối ở
+   sát mép trên (0%) — vùng đó nằm ngay trên/quanh menu pill, không có chữ
+   nào cần bảo vệ nên để đậm như trước tạo hẳn 1 vệt đen ngang mép viewport.
+   Label giờ có nền chip riêng (xem .landing-hero__form .auth-field > span)
+   nên overlay không còn phải gánh hết trách nhiệm tương phản cho label. */
+:root[data-theme='light'] .landing-hero::after {
+  background:
+    linear-gradient(180deg, rgba(32, 26, 12, 0.26) 0%, rgba(32, 26, 12, 0.46) 22%, rgba(32, 26, 12, 0.4) 100%),
+    linear-gradient(100deg, rgba(28, 22, 10, 0.55) 0%, rgba(28, 22, 10, 0.28) 36%, rgba(28, 22, 10, 0) 66%);
+}
+
+.landing-hero__content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 600px;
+  padding: 114px 24px 40px clamp(20px, 6vw, 88px);
   display: grid;
-  align-content: center;
-  gap: 18px;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  backdrop-filter: none;
+  gap: 14px;
 }
 
-.hero--campaign .hero__copy h1 {
+.landing-hero__content h1 {
   margin: 0;
-  color: var(--text);
-  font-size: clamp(2.2rem, 3.2vw, 3.6rem) !important;
-  line-height: 1.08 !important;
-  font-weight: 900;
-  text-transform: none;
-  text-wrap: balance;
+  color: #ffffff;
+  font-size: clamp(1.9rem, 3vw, 2.6rem) !important;
+  line-height: 1.18 !important;
+  font-weight: 850;
   text-shadow: none;
 }
 
-.hero--campaign .hero__copy h1 em {
+.landing-hero__content h1 em {
   color: var(--accent);
   font-style: normal;
   background: none !important;
 }
 
-.hero--campaign .hero__copy p {
-  max-width: 52ch;
+.landing-hero__content p {
   margin: 0;
-  color: var(--muted) !important;
-  font-size: 1.05rem;
-  line-height: 1.65;
+  max-width: 46ch;
+  color: rgba(255, 255, 255, 0.88) !important;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
 }
 
-.hero--campaign .hero__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.hero--campaign .hero__chips span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  color: var(--accent);
-  font-size: 0.84rem;
-  font-weight: 750;
-}
-
-.hero--campaign .hero__actions {
-  margin-top: 6px;
-}
-
-.hero--campaign .button {
-  min-height: 52px;
-  padding-inline: 24px;
-  background: var(--button-bg) !important;
-  border-color: var(--button-border) !important;
-  color: var(--button-text) !important;
-}
-
-.hero--campaign .button-ghost {
-  color: var(--text) !important;
-  background: transparent !important;
-  border: 1px solid var(--border-strong) !important;
-}
-
-.hero--campaign .hero__media {
-  position: relative;
-  min-height: 320px;
-}
-
-.hero--campaign .hero__cover {
-  position: absolute;
-  inset: 0;
+.landing-hero__form {
+  margin-top: 4px;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
+  gap: 0.55rem;
+}
+
+.landing-hero__form .auth-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+/* Label luôn cần đọc được trên ảnh bất kể theme — dùng chip nền tối riêng
+   thay vì chỉ đổi màu chữ, để không phụ thuộc vào độ tối của overlay phía
+   sau (trước đây label mờ gần như biến mất vì chỉ là chữ trắng 75% trên nền
+   ảnh sáng). margin-bottom ≥0.5rem tách rõ khỏi input; gap của .auth-field
+   gốc bị tắt để không cộng dồn 2 lớp khoảng cách. */
+.landing-hero__form .auth-field {
+  gap: 0;
+}
+
+.landing-hero__form .auth-field > span {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 0.55rem;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(10, 12, 8, 0.55) !important;
+  color: #ffffff !important;
+  font-size: 0.72rem;
+}
+
+.landing-hero__form .auth-field input,
+.landing-hero__form .auth-field select {
+  padding: 0.65rem 0.9rem;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(6px);
+}
+
+.landing-hero__form .auth-field input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.landing-hero__form .auth-field select option {
+  color: #1a1a1a;
+}
+
+/* Light mode: input phải đổi hẳn sang nền sáng/chữ đen — nền tối mờ như dark
+   mode sẽ lẫn với overlay và không cho thấy sự khác biệt giữa 2 theme. */
+:root[data-theme='light'] .landing-hero__form .auth-field input,
+:root[data-theme='light'] .landing-hero__form .auth-field select {
+  background: color-mix(in srgb, var(--surface) 92%, transparent) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  backdrop-filter: blur(6px);
+}
+
+:root[data-theme='light'] .landing-hero__form .auth-field input::placeholder {
+  color: var(--muted) !important;
+}
+
+:root[data-theme='light'] .landing-hero__form .auth-field select option {
+  color: var(--text);
+}
+
+/* Nút CTA luôn nổi trên ảnh tối của hero bất kể theme sáng/tối của trang —
+   dùng tông accent tươi/sáng cố định (không lấy var(--button-bg) vì ở theme
+   sáng token đó tối màu, dễ chìm vào ảnh nền và giảm tương phản với chữ). */
+.landing-hero__form .auth-submit {
+  width: 100%;
+  min-height: 2.85rem;
+  background: linear-gradient(135deg, oklch(80% 0.15 130), oklch(72% 0.16 130)) !important;
+  border: none !important;
+  color: oklch(16% 0.02 115) !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35) !important;
+}
+
+.landing-hero__form .auth-submit:hover {
+  background: linear-gradient(135deg, oklch(84% 0.15 130), oklch(76% 0.16 130)) !important;
 }
 
 @media (max-width: 1024px) {
-  .hero--campaign {
-    grid-template-columns: minmax(0, 1fr);
+  .landing-hero {
+    min-height: auto;
+    padding-bottom: 56px;
   }
 
-  .hero--campaign .hero__media {
-    order: -1;
-    min-height: 280px;
+  .landing-hero__content {
+    max-width: none;
+    padding: 116px clamp(20px, 6vw, 56px) 48px;
   }
+}
 
-  .hero--campaign .hero__copy {
-    padding: 32px 28px !important;
+/* Topbar thu gọn còn ~68px (chỉ logo + icon) ở breakpoint hamburger — bù lại
+   đúng chiều cao mới để ảnh vẫn full-bleed sát mép trên, không hở khe. */
+@media (max-width: 760px) {
+  .landing-hero {
+    margin-top: -68px;
   }
 }
 
 @media (max-width: 560px) {
-  .hero--campaign .hero__copy {
-    padding: 24px 20px !important;
+  .landing-hero__content {
+    padding: 100px 20px 40px;
     gap: 14px;
   }
 
-  .hero--campaign .hero__copy h1 {
-    font-size: clamp(1.9rem, 9vw, 2.6rem) !important;
+  .landing-hero__form .auth-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Trang chủ — nội dung sau hero, bố cục biên tập: mỗi section 1 kiểu layout
+   riêng (list số thứ tự, bảng 3 cột chia viền, ảnh lớn + pull-quote, carousel
+   ngang, băng full-bleed), không lặp lại mô-típ "card kính + icon + shadow".
+   Nhịp trắng/--bg-alt tạo qua .home-band (thoát max-width của .page nhưng
+   vẫn là 1 item bình thường trong grid nên khoảng cách trên/dưới theo đúng
+   gap chung của .page). Không dùng blur/glow trang trí. */
+
+.section-eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-band {
+  width: auto;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+.home-band--alt {
+  background: var(--bg-alt);
+}
+
+.home-band__inner {
+  width: min(var(--page-max), calc(100% - var(--page-gutter)));
+  margin: 0 auto;
+  padding: 5rem 0;
+}
+
+/* ── 2. Lộ trình học — ảnh 60% + list số thứ tự dọc 40% ── */
+
+.path-section {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 3.5rem;
+  align-items: stretch;
+}
+
+.path-section__media {
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-height: 420px;
+}
+
+.path-section__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.path-section__body {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.path-section__body h2 {
+  margin: 0.4rem 0 1rem;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.path-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+
+.path-list__item {
+  border-top: 1px solid var(--border);
+}
+
+.path-list__item:first-child {
+  border-top: 0;
+}
+
+.path-list__link {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.2rem;
+  align-items: baseline;
+  padding: 1.1rem 0;
+  text-decoration: none;
+}
+
+.path-list__number {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--border-strong);
+  line-height: 1;
+  transition: color 0.18s ease;
+}
+
+.path-list__copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.path-list__copy strong {
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 750;
+  transition: color 0.18s ease;
+}
+
+.path-list__copy > span {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.path-list__link:hover .path-list__number,
+.path-list__link:hover .path-list__copy strong {
+  color: var(--accent);
+}
+
+/* ── 3. Vì sao chọn — bảng ngang 3 cột, chia bằng viền mảnh (không card) ── */
+
+.reasons-section {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.reasons-table {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.reasons-table__col {
+  padding: 2.25rem 2.5rem;
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+
+.reasons-table__col + .reasons-table__col {
+  border-left: 1px solid var(--border);
+}
+
+.reasons-table__col:first-child {
+  padding-left: 0;
+}
+
+.reasons-table__col:last-child {
+  padding-right: 0;
+}
+
+.reasons-table__icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.reasons-table__icon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.reasons-table__col h3 {
+  margin: 0;
+  font-size: 1.05rem !important;
+}
+
+.reasons-table__col p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* ── 4. Câu chuyện học viên — ảnh lớn 60% + pull-quote 40% ── */
+
+.story-section {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  align-items: stretch;
+  gap: 0;
+  min-height: 460px;
+}
+
+.story-section__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.story-section__quote {
+  display: grid;
+  align-content: center;
+  gap: 1.25rem;
+  padding: 3rem clamp(1.5rem, 4vw, 3.5rem);
+}
+
+.story-section__mark {
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.story-section__quote p {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.story-section__author {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.story-section__author strong {
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.story-section__author span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* ── 5. Đội ngũ giảng viên — carousel cuộn ngang, không rating/avatar cầu vồng ── */
+
+.teachers-section {
+  display: grid;
+  gap: 2rem;
+}
+
+.teachers-section h2 {
+  margin: 0.4rem 0 0;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.teachers-carousel {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.75rem;
+  scrollbar-width: thin;
+}
+
+.teacher-chip {
+  flex: 0 0 auto;
+  width: 152px;
+  scroll-snap-align: start;
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  text-align: center;
+}
+
+.teacher-chip__avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: block;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+}
+
+.teacher-chip__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.teacher-chip strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.teacher-chip span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* ── 6. Học viên nói gì — 1 quote lớn xoay vòng, full-bleed --bg-alt ── */
+
+.home-band--testimonial .home-band__inner {
+  max-width: 780px;
+  text-align: center;
+  display: grid;
+  gap: 1.75rem;
+  justify-items: center;
+}
+
+.testimonial-carousel {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+}
+
+.testimonial-carousel__mark {
+  font-size: 3rem;
+  line-height: 1;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.testimonial-carousel__quote {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.5;
+  max-width: 46ch;
+}
+
+.testimonial-carousel__author {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: center;
+}
+
+.testimonial-carousel__author strong {
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.testimonial-carousel__author span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.testimonial-carousel__dots {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+.testimonial-carousel__dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.testimonial-carousel__dot.is-active {
+  background: var(--accent);
+  transform: scale(1.2);
+}
+
+/* ── 7. Khóa học nổi bật — tối đa 3 thẻ, ảnh chiếm phần lớn thẻ ── */
+
+.courses-section {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.courses-section__head {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.courses-section__head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.course-tile__media {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.course-tile__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Ảnh thật thay cho khóa học chưa có banner — luân phiên 3 ảnh khác nhau
+   theo vị trí thẻ (xem coursePlaceholderPhotos trong HomePage.jsx). */
+.course-tile__media-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.course-tile__body {
+  padding-top: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.course-tile__body strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.course-tile__body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.course-tile__link {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.course-tile__link:hover {
+  text-decoration: underline;
+}
+
+/* ── 8. CTA band — kết trang, nền accent, chữ trắng, không lặp lại hero ── */
+
+.home-band--cta {
+  background: var(--button-bg);
+}
+
+.home-band--cta .home-band__inner {
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 1.5rem;
+  padding: 4rem 0;
+}
+
+.home-band--cta h2 {
+  margin: 0;
+  color: var(--button-text) !important;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem) !important;
+  max-width: 32ch;
+}
+
+.cta-band__button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.85rem 2rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--button-text);
+  color: var(--button-text);
+  font-weight: 800;
+  text-decoration: none;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.cta-band__button:hover {
+  background: var(--button-text);
+  color: var(--accent-2);
+}
+
+@media (max-width: 900px) {
+  .path-section,
+  .story-section {
+    grid-template-columns: 1fr;
+    gap: 2rem;
   }
 
-  .hero--campaign .hero__copy p {
-    font-size: 1rem;
+  .path-section__media,
+  .story-section__media {
+    min-height: 280px;
   }
 
-  .hero--campaign .hero__chips span {
-    min-height: 32px;
-    font-size: 0.78rem;
+  .story-section {
+    min-height: 0;
+  }
+
+  .story-section__quote {
+    padding: 2rem 0.25rem 0;
+  }
+
+  .reasons-table {
+    grid-template-columns: 1fr;
+  }
+
+  .reasons-table__col {
+    padding: 1.75rem 0;
+  }
+
+  .reasons-table__col + .reasons-table__col {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .courses-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  .home-band__inner {
+    padding: 3.5rem 0;
+  }
+
+  .home-band--cta .home-band__inner {
+    padding: 3rem 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .page.home-page--new {
+    gap: 3rem;
   }
 }
 

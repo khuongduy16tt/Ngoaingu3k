@@ -168,25 +168,24 @@ function readStoredTheme() {
   return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
+// Icon phản ánh theme ĐANG hiển thị, không phải hành động sẽ xảy ra: mặt
+// trời khi đang ở light mode, mặt trăng khi đang ở dark mode.
 function ThemeIcon({ theme }) {
-  if (theme === 'dark') {
+  if (theme === 'light') {
     return (
-      <svg className="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 4.5V2.75" />
-        <path d="M12 21.25V19.5" />
-        <path d="M4.5 12H2.75" />
-        <path d="M21.25 12H19.5" />
-        <path d="M6.7 6.7 5.45 5.45" />
-        <path d="m18.55 18.55-1.25-1.25" />
-        <path d="m6.7 17.3-1.25 1.25" />
-        <path d="m18.55 5.45-1.25 1.25" />
-        <circle cx="12" cy="12" r="4.25" />
+      <svg className="theme-icon theme-icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.6" fill="currentColor" stroke="none" />
+        <path
+          d="M12 1.5v2.75M12 19.75v2.75M4.22 4.22l1.94 1.94M17.84 17.84l1.94 1.94M1.5 12h2.75M19.75 12h2.75M4.22 19.78l1.94-1.94M17.84 6.16l1.94-1.94"
+          fill="none"
+          stroke="currentColor"
+        />
       </svg>
     );
   }
 
   return (
-    <svg className="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="theme-icon theme-icon--moon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none">
       <path d="M20.2 15.25A7.35 7.35 0 0 1 8.75 3.8a8.35 8.35 0 1 0 11.45 11.45Z" />
     </svg>
   );
@@ -410,7 +409,7 @@ function CoursesNavItem({ label, onNavigate }) {
           onClick={openNow}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m6 9 6 6 6-6" />
+            <path d="M12 5v14M5 12h14" />
           </svg>
         </button>
       </span>
@@ -466,14 +465,36 @@ function CoursesNavItem({ label, onNavigate }) {
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const topbarRef = useRef(null);
   const signedIn = Boolean(auth.session);
   const currentRole = auth.profile?.role || auth.role || 'student';
   const visibleLinks = navLinks.filter((link) => !link.role || (signedIn && link.role === currentRole));
 
+  function closeMobileMenu() {
+    setMobileOpen(false);
+  }
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    function onOutside(e) {
+      if (topbarRef.current && !topbarRef.current.contains(e.target)) setMobileOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setMobileOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [mobileOpen]);
+
   return (
     <header className="topbar topbar--enterprise">
-      <div className="topbar-inner">
-        <Link className="brand-block" to="/home">
+      <div className="topbar-inner" ref={topbarRef}>
+        <Link className="brand-block" to="/home" onClick={closeMobileMenu}>
           <div className="brand-mark brand-mark--enterprise brand-mark--image">
             <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
           </div>
@@ -485,16 +506,19 @@ function TopBar({ theme, setTheme, themeLabel }) {
           </div>
         </Link>
 
-        <nav className="nav">
+        <nav id="topbar-mobile-nav" className={`nav ${mobileOpen ? 'nav--open' : ''}`}>
           {visibleLinks.map((link) =>
             link.to === '/courses' ? (
-              <CoursesNavItem key={link.to} label={link.label} onNavigate={() => setActiveHeaderLink('')} />
+              <CoursesNavItem key={link.to} label={link.label} onNavigate={closeMobileMenu} />
             ) : (
               <NavLink
                 key={link.to}
                 to={link.to}
                 className={({ isActive }) => `nav-link ${isActive && activeHeaderLink !== 'contact' ? 'is-active' : ''}`}
-                onClick={() => setActiveHeaderLink('')}
+                onClick={() => {
+                  setActiveHeaderLink('');
+                  closeMobileMenu();
+                }}
               >
                 {link.label}
               </NavLink>
@@ -503,34 +527,75 @@ function TopBar({ theme, setTheme, themeLabel }) {
           <a
             className={`nav-link ${activeHeaderLink === 'contact' ? 'is-active' : ''}`}
             href="#contact"
-            onClick={() => setActiveHeaderLink('contact')}
+            onClick={() => {
+              setActiveHeaderLink('contact');
+              closeMobileMenu();
+            }}
           >
             {ui.contact}
           </a>
+
+          {!signedIn ? (
+            <div className="nav__mobile-auth">
+              <Link className="topbar-auth topbar-auth--ghost" to="/auth" onClick={closeMobileMenu}>
+                {ui.signIn}
+              </Link>
+              <Link className="topbar-auth topbar-auth--solid" to="/auth?mode=sign-up" onClick={closeMobileMenu}>
+                {ui.signUp}
+              </Link>
+            </div>
+          ) : null}
         </nav>
 
         <div className="toolbar">
           <button
-            className="text-control theme-toggle"
+            className={`theme-toggle ${theme === 'dark' ? 'is-dark' : ''}`}
             type="button"
+            role="switch"
+            aria-checked={theme === 'dark'}
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             aria-label={theme === 'dark' ? ui.switchToLight : ui.switchToDark}
             title={themeLabel}
           >
-            <ThemeIcon theme={theme} />
+            <span className="theme-toggle__track">
+              <span className="theme-toggle__thumb">
+                <ThemeIcon theme={theme} />
+              </span>
+            </span>
           </button>
           {signedIn ? (
             <UserAvatar />
           ) : (
             <>
-              <Link className="text-control auth-nav-link" to="/auth">
+              <Link className="topbar-auth topbar-auth--ghost" to="/auth">
                 {ui.signIn}
               </Link>
-              <Link className="text-control auth-nav-link" to="/auth?mode=sign-up">
+              <Link className="topbar-auth topbar-auth--solid" to="/auth?mode=sign-up">
                 {ui.signUp}
               </Link>
             </>
           )}
+          <button
+            type="button"
+            className="topbar-menu-toggle"
+            aria-label={mobileOpen ? 'Đóng menu' : 'Mở menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="topbar-mobile-nav"
+            onClick={() => setMobileOpen((value) => !value)}
+          >
+            {mobileOpen ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12" />
+                <path d="M18 6 6 18" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M4 12h16" />
+                <path d="M4 17h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
     </header>
