@@ -143,6 +143,15 @@ function ExamQuestion({ question, index, answer, onChange, disabled }) {
       </header>
       <p className="exam-question__prompt">{question.prompt}</p>
 
+      {/* Ảnh đề thi luôn tải ngay (không lazy) để học viên không gặp ô trống giữa giờ làm bài. */}
+      {question.imageUrl ? (
+        <img
+          className="exam-question__image"
+          src={question.imageUrl}
+          alt={question.imageName || `Ảnh minh họa câu ${index + 1}`}
+        />
+      ) : null}
+
       {question.type === 'multiple_choice' ? (
         <MultipleChoiceQuestion question={question} answer={answer} onChange={onChange} disabled={disabled} />
       ) : question.type === 'true_false' ? (
@@ -250,6 +259,13 @@ function ExamResult({ exam, attempt }) {
                     </strong>
                   </header>
                   <p className="exam-review-item__prompt">{question.prompt}</p>
+                  {question.imageUrl ? (
+                    <img
+                      className="exam-question__image"
+                      src={question.imageUrl}
+                      alt={question.imageName || `Ảnh minh họa câu ${index + 1}`}
+                    />
+                  ) : null}
                   <p>
                     <span className="exam-review-item__label">Bạn trả lời:</span>{' '}
                     {formatAnswerForReview(question, answer)}

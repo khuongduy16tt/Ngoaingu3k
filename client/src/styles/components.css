@@ -5665,6 +5665,15 @@ button:disabled {
   line-height: 1.7;
 }
 
+.exam-question__image {
+  display: block;
+  max-width: min(100%, 520px);
+  height: auto;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
 .exam-question__options {
   display: grid;
   gap: 0.5rem;
@@ -6205,6 +6214,135 @@ button:disabled {
   .audio-upload-field__clear {
     justify-self: start;
   }
+}
+
+/* ─── Ảnh minh họa câu hỏi ────────────────────────────────────────────────── */
+
+.image-upload-field {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.image-upload-field__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.image-upload-field__preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem 1rem;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+/* width tự do để ảnh nhỏ không bị kéo giãn thành khung trống mênh mông. */
+.image-upload-field__preview img {
+  grid-column: 1 / -1;
+  justify-self: start;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 0.8rem;
+  background: var(--surface-soft);
+}
+
+.image-upload-field__meta {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.image-upload-field__clear {
+  align-self: start;
+}
+
+.image-upload-field__empty {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  border: 1px dashed var(--border-strong);
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.image-upload-field__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.image-upload-field__pick {
+  cursor: pointer;
+}
+
+.image-upload-field__progress {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.image-upload-field__progress small {
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .image-upload-field__preview {
+    grid-template-columns: 1fr;
+  }
+
+  .image-upload-field__clear {
+    justify-self: start;
+  }
+}
+
+/* ─── Khôi phục bản nháp đề thi ───────────────────────────────────────────── */
+
+.exam-draft-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+}
+
+.exam-draft-recovery__text {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.exam-draft-recovery__text span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.exam-draft-recovery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.exam-editor__autosave {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.exam-editor__autosave-warning {
+  color: var(--danger, #d9534f);
+  font-weight: 700;
 }
 
 .exam-editor-question__head select {

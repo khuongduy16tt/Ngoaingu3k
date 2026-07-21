@@ -167,6 +167,57 @@ export async function uploadExamAudio(file, examId, onProgress) {
   return { path: data.path, url };
 }
 
+// ─── Upload Ảnh câu hỏi đề thi ────────────────────────────────────────────────
+
+/**
+ * Upload ảnh minh họa cho một câu hỏi trong đề thi.
+ *
+ * Ưu tiên bucket riêng "exam-images" (tạo bằng supabase/exam-images-migration.sql).
+ * Nếu bucket đó chưa tồn tại — site đã deploy nhưng chưa chạy migration — thì rơi
+ * về bucket "exam-audio" với prefix images/, vì bucket đó đã có sẵn policy cho
+ * giáo viên upload và cho public đọc.
+ *
+ * @param {File} file - File ảnh (.jpg, .png, .webp, .gif)
+ * @param {string} examId
+ * @param {function} [onProgress] - callback(percent: number)
+ * @returns {{ path: string, url: string } | null}
+ */
+export async function uploadExamImage(file, examId, onProgress) {
+  if (!isSupabaseReady()) {
+    const url = await readFileAsDataUrl(file);
+    onProgress?.(100);
+    return { path: 'local', url };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const fileName = `${Date.now()}.${ext}`;
+  const uploadOptions = {
+    cacheControl: '3600',
+    upsert: true,
+    onUploadProgress: onProgress ? (evt) => onProgress(Math.round((evt.loaded / evt.total) * 100)) : undefined
+  };
+
+  const targets = [
+    { bucket: 'exam-images', path: `exams/${examId || Date.now()}/${fileName}` },
+    { bucket: 'exam-audio', path: `images/${examId || Date.now()}/${fileName}` }
+  ];
+
+  let lastError = null;
+
+  for (const target of targets) {
+    const { data, error } = await supabase.storage.from(target.bucket).upload(target.path, file, uploadOptions);
+
+    if (!error) {
+      return { path: data.path, url: getPublicUrl(target.bucket, data.path) };
+    }
+
+    lastError = error;
+  }
+
+  console.error('[uploadExamImage]', lastError?.message);
+  return null;
+}
+
 /**
  * Upload file audio cho câu hỏi Nghe của bài giảng.
  * Dùng chung bucket "exam-audio" (đã có policy cho teacher) với prefix lessons/

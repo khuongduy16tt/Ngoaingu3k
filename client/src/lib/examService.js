@@ -53,6 +53,8 @@ export function normalizeExamQuestion(question, index = 0) {
     id: question?.id || `q-${index + 1}`,
     type,
     prompt: String(question?.prompt || '').trim(),
+    imageUrl: String(question?.imageUrl || ''),
+    imageName: String(question?.imageName || ''),
     options: Array.isArray(question?.options) ? question.options.map((option) => String(option)) : [],
     pairs: Array.isArray(question?.pairs)
       ? question.pairs

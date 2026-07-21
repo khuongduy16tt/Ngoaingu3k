@@ -7,6 +7,7 @@ vi.mock('./supabase', () => ({
 
 import {
   getQuestionMaxScore,
+  normalizeExamQuestion,
   normalizeExamSection,
   scoreExamAnswers,
   scoreExamQuestion
@@ -76,6 +77,26 @@ describe('scoreExamQuestion', () => {
       maxScore: 3
     });
     expect(scoreExamQuestion(matching, undefined)).toEqual({ score: 0, maxScore: 3 });
+  });
+});
+
+describe('normalizeExamQuestion', () => {
+  it('keeps the question image and defaults it to empty', () => {
+    expect(
+      normalizeExamQuestion({ ...multipleChoice, imageUrl: 'https://cdn/pic.png', imageName: 'pic.png' })
+    ).toMatchObject({ imageUrl: 'https://cdn/pic.png', imageName: 'pic.png' });
+
+    expect(normalizeExamQuestion(multipleChoice)).toMatchObject({ imageUrl: '', imageName: '' });
+  });
+
+  it('carries the image through section normalization', () => {
+    const section = normalizeExamSection({
+      id: 's1',
+      type: 'reading',
+      questions: [{ ...fillBlank, imageUrl: 'https://cdn/chart.jpg' }]
+    });
+
+    expect(section.questions[0].imageUrl).toBe('https://cdn/chart.jpg');
   });
 });
 

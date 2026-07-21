@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   EXAM_QUESTION_TYPES,
   EXAM_SECTION_TYPES,
@@ -11,16 +11,22 @@ import {
   setExamStatus,
   updateExam
 } from '../../lib/examService';
-import { uploadExamAudio } from '../../lib/storageService';
+import { uploadExamAudio, uploadExamImage } from '../../lib/storageService';
 import { getCourseOptions } from '../../lib/assignmentService';
 import { PaginationControls, usePagination } from '../../components/Pagination';
 import { AudioUploadField } from '../../components/AudioUploadField';
+import { ImageUploadField } from '../../components/ImageUploadField';
+
+const DRAFT_STORAGE_KEY = 'ngoaingu3k-exam-draft';
+const DRAFT_AUTOSAVE_MS = 600;
 
 function createEmptyQuestion() {
   return {
     id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     type: 'multiple_choice',
     prompt: '',
+    imageUrl: '',
+    imageName: '',
     optionsText: '',
     correctAnswer: '',
     acceptedAnswersText: '',
@@ -55,6 +61,82 @@ function createEmptyDraft() {
   };
 }
 
+// ─── Tự động lưu bản nháp đang soạn ──────────────────────────────────────────
+// Trình soạn đề trước đây chỉ giữ draft trong state React, nên đóng tab / thoát
+// trình duyệt giữa chừng là mất sạch. Bản nháp giờ được ghi xuống localStorage
+// theo từng giáo viên và hỏi khôi phục khi quay lại.
+
+function getDraftStorageKey(teacherId) {
+  return `${DRAFT_STORAGE_KEY}:${teacherId || 'local'}`;
+}
+
+function isFilled(value) {
+  return String(value || '').trim() !== '';
+}
+
+// Chỉ coi là "có bản nháp" khi giáo viên đã nhập gì đó — tránh hỏi khôi phục
+// cho một form trống vừa mở rồi thoát.
+function hasDraftContent(draft) {
+  if (!draft || !Array.isArray(draft.sections)) {
+    return false;
+  }
+
+  if (isFilled(draft.title) || isFilled(draft.description) || isFilled(draft.recipientsText) || isFilled(draft.courseKey)) {
+    return true;
+  }
+
+  return draft.sections.some(
+    (section) =>
+      isFilled(section?.audioUrl) ||
+      isFilled(section?.passage) ||
+      (Array.isArray(section?.questions) &&
+        section.questions.some(
+          (question) =>
+            isFilled(question?.prompt) ||
+            isFilled(question?.imageUrl) ||
+            isFilled(question?.optionsText) ||
+            isFilled(question?.acceptedAnswersText) ||
+            isFilled(question?.pairsText) ||
+            isFilled(question?.explanation)
+        ))
+  );
+}
+
+function readStoredDraft(teacherId) {
+  try {
+    const rawValue = localStorage.getItem(getDraftStorageKey(teacherId));
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return hasDraftContent(parsed?.draft) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredDraft(teacherId, draft) {
+  try {
+    localStorage.setItem(
+      getDraftStorageKey(teacherId),
+      JSON.stringify({ draft, savedAt: new Date().toISOString() })
+    );
+    return true;
+  } catch {
+    // Hết quota — thường do ảnh/audio nhúng dạng data URL khi chạy mock mode.
+    return false;
+  }
+}
+
+function clearStoredDraft(teacherId) {
+  try {
+    localStorage.removeItem(getDraftStorageKey(teacherId));
+  } catch {
+    // ignore storage failures
+  }
+}
+
 // Convert editor state → the sections jsonb shape examService/room expect.
 function draftToSections(draft) {
   return draft.sections.map((section, index) =>
@@ -65,6 +147,8 @@ function draftToSections(draft) {
           id: question.id,
           type: question.type,
           prompt: question.prompt,
+          imageUrl: question.imageUrl,
+          imageName: question.imageName,
           options:
             question.type === 'multiple_choice'
               ? question.optionsText.split('\n').map((option) => option.trim()).filter(Boolean)
@@ -117,6 +201,8 @@ function examToDraft(exam) {
         id: question.id,
         type: question.type,
         prompt: question.prompt,
+        imageUrl: question.imageUrl || '',
+        imageName: question.imageName || '',
         optionsText: question.options.join('\n'),
         correctAnswer: question.correctAnswer,
         acceptedAnswersText: question.acceptedAnswers.join(', '),
@@ -183,7 +269,7 @@ function validateDraft(draft) {
   return '';
 }
 
-function QuestionEditor({ question, index, onChange, onRemove }) {
+function QuestionEditor({ question, index, onChange, onRemove, examId }) {
   const options = question.optionsText.split('\n').map((option) => option.trim()).filter(Boolean);
 
   function update(field, value) {
@@ -215,6 +301,14 @@ function QuestionEditor({ question, index, onChange, onRemove }) {
           placeholder="Nhập câu hỏi..."
         />
       </label>
+
+      <ImageUploadField
+        imageUrl={question.imageUrl || ''}
+        imageName={question.imageName || ''}
+        onUploaded={({ imageUrl, imageName }) => onChange({ ...question, imageUrl, imageName })}
+        onClear={() => onChange({ ...question, imageUrl: '', imageName: '' })}
+        upload={(file, onProgress) => uploadExamImage(file, examId || 'new', onProgress)}
+      />
 
       {question.type === 'multiple_choice' ? (
         <>
@@ -366,6 +460,7 @@ function SectionEditor({ section, index, onChange, onRemove, examId }) {
             key={question.id}
             question={question}
             index={questionIndex}
+            examId={examId}
             onChange={(nextQuestion) => updateQuestion(questionIndex, nextQuestion)}
             onRemove={() =>
               update(
@@ -396,6 +491,12 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
   const [draft, setDraft] = useState(() => createEmptyDraft());
   const [message, setMessage] = useState({ type: '', text: '' });
   const [saving, setSaving] = useState(false);
+  const [recoveredDraft, setRecoveredDraft] = useState(null);
+  const [autosavedAt, setAutosavedAt] = useState('');
+  const [autosaveError, setAutosaveError] = useState('');
+  // Ảnh chụp draft lúc mở trình soạn — chỉ tự lưu khi giáo viên đã sửa gì đó, để
+  // mở xem một đề rồi thoát không tạo ra bản nháp "soạn dở" thừa.
+  const draftBaselineRef = useRef('');
   const courseOptions = useMemo(() => getCourseOptions(teacherId), [teacherId]);
 
   async function reload() {
@@ -409,8 +510,31 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
 
   useEffect(() => {
     void reload();
+    setRecoveredDraft(readStoredDraft(teacherId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId]);
+
+  // Tự lưu bản nháp sau mỗi lần gõ (debounce) để thoát trình duyệt giữa chừng
+  // vẫn còn dữ liệu khi quay lại.
+  useEffect(() => {
+    if (view !== 'edit' || !hasDraftContent(draft) || JSON.stringify(draft) === draftBaselineRef.current) {
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (writeStoredDraft(teacherId, draft)) {
+        setAutosavedAt(new Date().toISOString());
+        setAutosaveError('');
+      } else {
+        setAutosavedAt('');
+        setAutosaveError(
+          'Bản nháp quá lớn để tự động lưu (thường do ảnh/audio nhúng trực tiếp). Hãy bấm "Lưu bản nháp".'
+        );
+      }
+    }, DRAFT_AUTOSAVE_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [draft, view, teacherId]);
 
   const examTitleById = useMemo(() => {
     const map = new Map();
@@ -428,16 +552,63 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
   );
   const attemptsPagination = usePagination(attemptRows, { pageSize: 8, resetKey: attemptRows.length });
 
-  function startCreate() {
-    setDraft(createEmptyDraft());
+  // Mở trình soạn với nội dung khác sẽ ghi đè bản nháp đang lưu — hỏi trước.
+  function confirmReplaceRecoveredDraft() {
+    return (
+      !recoveredDraft ||
+      window.confirm('Bạn đang có một đề thi soạn dở chưa lưu. Mở đề khác sẽ xóa bản nháp đó. Tiếp tục?')
+    );
+  }
+
+  function openEditor(nextDraft) {
+    draftBaselineRef.current = JSON.stringify(nextDraft);
+    setDraft(nextDraft);
+    setAutosavedAt('');
+    setAutosaveError('');
     setMessage({ type: '', text: '' });
     setView('edit');
   }
 
+  function startCreate() {
+    if (!confirmReplaceRecoveredDraft()) {
+      return;
+    }
+    clearStoredDraft(teacherId);
+    setRecoveredDraft(null);
+    openEditor(createEmptyDraft());
+  }
+
   function startEdit(exam) {
-    setDraft(examToDraft(exam));
-    setMessage({ type: '', text: '' });
-    setView('edit');
+    if (!confirmReplaceRecoveredDraft()) {
+      return;
+    }
+    clearStoredDraft(teacherId);
+    setRecoveredDraft(null);
+    openEditor(examToDraft(exam));
+  }
+
+  function resumeRecoveredDraft() {
+    if (!recoveredDraft) {
+      return;
+    }
+    const savedAt = recoveredDraft.savedAt;
+    openEditor(recoveredDraft.draft);
+    setAutosavedAt(savedAt || '');
+    setRecoveredDraft(null);
+  }
+
+  function discardRecoveredDraft() {
+    if (!window.confirm('Xóa bản nháp đang soạn dở? Thao tác này không thể hoàn tác.')) {
+      return;
+    }
+    clearStoredDraft(teacherId);
+    setRecoveredDraft(null);
+  }
+
+  // Rời trình soạn nhưng vẫn giữ bản nháp, để danh sách hiện nút "Tiếp tục soạn".
+  function backToList() {
+    setView('list');
+    setRecoveredDraft(readStoredDraft(teacherId));
   }
 
   function updateDraft(field, value) {
@@ -484,6 +655,12 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
       } else {
         await createExam({ teacherId, exam: examPayload, recipients, accessToken });
       }
+
+      // Đã lưu lên server → bản nháp tạm không còn cần nữa.
+      clearStoredDraft(teacherId);
+      setRecoveredDraft(null);
+      setAutosavedAt('');
+      setAutosaveError('');
 
       setMessage({
         type: 'success',
@@ -539,7 +716,7 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
             Tạo đề thi mới
           </button>
         ) : (
-          <button type="button" className="button-ghost" onClick={() => setView('list')}>
+          <button type="button" className="button-ghost" onClick={backToList}>
             ← Quay lại danh sách
           </button>
         )}
@@ -552,6 +729,28 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
           }`}
         >
           {message.text}
+        </div>
+      ) : null}
+
+      {view === 'list' && recoveredDraft ? (
+        <div className="exam-draft-recovery">
+          <div className="exam-draft-recovery__text">
+            <strong>Bạn có một đề thi đang soạn dở</strong>
+            <span>
+              {String(recoveredDraft.draft.title || '').trim() || 'Đề thi chưa đặt tên'}
+              {recoveredDraft.savedAt
+                ? ` · tự động lưu lúc ${new Date(recoveredDraft.savedAt).toLocaleString('vi-VN')}`
+                : ''}
+            </span>
+          </div>
+          <div className="exam-draft-recovery__actions">
+            <button type="button" className="button" onClick={resumeRecoveredDraft}>
+              Tiếp tục soạn
+            </button>
+            <button type="button" className="button-ghost danger" onClick={discardRecoveredDraft}>
+              Xóa bản nháp
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -649,6 +848,19 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
             >
               + Thêm phần Đọc
             </button>
+          </div>
+
+          <div className="exam-editor__autosave">
+            {autosaveError ? (
+              <span className="exam-editor__autosave-warning">{autosaveError}</span>
+            ) : autosavedAt ? (
+              <span>
+                Đã tự động lưu tạm lúc {new Date(autosavedAt).toLocaleTimeString('vi-VN')} — thoát trình duyệt vẫn
+                khôi phục được.
+              </span>
+            ) : (
+              <span>Bản nháp sẽ được tự động lưu tạm trên máy này trong lúc bạn soạn.</span>
+            )}
           </div>
 
           <div className="exam-editor__save-actions">
