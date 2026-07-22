@@ -5,7 +5,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
-import { ConsultationPopup } from '../components/ConsultationPopup';
+import { ConsultationFab } from '../components/ConsultationFab';
 import { getCourseCatalog } from '../lib/courseService';
 
 export function AppLayout({ children }) {
@@ -38,11 +38,11 @@ export function AppLayout({ children }) {
 
   return (
     <div className="app-shell">
-      <ConsultationPopup />
       <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} />
       <main className="site-frame site-main">{children}</main>
       <Footer />
       <FloatingTestButton />
+      <ConsultationFab />
       <FloatingContactButtons />
       <div className="background-accent background-accent--blue" aria-hidden="true" />
       <div className="background-accent background-accent--violet" aria-hidden="true" />
@@ -613,6 +613,9 @@ function Footer() {
 
   return (
     <footer id="contact" className="footer footer--enterprise">
+      <div className="footer-banner" aria-hidden="true">
+        <img src="/images/imported/10_Trang-chu_footer.webp" alt="" loading="lazy" />
+      </div>
       <div className="footer-inner">
         <div className="footer-main">
           <div className="footer-brand">

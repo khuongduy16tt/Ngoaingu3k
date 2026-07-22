@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFeaturedCourses } from '../lib/courseService';
-import { ConsultationForm } from '../components/ConsultationForm';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 // Khi khóa học chưa có bannerUrl (dữ liệu thật từ backend), dùng ảnh thật từ
@@ -145,6 +144,112 @@ const testimonialCards = [
   },
 ];
 
+// ── Ảnh theo brief "Check ảnh web" (sheet Ảnh web) — mỗi cụm đặt đúng vị trí
+// nội dung mà brief mô tả cho Trang chủ. Tên file khớp thư mục imported/. ──
+
+// Banner giới thiệu khoá TA/TT (brief #1, #2) — brief yêu cầu 2 banner hiển thị
+// trong 1 section (slider) thay vì tách 2 section riêng.
+const heroBanners = [
+  {
+    src: '/images/imported/1_Trang-chu_Hero-banner.webp',
+    alt: 'Khoá học Tiếng Anh tại Ngoaingu3k',
+    to: '/courses#khoa-hoc-ielts',
+  },
+  {
+    src: '/images/imported/2_Trang-chu_Hero-banner.webp',
+    alt: 'Khoá học Tiếng Trung tại Ngoaingu3k',
+    to: '/courses#khoa-hoc-hsk',
+  },
+];
+
+// Giới thiệu khoá Tiếng Anh / Tiếng Trung (brief #6, #7).
+const trainingPrograms = [
+  {
+    title: 'Tiếng Anh',
+    description: 'IELTS, TOEIC, giao tiếp và tiếng Anh công sở theo lộ trình cá nhân hoá, có giảng viên đồng hành.',
+    image: '/images/imported/6_Trang-chu_GT-TA.webp',
+    to: '/courses#khoa-hoc-ielts',
+  },
+  {
+    title: 'Tiếng Trung',
+    description: 'Luyện thi HSK theo từng cấp độ, xây nền tảng phát âm đến tăng tốc phản xạ giao tiếp.',
+    image: '/images/imported/7_Trang-chu_GT-TT.webp',
+    to: '/courses#khoa-hoc-hsk',
+  },
+];
+
+// Giới thiệu sản phẩm độc quyền (brief #4, #5).
+const exclusiveProducts = [
+  {
+    src: '/images/imported/4_Trang-chu_GT-sp.webp',
+    alt: 'Học liệu độc quyền của Ngoaingu3k',
+  },
+  {
+    src: '/images/imported/5_Trang-chu_GT-sp.webp',
+    alt: 'Bộ khoá học độc quyền của Ngoaingu3k',
+  },
+];
+
+// Lựa chọn đáng tin cậy (brief #9.1–9.3).
+const trustGallery = [
+  { src: '/images/imported/9.1_Trang-chu_lua-chon-tin-cay.webp', alt: 'Học viên tin tưởng lựa chọn Ngoaingu3k' },
+  { src: '/images/imported/9.2_Trang-chu_lua-chon-dang-tin-cay.webp', alt: 'Trải nghiệm học tập tại Ngoaingu3k' },
+  { src: '/images/imported/9.3_Trang-chu_lua-chon-tin-cay.webp', alt: 'Cộng đồng học viên Ngoaingu3k' },
+];
+
+// Hoạt động của trung tâm (brief #8.1–8.4).
+const centerActivities = [
+  { src: '/images/imported/8.1_Trang-chu_GT-TT.webp', alt: 'Hoạt động tại Ngoaingu3k' },
+  { src: '/images/imported/8.2_Trang-chu_GT-TT.webp', alt: 'Giờ học tại Ngoaingu3k' },
+  { src: '/images/imported/8.3_Trang-chu_GT-TT.webp', alt: 'Không gian học tập tại Ngoaingu3k' },
+  { src: '/images/imported/8.4_Trang-chu_GT-TT.webp', alt: 'Sự kiện tại Ngoaingu3k' },
+];
+
+const HERO_BANNER_INTERVAL_MS = 5000;
+
+// Hero trang chủ: slideshow toàn khung 2 banner (TA/TT) tự chuyển, crossfade.
+// Mỗi banner bấm được để sang trang khoá học tương ứng.
+function HeroBannerSlideshow({ banners }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (banners.length <= 1) return undefined;
+    const timer = setInterval(() => {
+      setIndex((current) => (current + 1) % banners.length);
+    }, HERO_BANNER_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [banners.length]);
+
+  return (
+    <div className="hero-slideshow">
+      {banners.map((banner, i) => (
+        <Link
+          key={banner.src}
+          to={banner.to}
+          className={`hero-slideshow__slide ${i === index ? 'is-active' : ''}`}
+          aria-hidden={i === index ? undefined : true}
+          tabIndex={i === index ? undefined : -1}
+        >
+          <img src={banner.src} alt={banner.alt} />
+        </Link>
+      ))}
+      <div className="hero-slideshow__dots" role="tablist" aria-label="Chọn banner">
+        {banners.map((banner, i) => (
+          <button
+            key={banner.src}
+            type="button"
+            role="tab"
+            aria-selected={i === index}
+            aria-label={`Xem banner ${i + 1}`}
+            className={`hero-slideshow__dot ${i === index ? 'is-active' : ''}`}
+            onClick={() => setIndex(i)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const TESTIMONIAL_INTERVAL_MS = 6000;
 
 function TestimonialCarousel({ items }) {
@@ -204,23 +309,8 @@ export default function HomePage() {
 
   return (
     <>
-      <section className="landing-hero">
-        <div className="landing-hero__media">
-          <img src="/images/imported/8.1_Trang-chu_GT-TT.webp" alt="Không gian học tập tại Ngoaingu3k" />
-        </div>
-
-        <div className="landing-hero__content">
-          <h1>
-            Học ngoại ngữ
-            <br />
-            theo <em>lộ trình riêng</em>
-          </h1>
-          <p>
-            Lộ trình học được thiết kế riêng cho chính bạn — từ tiếng Anh đến tiếng Trung, bám sát trình độ và mục
-            tiêu, có giảng viên đồng hành sát sao và bài tập theo dõi tiến độ rõ ràng.
-          </p>
-          <ConsultationForm className="landing-hero__form" />
-        </div>
+      <section className="landing-hero landing-hero--banner" aria-label="Khoá học nổi bật">
+        <HeroBannerSlideshow banners={heroBanners} />
       </section>
 
       <div className="page home-page home-page--new">
@@ -228,6 +318,28 @@ export default function HomePage() {
           <StatPill value="15k+" label="Học viên ACTIVE" />
           <StatPill value="98%" label="Tỷ lệ hài lòng" accent />
           <StatPill value="24/7" label="Mentor support" />
+        </section>
+
+        <section className="about-section">
+          <div className="about-section__media">
+            <img
+              src="/images/imported/3_Trang-chu_GT-chung-toi.webp"
+              alt="Giới thiệu về Ngoaingu3k"
+              loading="lazy"
+            />
+          </div>
+          <div className="about-section__body">
+            <span className="section-eyebrow">Về chúng tôi</span>
+            <h2>Trung tâm ngoại ngữ đồng hành cùng bạn trên từng chặng học</h2>
+            <p>
+              Ngoaingu3k xây dựng lộ trình học cá nhân hoá cho tiếng Anh và tiếng Trung, với giảng viên theo sát,
+              học liệu độc quyền và hệ thống theo dõi tiến độ minh bạch — giúp bạn luôn biết mình đang ở đâu và cần
+              học gì tiếp theo.
+            </p>
+            <Link to="/courses" className="course-tile__link">
+              Khám phá khoá học →
+            </Link>
+          </div>
         </section>
 
         <section className="home-band home-band--alt">
@@ -257,6 +369,49 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="programs-section">
+          <div className="programs-section__head">
+            <span className="section-eyebrow">Chương trình đào tạo</span>
+            <h2>Hai hệ ngoại ngữ, một chuẩn chất lượng</h2>
+          </div>
+          <div className="programs-grid">
+            {trainingPrograms.map((program) => (
+              <Link key={program.title} to={program.to} className="program-tile">
+                <div className="program-tile__media">
+                  <img src={program.image} alt={`Khoá học ${program.title}`} loading="lazy" />
+                </div>
+                <div className="program-tile__body">
+                  <strong>{program.title}</strong>
+                  <p>{program.description}</p>
+                  <span className="program-tile__cta">Xem khoá học →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="home-band home-band--alt">
+          <div className="home-band__inner">
+            <div className="products-section">
+              <div className="products-section__body">
+                <span className="section-eyebrow">Sản phẩm độc quyền</span>
+                <h2>Học liệu và khoá học chỉ có tại Ngoaingu3k</h2>
+                <p>
+                  Bộ giáo trình và khoá học được đội ngũ chuyên môn biên soạn riêng, bám sát nhu cầu học viên Việt
+                  Nam — không sao chép, cập nhật liên tục theo phản hồi thực tế.
+                </p>
+              </div>
+              <div className="products-section__gallery">
+                {exclusiveProducts.map((product) => (
+                  <div key={product.src} className="products-section__item">
+                    <img src={product.src} alt={product.alt} loading="lazy" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="reasons-section">
           <span className="section-eyebrow">Vì sao chọn Ngoaingu3k</span>
           <div className="reasons-table">
@@ -265,6 +420,20 @@ export default function HomePage() {
                 <span className="reasons-table__icon">{reason.icon}</span>
                 <h3>{reason.title}</h3>
                 <p>{reason.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="trust-section">
+          <div className="trust-section__head">
+            <span className="section-eyebrow">Lựa chọn đáng tin cậy</span>
+            <h2>Được hàng nghìn học viên tin tưởng đồng hành</h2>
+          </div>
+          <div className="trust-gallery">
+            {trustGallery.map((item) => (
+              <div key={item.src} className="trust-gallery__item">
+                <img src={item.src} alt={item.alt} loading="lazy" />
               </div>
             ))}
           </div>
@@ -291,6 +460,20 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="activities-section">
+          <div className="activities-section__head">
+            <span className="section-eyebrow">Hoạt động của trung tâm</span>
+            <h2>Không khí học tập và sự kiện tại Ngoaingu3k</h2>
+          </div>
+          <div className="activities-gallery">
+            {centerActivities.map((activity) => (
+              <div key={activity.src} className="activities-gallery__item">
+                <img src={activity.src} alt={activity.alt} loading="lazy" />
+              </div>
+            ))}
           </div>
         </section>
 

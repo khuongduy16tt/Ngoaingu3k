@@ -12,6 +12,23 @@ const roleLabels = {
   admin: 'quản trị viên'
 };
 
+// Ảnh khoá học từ brief "Check ảnh web" (#11 Tiếng Anh, #12 Tiếng Trung) — dùng
+// làm ảnh minh hoạ cho khoá chưa có bannerUrl riêng, luân phiên theo vị trí thẻ
+// để các thẻ trong cùng nhóm không lặp lại một ảnh.
+const ieltsPlaceholderPhotos = [
+  '/images/imported/11.1_KH-TA-scaled.webp',
+  '/images/imported/11.2_KH-TA-scaled.webp',
+  '/images/imported/11.3_KH-TA-scaled.webp',
+  '/images/imported/11.4_KH-TA-scaled.webp'
+];
+const hskPlaceholderPhotos = [
+  '/images/imported/12.1_KH-TT-scaled.webp',
+  '/images/imported/12.2_KH-TT-scaled.webp',
+  '/images/imported/12.3_KH-TT-scaled.webp',
+  '/images/imported/12.4_KH-TT-scaled.webp',
+  '/images/imported/12.5_KH-TT-scaled.webp'
+];
+
 function MarketplaceStat({ label, value, note }) {
   return (
     <article className="marketplace-stat">
@@ -36,16 +53,17 @@ function sortCoursesDefault(courses) {
   );
 }
 
-function CourseCard({ course, isOwned, authSession, currentRole, purchasingCourseId, feedback, onPurchase }) {
+function CourseCard({ course, isOwned, authSession, currentRole, purchasingCourseId, feedback, onPurchase, placeholderPhoto }) {
   const canBuy = authSession && currentRole === 'student' && !isOwned;
   const buyLabel = purchasingCourseId === course.id ? 'Đang xử lý...' : isOwned ? 'Đã sở hữu' : 'Mua ngay';
   const hasBanner = Boolean(course.bannerUrl);
+  const mediaSrc = course.bannerUrl || placeholderPhoto;
 
   return (
     <article className={`course-card course-card--enterprise marketplace-card ${isOwned ? 'is-owned' : ''}`}>
-      <div className={`marketplace-card__media ${hasBanner ? 'has-banner' : 'is-placeholder'}`}>
-        {hasBanner ? (
-          <img src={course.bannerUrl} alt={course.title} loading="lazy" />
+      <div className={`marketplace-card__media ${mediaSrc ? 'has-banner' : 'is-placeholder'}`}>
+        {mediaSrc ? (
+          <img src={mediaSrc} alt={course.title} loading="lazy" />
         ) : (
           <div className="marketplace-card__fallback">
             <span>{course.category}</span>
@@ -137,7 +155,8 @@ function CourseGroupSection({
   currentRole,
   purchasingCourseId,
   feedback,
-  onPurchase
+  onPurchase,
+  placeholderPhotos = []
 }) {
   return (
     <section id={id} className="marketplace-program-group">
@@ -152,7 +171,7 @@ function CourseGroupSection({
 
       {courses.length ? (
         <div className="card-grid marketplace-grid">
-          {courses.map((course) => (
+          {courses.map((course, courseIndex) => (
             <CourseCard
               key={course.id}
               course={course}
@@ -162,6 +181,11 @@ function CourseGroupSection({
               purchasingCourseId={purchasingCourseId}
               feedback={feedback}
               onPurchase={onPurchase}
+              placeholderPhoto={
+                placeholderPhotos.length
+                  ? placeholderPhotos[courseIndex % placeholderPhotos.length]
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -374,6 +398,7 @@ export default function CoursesPage() {
               purchasingCourseId={purchasingCourseId}
               feedback={feedback}
               onPurchase={handlePurchase}
+              placeholderPhotos={ieltsPlaceholderPhotos}
             />
 
             <CourseGroupSection
@@ -389,6 +414,7 @@ export default function CoursesPage() {
               purchasingCourseId={purchasingCourseId}
               feedback={feedback}
               onPurchase={handlePurchase}
+              placeholderPhotos={hskPlaceholderPhotos}
             />
           </div>
         )}

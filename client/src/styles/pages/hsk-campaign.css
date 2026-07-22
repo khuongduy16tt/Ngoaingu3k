@@ -733,6 +733,419 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Bổ sung theo brief "Check ảnh web": banner khoá học, giới thiệu, sản phẩm
+   độc quyền, lựa chọn tin cậy, hoạt động trung tâm. Dùng lại token & mô-típ
+   editorial của các section trên (eyebrow + tiêu đề + nội dung, object-fit
+   cover, viền/radius theo biến), không thêm blur/glow trang trí. */
+
+/* ── Dải ảnh footer cuối trang (brief #10) — strip full-width sát mép trên
+   footer, ảnh 1920×75 nên giữ đúng tỉ lệ, không cắt. ── */
+.footer--enterprise .footer-banner {
+  width: 100%;
+  line-height: 0;
+}
+
+.footer--enterprise .footer-banner img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── Hero banner slideshow (brief #1, #2) — nền CHÍNH của trang chủ: 2 banner
+   TA/TT crossfade tự chạy, hiện đủ khung (không cắt chữ), nằm hẳn dưới topbar
+   (bỏ margin âm & overlay tối vì banner đã có sẵn chữ/CTA). ── */
+.landing-hero--banner {
+  min-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.landing-hero--banner::after,
+:root[data-theme='light'] .landing-hero--banner::after {
+  content: none;
+}
+
+.hero-slideshow {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1920 / 720;
+  background: var(--bg-alt);
+}
+
+.hero-slideshow__slide {
+  position: absolute;
+  inset: 0;
+  display: block;
+  line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+
+.hero-slideshow__slide.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hero-slideshow__slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hero-slideshow__dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.hero-slideshow__dot {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.hero-slideshow__dot.is-active {
+  background: #ffffff;
+  transform: scale(1.25);
+}
+
+/* ── Nút nổi "Đăng ký tư vấn" — góc dưới phải, ngay TRÊN cụm nút liên hệ/Zalo.
+   Thay cho popup tư vấn tự bật: form chỉ mở khi bấm nút. ── */
+.consult-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 98px;
+  z-index: 121;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 20px 0 16px;
+  color: var(--button-text);
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.consult-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.36);
+  filter: saturate(1.06);
+}
+
+.consult-fab svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.consult-fab__label {
+  font-size: 0.95rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .consult-fab {
+    right: 12px;
+    bottom: 82px;
+    height: 46px;
+    padding: 0 16px 0 13px;
+  }
+
+  .consult-fab svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .consult-fab__label {
+    font-size: 0.86rem;
+  }
+}
+
+/* ── Về chúng tôi (brief #3) — ảnh vuông + nội dung ── */
+.about-section {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.about-section__media {
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+}
+
+.about-section__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.about-section__body {
+  display: grid;
+  align-content: center;
+  gap: 0.75rem;
+}
+
+.about-section__body h2 {
+  margin: 0.4rem 0 0.25rem;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.about-section__body p {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* ── Chương trình đào tạo (brief #6, #7) — 2 thẻ khoá học ── */
+.programs-section {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.programs-section__head {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.programs-section__head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.programs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.program-tile {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  text-decoration: none;
+  background: var(--surface);
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.program-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.program-tile__media {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.program-tile__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.program-tile__body {
+  padding: 1.4rem 1.5rem 1.6rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.program-tile__body strong {
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.program-tile__body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.program-tile__cta {
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+/* ── Sản phẩm độc quyền (brief #4, #5) — nội dung + 2 ảnh ── */
+.products-section {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.products-section__body {
+  display: grid;
+  align-content: center;
+  gap: 0.75rem;
+}
+
+.products-section__body h2 {
+  margin: 0.4rem 0 0.25rem;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.products-section__body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.products-section__gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.products-section__item {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  aspect-ratio: 981 / 552;
+}
+
+.products-section__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Lựa chọn đáng tin cậy (brief #9.1–9.3) — 3 ảnh ngang ── */
+.trust-section {
+  display: grid;
+  gap: 2rem;
+}
+
+.trust-section__head {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trust-section__head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.trust-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.trust-gallery__item {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  aspect-ratio: 446 / 316;
+}
+
+.trust-gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Hoạt động của trung tâm (brief #8.1–8.4) — lưới 4 ảnh ── */
+.activities-section {
+  display: grid;
+  gap: 2rem;
+}
+
+.activities-section__head {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.activities-section__head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.4vw, 2rem) !important;
+}
+
+.activities-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.activities-gallery__item {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  aspect-ratio: 4 / 3;
+}
+
+.activities-gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .about-section,
+  .products-section {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+
+  .programs-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .trust-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .activities-gallery {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .activities-gallery {
+    grid-template-columns: 1fr;
+  }
+}
+
 .floating-contact {
   position: fixed;
   right: 18px;
