@@ -66,6 +66,9 @@ export function normalizeLessonQuestion(question, index = 0) {
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),
     sampleAnswer: String(question?.sampleAnswer || '').trim(),
+    // Chữ Hán render lớn thay ảnh (import HSK), và cờ báo câu nghe đang chờ audio.
+    imageHanzi: String(question?.imageHanzi || '').trim(),
+    audioPending: Boolean(question?.audioPending),
     explanation: String(question?.explanation || question?.note || '').trim()
   };
 }

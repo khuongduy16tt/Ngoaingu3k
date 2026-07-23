@@ -871,7 +871,154 @@ function LessonQuestionFeedback({ question, answer }) {
   );
 }
 
-function LessonExercisePreview({ lesson, isTeacher }) {
+// Bài luyện đọc / bảng phiên âm (import HSK vỡ lòng): không có video hay câu hỏi
+// chấm điểm — hiển thị bảng phiên âm + danh sách chữ/âm để đọc, có nút phát âm
+// bằng giọng đọc tiếng Trung sẵn có của trình duyệt (không cần file audio).
+function isReadingLesson(lesson) {
+  const hasReading = Array.isArray(lesson?.readingItems) && lesson.readingItems.length > 0;
+  const hasTable = Boolean(lesson?.pinyinTable);
+  const hasExercises = Array.isArray(lesson?.exercises) && lesson.exercises.length > 0;
+  return (hasReading || hasTable) && !hasExercises;
+}
+
+function speakChinese(text) {
+  try {
+    const synth = window.speechSynthesis;
+    if (!synth || !text) return;
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(String(text));
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.8;
+    const zhVoice = synth.getVoices().find((voice) => /zh|chinese/i.test(`${voice.lang} ${voice.name}`));
+    if (zhVoice) utterance.voice = zhVoice;
+    synth.speak(utterance);
+  } catch {
+    // Trình duyệt không hỗ trợ TTS — bỏ qua, học viên vẫn đọc được chữ.
+  }
+}
+
+const PINYIN_INITIALS = [
+  ['b', 'p', 'm', 'f'],
+  ['d', 't', 'n', 'l'],
+  ['g', 'k', 'h'],
+  ['j', 'q', 'x'],
+  ['zh', 'ch', 'sh', 'r'],
+  ['z', 'c', 's']
+];
+const PINYIN_FINALS = [
+  ['a', 'o', 'e', 'i', 'u', 'ü'],
+  ['ai', 'ei', 'ao', 'ou'],
+  ['an', 'en', 'ang', 'eng', 'ong'],
+  ['ia', 'ie', 'iao', 'iu', 'ian', 'in', 'iang', 'ing', 'iong'],
+  ['ua', 'uo', 'uai', 'ui', 'uan', 'un', 'uang', 'ueng'],
+  ['üe', 'üan', 'ün']
+];
+const PINYIN_TONES = [
+  { mark: 'mā', name: 'Thanh 1 (ngang)' },
+  { mark: 'má', name: 'Thanh 2 (sắc)' },
+  { mark: 'mǎ', name: 'Thanh 3 (hỏi/uốn)' },
+  { mark: 'mà', name: 'Thanh 4 (huyền/nặng)' },
+  { mark: 'ma', name: 'Thanh nhẹ' }
+];
+
+function PinyinCell({ text }) {
+  return (
+    <button type="button" className="pinyin-cell" onClick={() => speakChinese(text)} title={`Nghe "${text}"`}>
+      {text}
+    </button>
+  );
+}
+
+function PinyinReferenceTable() {
+  return (
+    <div className="pinyin-reference">
+      <div className="pinyin-block">
+        <h3>Thanh mẫu (声母)</h3>
+        <div className="pinyin-rows">
+          {PINYIN_INITIALS.map((row) => (
+            <div key={row.join('')} className="pinyin-row">
+              {row.map((item) => (
+                <PinyinCell key={item} text={item} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="pinyin-block">
+        <h3>Vận mẫu (韵母)</h3>
+        <div className="pinyin-rows">
+          {PINYIN_FINALS.map((row) => (
+            <div key={row.join('')} className="pinyin-row">
+              {row.map((item) => (
+                <PinyinCell key={item} text={item} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="pinyin-block">
+        <h3>Thanh điệu (声调)</h3>
+        <div className="pinyin-row">
+          {PINYIN_TONES.map((tone) => (
+            <button
+              key={tone.mark}
+              type="button"
+              className="pinyin-cell pinyin-cell--tone"
+              onClick={() => speakChinese(tone.mark)}
+              title={tone.name}
+            >
+              <strong>{tone.mark}</strong>
+              <small>{tone.name}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LessonReadingPanel({ lesson }) {
+  const items = Array.isArray(lesson?.readingItems) ? lesson.readingItems : [];
+  const ttsSupported = typeof window !== 'undefined' && Boolean(window.speechSynthesis);
+
+  return (
+    <section className="content-card content-card--enterprise reading-panel">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">{lesson.pinyinTable ? 'Bảng phiên âm' : 'Luyện đọc'}</span>
+          <h2>{lesson.exerciseType || 'Luyện đọc'}</h2>
+          <p>
+            {ttsSupported
+              ? 'Bấm vào từng ô để nghe phát âm mẫu (giọng đọc tiếng Trung của trình duyệt), rồi đọc nhắc lại. Xong bấm “Đánh dấu hoàn thành” bên dưới.'
+              : 'Đọc theo từng mục bên dưới, rồi bấm “Đánh dấu hoàn thành” bên dưới.'}
+          </p>
+        </div>
+        <span className="pill">{lesson.pinyinTable ? 'Bảng tra' : `${items.length} mục`}</span>
+      </div>
+
+      {lesson.pinyinTable ? <PinyinReferenceTable /> : null}
+
+      {items.length ? (
+        <div className="reading-grid">
+          {items.map((item, index) => (
+            <button
+              type="button"
+              key={`${item}-${index}`}
+              className="reading-card"
+              onClick={() => speakChinese(item)}
+              title={`Nghe "${item}"`}
+            >
+              <span className="reading-card__text">{item}</span>
+              {ttsSupported ? <span className="reading-card__play" aria-hidden="true">🔊</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function LessonExercisePreview({ lesson, isTeacher }) {
   const questions = useMemo(
     () => (Array.isArray(lesson?.exercises) ? lesson.exercises : []).map(normalizeLessonQuestion),
     [lesson?.exercises]
@@ -935,9 +1082,24 @@ function LessonExercisePreview({ lesson, isTeacher }) {
               <span className="pill lesson-question__type">{getLessonQuestionTypeLabel(question.type)}</span>
             </div>
 
+            {question.imageHanzi ? (
+              <button
+                type="button"
+                className="lesson-question__hanzi"
+                onClick={() => speakChinese(question.imageHanzi)}
+                title={`Nghe "${question.imageHanzi}"`}
+              >
+                {question.imageHanzi}
+              </button>
+            ) : null}
+
             {question.audioUrl ? (
               <div className="lesson-question__audio">
                 <audio controls src={question.audioUrl} preload="auto" />
+              </div>
+            ) : question.audioPending ? (
+              <div className="lesson-question__audio-pending">
+                🎧 Câu nghe — audio phát âm sẽ được cập nhật. Đáp án đúng đã được thiết lập sẵn.
               </div>
             ) : null}
 
@@ -2530,24 +2692,32 @@ export default function LearningPage() {
                 )}
               </div>
 
-              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
+              {isReadingLesson(currentLesson) ? (
+                <LessonReadingPanel lesson={currentLesson} />
+              ) : null}
 
-              {isTeacher ? (
-                <VideoQuestionEditor
-                  lesson={currentLesson}
-                  saving={lessonQuestionSaving}
-                  status={lessonQuestionStatus}
-                  onSave={handleSaveVideoQuestions}
-                />
-              ) : currentLessonExercises.length ? (
-                <LessonExercisePreview lesson={currentLesson} isTeacher={isTeacher} />
-              ) : (
-                <section className="content-card content-card--enterprise video-question-empty">
-                  <span className="eyebrow">Bài luyện</span>
-                  <h2>Chưa có câu hỏi cho video này</h2>
-                  <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
-                </section>
-              )}
+              {!isReadingLesson(currentLesson) || isTeacher ? (
+                <>
+                  <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
+
+                  {isTeacher ? (
+                    <VideoQuestionEditor
+                      lesson={currentLesson}
+                      saving={lessonQuestionSaving}
+                      status={lessonQuestionStatus}
+                      onSave={handleSaveVideoQuestions}
+                    />
+                  ) : currentLessonExercises.length ? (
+                    <LessonExercisePreview lesson={currentLesson} isTeacher={isTeacher} />
+                  ) : (
+                    <section className="content-card content-card--enterprise video-question-empty">
+                      <span className="eyebrow">Bài luyện</span>
+                      <h2>Chưa có câu hỏi cho video này</h2>
+                      <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
+                    </section>
+                  )}
+                </>
+              ) : null}
 
               {isTeacher ? (
                 <details id="teacher-assignment-studio" className="content-card content-card--enterprise lesson-teacher-panel assignment-studio" style={{ marginTop: '1.5rem' }}>

@@ -235,6 +235,9 @@ function normalizeRemoteLesson(lesson) {
     audioUrl: metadata.audioUrl || '',
     imageName: metadata.imageName || '',
     imageUrl: metadata.imageUrl || '',
+    // Bài luyện đọc / bảng phiên âm (import HSK) — không có video hay câu hỏi chấm điểm.
+    readingItems: Array.isArray(metadata.readingItems) ? metadata.readingItems : [],
+    pinyinTable: metadata.pinyinTable || '',
     exercises
   };
 }

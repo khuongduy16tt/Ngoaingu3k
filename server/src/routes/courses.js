@@ -75,6 +75,9 @@ function buildLessonContent(lesson, position) {
     audioUrl: lesson?.audioUrl || '',
     imageName: lesson?.imageName || '',
     imageUrl: lesson?.imageUrl || '',
+    // Bài luyện đọc / bảng phiên âm (import HSK) — giữ lại khi giáo viên đăng lại.
+    readingItems: Array.isArray(lesson?.readingItems) ? lesson.readingItems : [],
+    pinyinTable: lesson?.pinyinTable || '',
     exercises
   };
 }
@@ -176,6 +179,8 @@ function normalizeLessonQuestion(question, index) {
     sampleAnswer: type === 'writing' ? String(question?.sampleAnswer || '').trim() : '',
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),
+    imageHanzi: String(question?.imageHanzi || '').trim(),
+    audioPending: Boolean(question?.audioPending),
     explanation: String(question?.explanation || question?.note || '').trim()
   };
 }
