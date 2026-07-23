@@ -301,6 +301,18 @@ async function main() {
   const chapters = tabs.map((t) => parseTab(t, wb.Sheets[t]));
   const course = buildCourse(chapters);
 
+  // Gắn video (từ Drive folder) cho mọi bài học.
+  let videoMap = {};
+  try {
+    videoMap = JSON.parse(readFileSync(path.resolve(__dirname, 'videomap.json'), 'utf8'));
+  } catch {
+    console.warn('Chưa có videomap.json — chạy fetch-videos.mjs trước để gắn video.');
+  }
+  assignVideos(course, videoMap);
+  const withVideo = course.sections.reduce((s, sec) => s + sec.lessons.filter((l) => l.videoUrl).length, 0);
+  const totalL = course.sections.reduce((s, sec) => s + sec.lessons.length, 0);
+  console.log(`Video: ${withVideo}/${totalL} bài học có video`);
+
   // Summary
   let totalLessons = 0, totalQ = 0, totalTF = 0, totalMC = 0, totalListen = 0, totalReading = 0, totalPinyin = 0, totalHanzi = 0, noQ = 0;
   console.log(`\n=== ${course.title} (${course.sections.length} chương) ===`);
@@ -343,10 +355,25 @@ async function main() {
   await writeCourse(supabase, course);
 }
 
+// Gắn video cho MỌI bài học: round-robin video của chương (theo Drive folder),
+// chương nào không có (VD Chủ đề 2) thì lấy từ pool chung ("thêm bừa" theo yêu cầu).
+function assignVideos(course, videoMap) {
+  const toUrl = (id) => `https://drive.google.com/file/d/${id}/view`;
+  const pool = Object.values(videoMap).flat();
+  let g = 0;
+  for (const section of course.sections) {
+    const vids = videoMap[section.title] && videoMap[section.title].length ? videoMap[section.title] : null;
+    section.lessons.forEach((lesson, i) => {
+      const id = vids ? vids[i % vids.length] : pool.length ? pool[g++ % pool.length] : '';
+      lesson.videoUrl = id ? toUrl(id) : '';
+    });
+  }
+}
+
 function buildLessonContent(lesson, position) {
   return {
     version: LESSON_CONTENT_VERSION,
-    videoUrl: '',
+    videoUrl: lesson.videoUrl || '',
     note: lesson.note || '',
     lessonNumber: String(position),
     exerciseType: lesson.exerciseType || 'Bài học',
@@ -368,7 +395,7 @@ async function writeCourse(supabase, course) {
   const coursePayload = {
     slug: course.slug,
     title: course.title,
-    description: 'Khóa HSK 1 vỡ lòng: ngữ âm và 15 chủ đề luyện tập (trắc nghiệm, đúng/sai, luyện đọc, bảng phiên âm).',
+    description: 'Khóa HSK 1 vỡ lòng: ngữ âm và 15 chủ đề — mỗi bài có video bài giảng kèm luyện tập (trắc nghiệm, đúng/sai, luyện đọc, bảng phiên âm).',
     price: 0,
     status: 'draft',
     teacher_id: OWNER_TEACHER_ID,
@@ -405,7 +432,7 @@ async function writeCourse(supabase, course) {
       id: randomUUID(),
       chapter_id: chapter.id,
       title: lesson.title,
-      video_url: null,
+      video_url: lesson.videoUrl || null,
       content: buildLessonContent(lesson, li + 1),
       position: li + 1,
       is_preview: chapterPos === 1 && li === 0

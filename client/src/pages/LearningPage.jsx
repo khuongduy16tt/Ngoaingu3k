@@ -1018,7 +1018,7 @@ export function LessonReadingPanel({ lesson }) {
   );
 }
 
-export function LessonExercisePreview({ lesson, isTeacher }) {
+export function LessonExercisePreview({ lesson, isTeacher, onSubmitted }) {
   const questions = useMemo(
     () => (Array.isArray(lesson?.exercises) ? lesson.exercises : []).map(normalizeLessonQuestion),
     [lesson?.exercises]
@@ -1148,7 +1148,15 @@ export function LessonExercisePreview({ lesson, isTeacher }) {
               Làm lại
             </button>
           ) : (
-            <button type="button" className="button" onClick={() => setSubmitted(true)} disabled={!canSubmit}>
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setSubmitted(true);
+                onSubmitted?.();
+              }}
+              disabled={!canSubmit}
+            >
               Kiểm tra đáp án
             </button>
           )}
@@ -2430,6 +2438,13 @@ export default function LearningPage() {
     }
   }
 
+  // Học viên nộp bài luyện của bài học → tự động đánh dấu hoàn thành (nếu chưa).
+  function handleLessonExercisesSubmitted() {
+    if (!isCurrentLessonCompleted && !progressSaving) {
+      void handleMarkLessonComplete();
+    }
+  }
+
   async function handleSubmitAssignment(assignment, answers, result) {
     setAssignmentSavingId(assignment.id);
     try {
@@ -2692,31 +2707,31 @@ export default function LearningPage() {
                 )}
               </div>
 
+              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
+
               {isReadingLesson(currentLesson) ? (
                 <LessonReadingPanel lesson={currentLesson} />
               ) : null}
 
-              {!isReadingLesson(currentLesson) || isTeacher ? (
-                <>
-                  <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
-
-                  {isTeacher ? (
-                    <VideoQuestionEditor
-                      lesson={currentLesson}
-                      saving={lessonQuestionSaving}
-                      status={lessonQuestionStatus}
-                      onSave={handleSaveVideoQuestions}
-                    />
-                  ) : currentLessonExercises.length ? (
-                    <LessonExercisePreview lesson={currentLesson} isTeacher={isTeacher} />
-                  ) : (
-                    <section className="content-card content-card--enterprise video-question-empty">
-                      <span className="eyebrow">Bài luyện</span>
-                      <h2>Chưa có câu hỏi cho video này</h2>
-                      <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
-                    </section>
-                  )}
-                </>
+              {isTeacher ? (
+                <VideoQuestionEditor
+                  lesson={currentLesson}
+                  saving={lessonQuestionSaving}
+                  status={lessonQuestionStatus}
+                  onSave={handleSaveVideoQuestions}
+                />
+              ) : currentLessonExercises.length ? (
+                <LessonExercisePreview
+                  lesson={currentLesson}
+                  isTeacher={isTeacher}
+                  onSubmitted={handleLessonExercisesSubmitted}
+                />
+              ) : !isReadingLesson(currentLesson) ? (
+                <section className="content-card content-card--enterprise video-question-empty">
+                  <span className="eyebrow">Bài luyện</span>
+                  <h2>Chưa có câu hỏi cho video này</h2>
+                  <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
+                </section>
               ) : null}
 
               {isTeacher ? (

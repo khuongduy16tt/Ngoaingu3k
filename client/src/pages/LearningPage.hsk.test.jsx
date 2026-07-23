@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { LessonReadingPanel, LessonExercisePreview } from './LearningPage';
 
 // Kiểm tra các thành phần render nội dung khóa HSK vỡ lòng nhập từ Google Sheet:
@@ -76,5 +76,34 @@ describe('LessonExercisePreview', () => {
     expect(screen.getByText('Đúng')).toBeInTheDocument();
     expect(screen.getByText('Sai')).toBeInTheDocument();
     expect(screen.getByText(/audio phát âm sẽ được cập nhật/)).toBeInTheDocument(); // câu nghe chờ audio
+  });
+
+  it('calls onSubmitted (auto mark complete) after answering all and submitting', () => {
+    const onSubmitted = vi.fn();
+    const lesson = {
+      id: 'l2',
+      exerciseType: 'Luyện tập',
+      exercises: [
+        {
+          id: 'q1',
+          type: 'multiple_choice',
+          prompt: 'Câu 1?',
+          options: [
+            { label: 'A', text: 'Đáp án A' },
+            { label: 'B', text: 'Đáp án B' }
+          ],
+          correctAnswer: 'A'
+        },
+        { id: 'q2', type: 'true_false', prompt: 'Nhận định?', correctAnswer: 'true' }
+      ]
+    };
+    render(<LessonExercisePreview lesson={lesson} isTeacher={false} onSubmitted={onSubmitted} />);
+
+    // trả lời hết rồi nộp
+    fireEvent.click(screen.getByText('A. Đáp án A'));
+    fireEvent.click(screen.getByText('Đúng'));
+    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra đáp án' }));
+
+    expect(onSubmitted).toHaveBeenCalledTimes(1);
   });
 });
