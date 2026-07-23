@@ -69,6 +69,16 @@ export function readAllTeacherManagedCourses() {
   }
 }
 
+// Chuẩn hoá hiển thị tên khoá HSK: luôn tách "HSK" và cấp độ thành "HSK 3" thay
+// vì "HSK3" (theo brief "tách HSK và cấp độ, VD: HSK 3"). Chỉ format ở tầng hiển
+// thị khi đọc dữ liệu — KHÔNG áp dụng cho payload ghi lên database.
+export function formatCourseTitle(title) {
+  return String(title || '')
+    .replace(/HSK\s*(\d+)/gi, 'HSK $1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function normalizeManagedCourse(course, fallbackIndex = 0) {
   const priceValue = normalizeVndAmount(course.priceValue ?? course.price);
   const slug = course.slug || course.id || createCourseSlug(course.title || `khoa-hoc-${fallbackIndex + 1}`);
@@ -79,7 +89,7 @@ function normalizeManagedCourse(course, fallbackIndex = 0) {
     id: course.id || slug,
     databaseId: course.databaseId || course.id || slug,
     slug,
-    title: course.title || 'Khóa học chưa đặt tên',
+    title: formatCourseTitle(course.title || 'Khóa học chưa đặt tên'),
     level: course.level || 'Nền tảng',
     priceValue,
     price: formatPrice(priceValue),
@@ -286,7 +296,7 @@ function normalizeCourse(course, fallbackIndex = 0) {
     id: slug,
     databaseId: course.databaseId || course.id || slug,
     slug,
-    title: course.title || 'Khóa học chưa đặt tên',
+    title: formatCourseTitle(course.title || 'Khóa học chưa đặt tên'),
     level: course.level || defaultLevel(fallbackIndex),
     priceValue,
     price: formatPrice(priceValue),

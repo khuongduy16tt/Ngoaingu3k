@@ -71,7 +71,8 @@ const learningPathSteps = [
 const reasonColumns = [
   {
     title: 'Lộ trình cá nhân hóa',
-    description: 'Mỗi học viên theo dõi tiến độ riêng, luôn biết mình đang ở đâu và cần học gì tiếp theo.',
+    description:
+      'Chương trình học được thiết kế theo trình độ, mục tiêu và tiến độ của từng học viên, bảo đảm định hướng học tập rõ ràng trong suốt quá trình.',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 18c4-8 8-8 8-14M20 18c-4-8-8-8-8-14" />
@@ -82,8 +83,8 @@ const reasonColumns = [
     ),
   },
   {
-    title: 'Giảng viên đồng hành sát sao',
-    description: 'Mỗi khóa học gắn với một giảng viên phụ trách, theo sát bài tập và phản hồi trực tiếp.',
+    title: 'Mentor đồng hành 24/7',
+    description: 'Mentor theo dõi quá trình học, đánh giá kết quả và đưa ra phản hồi kịp thời.',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="8" r="3.4" />
@@ -93,7 +94,8 @@ const reasonColumns = [
   },
   {
     title: 'Theo dõi tiến độ minh bạch',
-    description: 'Giáo viên và học viên cùng xem được tiến độ học tập theo thời gian thực, không mập mờ.',
+    description:
+      'Tiến độ học tập được cập nhật liên tục với hệ thống đánh giá rõ ràng, giúp giảng viên và học viên dễ dàng theo dõi và điều chỉnh lộ trình.',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 20V9M11 20V4M18 20v-6" />
@@ -119,26 +121,26 @@ const instructorShowcase = [
 const testimonialCards = [
   {
     name: 'Thu Hà',
-    role: 'Nhân viên văn phòng',
+    role: 'Nhân viên văn phòng, công ty xuất nhập khẩu',
     course: 'Viết email và báo cáo công sở',
     quote:
       'Khóa Viết email và báo cáo công sở giúp mình tự tin gửi email cho sếp nước ngoài mà không phải nhờ ai xem lại nữa.',
   },
   {
     name: 'Anh Duy',
-    role: 'Sinh viên năm 3',
+    role: 'Sinh viên năm 3, ĐH Ngoại thương',
     course: 'Tự tin giao tiếp và thuyết trình',
     quote: 'Học xong khóa giao tiếp mình dám bắt chuyện với người nước ngoài, không còn run như trước.',
   },
   {
     name: 'Bảo Ngọc',
-    role: 'Nhân sự doanh nghiệp',
+    role: 'Chuyên viên nhân sự, doanh nghiệp FDI',
     course: 'Giao tiếp doanh nghiệp',
     quote: 'Lộ trình rõ ràng theo từng tuần, bài tập vừa sức nên mình duy trì học đều đặn suốt khóa.',
   },
   {
     name: 'Hữu Phát',
-    role: 'Người đi làm',
+    role: 'Kỹ sư phần mềm, chuẩn bị đi công tác nước ngoài',
     course: 'TOEIC Fast Track 650+',
     quote: 'Giảng viên chữa bài kỹ, chỉ đúng lỗi mình hay mắc phải thay vì chấm điểm chung chung.',
   },
@@ -315,9 +317,9 @@ export default function HomePage() {
 
       <div className="page home-page home-page--new">
         <section className="hero-metrics">
-          <StatPill value="15k+" label="Học viên ACTIVE" />
-          <StatPill value="98%" label="Tỷ lệ hài lòng" accent />
-          <StatPill value="24/7" label="Mentor support" />
+          <StatPill value="15.000+" label="Số lượng học viên" />
+          <StatPill value="98.2%" label="Tỷ lệ hài lòng" accent />
+          <StatPill value="24/7" label="Hỗ trợ" />
         </section>
 
         <section className="about-section">
@@ -349,8 +351,8 @@ export default function HomePage() {
                 <img src="/images/imported/8.3_Trang-chu_GT-TT.webp" alt="Giờ học tại Ngoaingu3k" loading="lazy" />
               </div>
               <div className="path-section__body">
-                <span className="section-eyebrow">Lộ trình học</span>
-                <h2>5 nhóm lộ trình, mỗi nhóm một mục tiêu riêng</h2>
+                <span className="section-eyebrow section-eyebrow--lg">Lộ trình học</span>
+                <h2>5 nhóm lộ trình với mục tiêu riêng biệt</h2>
                 <ol className="path-list">
                   {learningPathSteps.map((step) => (
                     <li key={step.number} className="path-list__item">
@@ -456,7 +458,7 @@ export default function HomePage() {
                 <p>Môi trường học tập cực kỳ hiện đại, bài giảng sinh động không gây nhàm chán.</p>
                 <div className="story-section__author">
                   <strong>Quốc Trung</strong>
-                  <span>Software Engineer</span>
+                  <span>Kỹ sư phần mềm, công ty công nghệ</span>
                 </div>
               </div>
             </div>
@@ -486,8 +488,6 @@ export default function HomePage() {
                 <span className="teacher-chip__avatar">
                   <img src={teacher.photo} alt={teacher.name} loading="lazy" />
                 </span>
-                <strong>{teacher.name}</strong>
-                <span>{teacher.subject}</span>
               </article>
             ))}
           </div>
@@ -504,7 +504,6 @@ export default function HomePage() {
           <section className="courses-section">
             <div className="courses-section__head">
               <span className="section-eyebrow">Khóa học nổi bật</span>
-              <h2>Nhìn phát hiểu ngay có gì để học</h2>
             </div>
             <div className="courses-grid">
               {featuredCourses.slice(0, 3).map((course, index) => (

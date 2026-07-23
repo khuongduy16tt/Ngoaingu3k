@@ -113,7 +113,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
       ) : null}
 
       <button type="submit" className="button auth-submit" disabled={status === 'submitting'}>
-        {status === 'submitting' ? 'Đang gửi...' : 'Đăng ký tư vấn'}
+        {status === 'submitting' ? 'Đang gửi...' : 'ĐĂNG KÝ NHẬN ƯU ĐÃI'}
       </button>
     </form>
   );
