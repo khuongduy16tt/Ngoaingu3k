@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { confirmCoursePayment, getCourseCatalog, getOwnedCourseIds, purchaseCourse } from '../lib/courseService';
+import {
+  confirmCoursePayment,
+  getCourseCatalog,
+  getOwnedCourseIds,
+  isHskCourse,
+  purchaseCourse
+} from '../lib/courseService';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -37,11 +43,6 @@ function MarketplaceStat({ label, value, note }) {
       <small>{note}</small>
     </article>
   );
-}
-
-function isHskCourse(course) {
-  const haystack = `${course.title || ''} ${course.category || ''} ${course.language || ''}`.toLowerCase();
-  return haystack.includes('hsk') || haystack.includes('tiếng trung');
 }
 
 // Danh mục chỉ ~10-20 khóa nên không cần bộ lọc/sắp xếp/phân trang — sắp xếp

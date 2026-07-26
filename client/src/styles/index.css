@@ -14,3 +14,6 @@
 
 /* 5. HSK campaign hero section */
 @import './pages/hsk-campaign.css';
+
+/* 6. Header dựng lại 1:1 theo ngoaingu3k.com (nạp cuối để override) */
+@import './components/site-header.css';

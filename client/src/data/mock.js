@@ -1,13 +1,30 @@
 export const roles = ['student', 'teacher', 'admin'];
 
+/* `role` = chỉ hiện với đúng vai đó sau khi đăng nhập.
+   `audience` = danh sách đối tượng thấy mục này, trong đó 'guest' là khách
+   chưa đăng nhập. Khách và học sinh thấy 2 mục khóa học tách theo ngôn ngữ
+   (họ chỉ đi mua/học một hệ); giáo viên và admin thấy 1 mục gộp vì họ quản
+   lý cả 2 hệ cùng lúc. */
 export const navLinks = [
   { label: 'Trang chủ', to: '/home' },
-  { label: 'Khóa học', to: '/courses' },
+  {
+    label: 'Khóa học tiếng Anh',
+    to: '/courses#khoa-hoc-ielts',
+    courseGroup: 'ielts',
+    audience: ['guest', 'student']
+  },
+  {
+    label: 'Khóa học tiếng Trung',
+    to: '/courses#khoa-hoc-hsk',
+    courseGroup: 'hsk',
+    audience: ['guest', 'student']
+  },
+  { label: 'Khóa học', to: '/courses', courseGroup: 'all', audience: ['teacher', 'admin'] },
   { label: 'Phòng học', to: '/learn' },
   { label: 'Phòng thi', to: '/exams' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'teacher' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'admin' },
-  { label: 'Bảng điều khiển', to: '/dashboard/student', role: 'student' },
+  { label: 'Bài tập', to: '/dashboard/student', role: 'student' },
   { label: 'Bảng điều khiển', to: '/dashboard/teacher', role: 'teacher' },
   { label: 'Bảng điều khiển', to: '/dashboard/admin', role: 'admin' }
 ];

@@ -49,7 +49,6 @@
   }
 }
 
-.topbar,
 .footer,
 .page,
 .section {
@@ -58,29 +57,6 @@
   z-index: 1;
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  padding: 0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  backdrop-filter: blur(18px);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
-}
-
-.topbar--enterprise {
-  /* removed overflow: hidden to allow dropdown to show */
-  position: relative;
-}
-
-.topbar-inner,
 .footer-inner {
   width: min(1440px, calc(100% - 2rem));
   margin: 0 auto;
@@ -88,10 +64,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.topbar-inner {
-  padding: 1rem 0;
 }
 
 .footer-inner {
@@ -151,26 +123,6 @@
   pointer-events: none;
 }
 
-.brand {
-  font-size: 1.08rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-}
-
-.brand-subtitle {
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.72rem;
-  justify-content: center;
-  flex: 1;
-}
-
-.nav-link,
 .text-control,
 .role-switch,
 .catalog-filters button,
@@ -182,13 +134,6 @@
   color: var(--text);
 }
 
-.nav-link {
-  padding: 0.35rem 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-}
-
-.nav-link:hover,
 .text-control:hover,
 .google-button:hover,
 .hero-slide-tabs button:hover,
@@ -196,119 +141,6 @@
 .lesson-item:hover {
   transform: translateY(-1px);
   color: var(--accent);
-}
-
-.nav-dropdown {
-  position: relative;
-  display: inline-flex;
-}
-
-.nav-dropdown__trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.nav-dropdown__caret {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.3rem;
-  height: 1.3rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.nav-dropdown__caret svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.2s ease;
-}
-
-.nav-dropdown.is-open .nav-dropdown__caret svg {
-  transform: rotate(180deg);
-}
-
-.nav-dropdown__menu {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: 0;
-  z-index: 200;
-  min-width: 240px;
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.6rem;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 1rem;
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  animation: dropdownFadeIn 0.2s ease-out forwards;
-  transform-origin: top left;
-}
-
-.nav-dropdown__item {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.7rem;
-  color: var(--text);
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.nav-dropdown__item strong {
-  font-size: 0.92rem;
-}
-
-.nav-dropdown__item span {
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-
-.nav-dropdown__item:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-  transform: translateX(4px);
-}
-
-.nav-dropdown__menu--courses {
-  min-width: 280px;
-}
-
-.nav-dropdown__search {
-  padding: 0.6rem 0.75rem;
-  margin-bottom: 0.2rem;
-  border: 1px solid var(--border);
-  border-radius: 0.7rem;
-  background: var(--ghost-bg);
-  color: var(--text);
-  font-size: 0.86rem;
-}
-
-.nav-dropdown__empty {
-  margin: 0;
-  padding: 0.65rem 0.75rem;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  min-height: 46px;
 }
 
 .text-control,
@@ -371,8 +203,7 @@
   border-color: var(--border);
 }
 
-.theme-toggle,
-.toolbar .text-control {
+.theme-toggle {
   color: var(--muted);
 }
 

@@ -229,46 +229,9 @@ small,
   gap: 18px;
 }
 
-/* Topbar dạng pill nổi (SaaS cao cấp): header ngoài chỉ là lớp định vị
-   trong suốt, mặt kính tối (blur + rgba đen) nằm ở .topbar-inner để có thể
-   nổi trên ảnh hero phía sau mà không dính mép viewport. */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  width: 100%;
-  padding: 16px 20px 0;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-
-.topbar-inner,
 .footer-inner {
   width: min(var(--page-max), calc(100% - var(--page-gutter)));
   margin: 0 auto;
-}
-
-.topbar-inner {
-  min-height: 72px;
-  padding: 12px 0;
-  gap: 20px;
-}
-
-.topbar .topbar-inner {
-  position: relative;
-  width: min(1100px, 100%);
-  min-height: 72px;
-  padding: 10px 22px;
-  gap: 18px;
-  border-radius: 999px;
-  background: rgba(8, 12, 8, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .brand-block {
@@ -296,42 +259,11 @@ small,
   image-rendering: auto;
 }
 
-.topbar .brand-mark--image {
-  width: 44px;
-  height: 44px;
-}
-
 .footer .brand-mark--image {
   width: 176px;
   height: 126px;
 }
 
-.brand {
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.brand-subtitle {
-  max-width: 250px;
-  color: var(--muted);
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.topbar .brand-copy {
-  display: none;
-}
-
-.nav {
-  flex: 1 1 auto;
-  justify-content: center;
-  gap: 22px;
-}
-
-.nav-link,
 .text-control,
 .role-switch,
 .catalog-filters button,
@@ -347,19 +279,6 @@ small,
     transform 0.16s ease;
 }
 
-.nav-link {
-  padding: 10px 0;
-  border: 0 !important;
-  border-radius: 0 !important;
-  color: rgba(255, 255, 255, 0.78);
-  background: transparent !important;
-  font-size: 15px;
-  font-weight: 750;
-  line-height: 1;
-}
-
-/* Active/hover chỉ đổi màu chữ, không border-bottom — pha accent với trắng
-   để chữ luôn đủ tương phản trên mặt kính tối bất kể theme sáng/tối. */
 .text-control:hover,
 .google-button:hover,
 .hero-slide-tabs button:hover,
@@ -369,26 +288,6 @@ small,
   background: transparent !important;
   border-color: transparent !important;
   transform: none;
-}
-
-.topbar .nav-link:hover,
-.topbar .nav-link:focus-visible {
-  color: #ffffff;
-  background: transparent !important;
-  border-color: transparent !important;
-  transform: none;
-}
-
-.nav-link.is-active {
-  color: color-mix(in srgb, var(--accent) 70%, white 30%);
-  background: transparent !important;
-  border-color: transparent !important;
-  transform: none;
-}
-
-.toolbar {
-  gap: 10px;
-  min-height: 0;
 }
 
 .text-control {
@@ -461,94 +360,6 @@ small,
   color: var(--accent);
 }
 
-/* Cụm nút đăng nhập / CTA trong topbar pill: ghost bán trong suốt + solid
-   nền accent, thay cho 2 link text phẳng trước đây. */
-.topbar-auth {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 18px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    transform 0.16s ease;
-}
-
-.topbar-auth--ghost {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-}
-
-.topbar-auth--ghost:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
-}
-
-/* --accent đảo độ sáng giữa 2 theme (light 52% / dark 75%) nên chữ trắng cứng
-   chỉ đọc được ở light mode; sang dark mode thành trắng trên xanh nhạt (~2:1).
-   Dùng --button-text (trắng ở light, tối ở dark) cho đúng cặp màu. */
-.topbar-auth--solid {
-  color: var(--button-text);
-  background: var(--accent);
-  border: 1px solid transparent;
-}
-
-/* hover cũng phải đổi chiều: light mode tối đi, dark mode sáng lên — nếu chỉ
-   trộn thêm đen thì dark mode (chữ tối) sẽ mất tương phản. */
-.topbar-auth--solid:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
-.nav__mobile-auth {
-  display: none;
-}
-
-.topbar-menu-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-}
-
-.topbar-menu-toggle svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Mục có submenu (Khóa học) dùng icon "+" nhỏ cạnh chữ thay vì caret; xoay
-   45deg thành "×" khi mở, giữ đúng phong cách "Solutions+" của SaaS site. */
-.nav-dropdown__caret {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.nav-dropdown__trigger .nav-link:hover ~ .nav-dropdown__caret,
-.nav-dropdown__caret:hover {
-  color: #ffffff;
-}
-
-.nav-dropdown.is-open .nav-dropdown__caret svg {
-  transform: rotate(45deg);
-}
-
 .theme-icon {
   width: 12px;
   height: 12px;
@@ -558,62 +369,8 @@ small,
   stroke-linejoin: round;
 }
 
-/* Topbar pill ở light mode: mặt kính tối trước đây không đổi theo theme nên
-   nhìn giống hệt dark mode — chuyển sang mặt kính sáng, chữ/icon tối, để 2
-   theme phân biệt được rõ ngay cả khi topbar đang nổi trên ảnh hero. */
-:root[data-theme='light'] .topbar .topbar-inner {
-  background: rgba(255, 255, 255, 0.86);
-  border-color: rgba(20, 20, 15, 0.1);
-  box-shadow: 0 20px 45px rgba(20, 20, 15, 0.18);
-}
-
-:root[data-theme='light'] .nav-link {
-  color: rgba(20, 20, 15, 0.72);
-}
-
-:root[data-theme='light'] .topbar .nav-link:hover,
-:root[data-theme='light'] .topbar .nav-link:focus-visible {
-  color: #000000;
-}
-
-:root[data-theme='light'] .nav-link.is-active {
-  color: color-mix(in srgb, var(--accent) 85%, black 10%);
-}
-
-:root[data-theme='light'] .theme-toggle__track {
-  background: rgba(20, 20, 15, 0.1);
-  border-color: rgba(20, 20, 15, 0.2);
-}
-
-:root[data-theme='light'] .theme-toggle:hover .theme-toggle__track {
-  border-color: rgba(20, 20, 15, 0.32);
-}
-
 :root[data-theme='light'] .theme-toggle__thumb {
   border: 1px solid rgba(20, 20, 15, 0.12);
-}
-
-:root[data-theme='light'] .topbar-auth--ghost {
-  color: rgba(20, 20, 15, 0.85);
-  background: rgba(20, 20, 15, 0.07);
-  border-color: rgba(20, 20, 15, 0.18);
-}
-
-:root[data-theme='light'] .topbar-auth--ghost:hover {
-  background: rgba(20, 20, 15, 0.13);
-}
-
-:root[data-theme='light'] .topbar-menu-toggle {
-  color: rgba(20, 20, 15, 0.78);
-}
-
-:root[data-theme='light'] .nav-dropdown__caret {
-  color: rgba(20, 20, 15, 0.65);
-}
-
-:root[data-theme='light'] .nav-dropdown__trigger .nav-link:hover ~ .nav-dropdown__caret,
-:root[data-theme='light'] .nav-dropdown__caret:hover {
-  color: #000000;
 }
 
 .button,
@@ -3099,16 +2856,16 @@ textarea:focus-visible {
   }
 
   /* ─── Vùng chạm tối thiểu 44px ───────────────────────────────────────────
-     Nút gạt theme (46×25) và hamburger (34×34) nhỏ hơn ngưỡng chạm khuyến
+     Nút gạt theme (46×25) và hamburger (40×40) nhỏ hơn ngưỡng chạm khuyến
      nghị. Nới vùng chạm bằng pseudo-element để không phải phóng to phần
-     nhìn thấy (giữ nguyên tỉ lệ thanh menu pill). */
+     nhìn thấy (giữ nguyên tỉ lệ thanh header). */
   .theme-toggle,
-  .topbar-menu-toggle {
+  .site-header__burger {
     position: relative;
   }
 
   .theme-toggle::after,
-  .topbar-menu-toggle::after,
+  .site-header__burger::after,
   .testimonial-carousel__dot::after,
   .import-lesson-pill__remove::after {
     content: '';
@@ -3147,94 +2904,6 @@ textarea:focus-visible {
   .page {
     padding: 20px 0 42px;
     gap: 20px;
-  }
-
-  .topbar {
-    position: sticky;
-    padding: 12px 14px 0;
-  }
-
-  .topbar .topbar-inner {
-    min-height: 56px;
-    padding: 8px 14px;
-  }
-
-  .topbar .brand-mark--image {
-    width: 36px;
-    height: 36px;
-  }
-
-  /* Menu pill thu gọn thành hamburger: nav + auth links chuyển vào panel
-     kính tối đổ xuống ngay dưới pill khi bấm nút hamburger. */
-  .topbar-menu-toggle {
-    display: inline-flex;
-  }
-
-  /* Dồn nút gạt theme / avatar / hamburger về sát mép phải thanh pill. Không
-     có 2 dòng này thì .nav bị display:none làm toolbar không còn bị đẩy sang
-     phải, cụm nút nằm lửng giữa thanh và chừa ~90px trống bên phải. */
-  .topbar .toolbar {
-    justify-content: flex-end;
-    margin-left: auto;
-  }
-
-  .toolbar .topbar-auth {
-    display: none;
-  }
-
-  .nav {
-    display: none;
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 2px;
-    padding: 12px;
-    background: rgb(10, 13, 10);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
-  }
-
-  :root[data-theme='light'] .nav {
-    background: rgb(253, 253, 251);
-    border-color: rgba(20, 20, 15, 0.12);
-    box-shadow: 0 20px 45px rgba(20, 20, 15, 0.2);
-  }
-
-  .nav.nav--open {
-    display: flex;
-  }
-
-  .nav .nav-link {
-    padding: 12px 10px;
-  }
-
-  .nav .nav-dropdown {
-    display: flex;
-  }
-
-  .nav .nav-dropdown__trigger {
-    flex: 1 1 auto;
-    justify-content: space-between;
-  }
-
-  .nav__mobile-auth {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
-  }
-
-  :root[data-theme='light'] .nav__mobile-auth {
-    border-top-color: rgba(20, 20, 15, 0.14);
-  }
-
-  .nav__mobile-auth .topbar-auth {
-    flex: 1 1 0;
   }
 
   .hero--new {
@@ -3411,22 +3080,9 @@ textarea:focus-visible {
     height: 69px;
   }
 
-  .topbar .brand-mark--image {
-    width: 96px;
-    height: 69px;
-  }
-
   .footer .brand-mark--image {
     width: 148px;
     height: 106px;
-  }
-
-  .brand {
-    font-size: 14px;
-  }
-
-  .brand-subtitle {
-    display: none;
   }
 
   .hero__visual {

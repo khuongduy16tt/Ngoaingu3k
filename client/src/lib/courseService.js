@@ -21,6 +21,14 @@ const LESSON_CONTENT_VERSION = 'ngoaingu3k.lesson.v1';
 
 export { PURCHASED_COURSES_STORAGE_KEY };
 
+/* Phân loại khóa theo hệ ngôn ngữ. Dữ liệu không có cột "language" đáng tin
+   (khóa nhập từ file thường bỏ trống) nên dò từ khóa trên title/category —
+   dùng chung cho cả trang danh mục lẫn menu header để 2 chỗ không lệch nhau. */
+export function isHskCourse(course) {
+  const haystack = `${course.title || ''} ${course.category || ''} ${course.language || ''}`.toLowerCase();
+  return haystack.includes('hsk') || haystack.includes('tiếng trung');
+}
+
 export function readTeacherManagedCourses(teacherId = 'local') {
   try {
     const rawValue = localStorage.getItem(`${TEACHER_MANAGED_COURSES_KEY}:${teacherId}`);

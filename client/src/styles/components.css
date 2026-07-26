@@ -5074,17 +5074,6 @@ button:disabled {
     width: min(100% - 1rem, 1440px);
   }
 
-  .topbar {
-    position: static;
-  }
-
-  .nav,
-  .toolbar {
-    width: 100%;
-    justify-content: start;
-    flex-wrap: wrap;
-  }
-
   .marketplace-card__footer,
   .marketplace-owned-strip__head {
     flex-direction: column;
@@ -5265,7 +5254,6 @@ button:disabled {
   }
 }
 
-:root[data-theme='light'] .topbar,
 :root[data-theme='light'] .footer--enterprise,
 :root[data-theme='light'] .hero--new,
 :root[data-theme='light'] .hero-panel-enterprise,

@@ -6,7 +6,8 @@ import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
 import { ConsultationFab } from '../components/ConsultationFab';
-import { getCourseCatalog } from '../lib/courseService';
+import { ConsultationPopup } from '../components/ConsultationPopup';
+import { getCourseCatalog, isHskCourse } from '../lib/courseService';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
@@ -14,6 +15,10 @@ export function AppLayout({ children }) {
   // The exam room needs full focus: hide the topbar/footer/floating widgets
   // while a student is inside /exam/:examId.
   const immersive = location.pathname.startsWith('/exam/');
+  // Popup tư vấn lặp 10s chỉ chạy ở trang chủ — các trang còn lại là nơi
+  // người dùng đang học/thi/thao tác, bị cắt ngang mỗi 10s là hỏng việc.
+  // ('/' chỉ tồn tại 1 nhịp trước khi redirect sang /home.)
+  const onHomePage = location.pathname === '/home' || location.pathname === '/';
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -43,6 +48,7 @@ export function AppLayout({ children }) {
       <Footer />
       <FloatingTestButton />
       <ConsultationFab />
+      {onHomePage ? <ConsultationPopup /> : null}
       <FloatingContactButtons />
       <div className="background-accent background-accent--blue" aria-hidden="true" />
       <div className="background-accent background-accent--violet" aria-hidden="true" />
@@ -299,6 +305,9 @@ function UserAvatar() {
 }
 
 // ─── Courses nav dropdown ──────────────────────────────────────────────────────
+// Submenu của mục "Khóa học" gộp (giáo viên/admin): trỏ tới 2 khu vực trên
+// trang danh mục. Hai mục tách theo ngôn ngữ thì liệt kê thẳng khóa học của
+// hệ đó thay cho 2 link này.
 const coursesNavSubmenu = [
   {
     to: '/courses#khoa-hoc-ielts',
@@ -312,9 +321,23 @@ const coursesNavSubmenu = [
   }
 ];
 
+const NAV_DROPDOWN_MAX_COURSES = 6;
 const NAV_DROPDOWN_CLOSE_DELAY_MS = 300;
+// Phải khớp với breakpoint drawer trong site-header.css.
+const MOBILE_NAV_QUERY = '(max-width: 1240px)';
 
-function CoursesNavItem({ label, onNavigate }) {
+// Chevron-down thay cho icon Font Awesome mà trang thật dùng (10×8px, cách
+// chữ 3px — cùng kích thước với .caret::after bên đó).
+function CaretIcon() {
+  return (
+    <svg className="site-menu__caret" viewBox="0 0 10 8" aria-hidden="true">
+      <path d="M1 2.2 5 6l4-3.8" />
+    </svg>
+  );
+}
+
+function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   // null = chưa tải; danh mục chỉ ~10-20 khóa nên tải 1 lần khi mở dropdown
@@ -379,89 +402,147 @@ function CoursesNavItem({ label, onNavigate }) {
     onNavigate?.();
   }
 
+  // Mục gộp nhận cả danh mục; 2 mục tách chỉ nhận khóa của đúng hệ ngôn ngữ
+  // của mình — áp cho cả ô tìm kiếm để không trả về khóa của hệ bên kia.
+  const groupCourses = (courses || []).filter((course) => {
+    if (group === 'ielts') return !isHskCourse(course);
+    if (group === 'hsk') return isHskCourse(course);
+    return true;
+  });
+
   const normalizedSearch = search.trim().toLowerCase();
   const searchResults = normalizedSearch
-    ? (courses || [])
+    ? groupCourses
         .filter((course) => course.title.toLowerCase().includes(normalizedSearch))
-        .slice(0, 6)
+        .slice(0, NAV_DROPDOWN_MAX_COURSES)
     : [];
 
+  // Hash của link cha ('#khoa-hoc-ielts'). NavLink chỉ khớp theo pathname nên
+  // 2 mục tách sẽ cùng sáng trên /courses — phải tự so cả hash.
+  const targetHash = to.includes('#') ? `#${to.split('#')[1]}` : '';
+  const isActive =
+    !muteActive &&
+    location.pathname.startsWith('/courses') &&
+    (!targetHash || location.hash === targetHash);
+
+  function renderDefaultItems() {
+    if (group === 'all') {
+      return coursesNavSubmenu.map((item) => (
+        <Link key={item.to} to={item.to} className="site-menu__sub-link" role="menuitem" onClick={handleSelect}>
+          {item.title}
+          <span>{item.subtitle}</span>
+        </Link>
+      ));
+    }
+
+    if (courses === null) {
+      return <p className="site-menu__empty">Đang tải khóa học...</p>;
+    }
+
+    if (!groupCourses.length) {
+      return <p className="site-menu__empty">Chưa có khóa học nào trong mục này.</p>;
+    }
+
+    return (
+      <>
+        {groupCourses.slice(0, NAV_DROPDOWN_MAX_COURSES).map((course) => (
+          <Link
+            key={course.id}
+            to={`/courses/${course.id}`}
+            className="site-menu__sub-link"
+            role="menuitem"
+            onClick={handleSelect}
+          >
+            {course.title}
+            <span>
+              {course.category} · {course.level}
+            </span>
+          </Link>
+        ))}
+        {groupCourses.length > NAV_DROPDOWN_MAX_COURSES ? (
+          <Link to={to} className="site-menu__sub-link" role="menuitem" onClick={handleSelect}>
+            Xem tất cả {groupCourses.length} khóa
+          </Link>
+        ) : null}
+      </>
+    );
+  }
+
   return (
-    <div
-      className={`nav-dropdown ${open ? 'is-open' : ''}`}
+    <li
+      className={`site-menu__item ${open ? 'is-open' : ''}`}
       ref={wrapperRef}
       onMouseEnter={openNow}
       onMouseLeave={closeWithDelay}
     >
-      <span className="nav-dropdown__trigger">
-        <NavLink
-          to="/courses"
-          className={({ isActive }) => `nav-link ${isActive ? 'is-active' : ''}`}
-          onClick={handleSelect}
-        >
-          {label}
-        </NavLink>
-        <button
-          type="button"
-          className="nav-dropdown__caret"
-          aria-label={open ? `Đóng danh sách ${label}` : `Mở danh sách ${label}`}
-          aria-expanded={open}
-          onClick={openNow}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
-      </span>
+      <Link
+        to={to}
+        className={`site-menu__link ${isActive ? 'is-active' : ''}`}
+        aria-expanded={open}
+        onClick={(event) => {
+          // Trên mobile/touch không có hover: lần chạm đầu chỉ mở submenu,
+          // muốn vào trang danh mục thì chạm tiếp lần nữa.
+          if (!open && window.matchMedia(MOBILE_NAV_QUERY).matches) {
+            event.preventDefault();
+            openNow();
+            return;
+          }
+          handleSelect();
+        }}
+      >
+        {label}
+        <CaretIcon />
+      </Link>
 
-      {open ? (
-        <div className="nav-dropdown__menu nav-dropdown__menu--courses" role="menu">
-          <input
-            type="search"
-            className="nav-dropdown__search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onFocus={openNow}
-            placeholder="Tìm khóa học..."
-            aria-label="Tìm khóa học"
-          />
+      {/* Luôn render để có hiệu ứng lật rotateX cả khi mở và khi đóng; lúc
+          đóng panel ở visibility:hidden nên cũng tự rơi khỏi thứ tự tab. */}
+      <div className="site-menu__sub" role="menu">
+        <input
+          type="search"
+          className="site-menu__search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          onFocus={openNow}
+          placeholder="Tìm khóa học..."
+          aria-label={`Tìm trong ${label}`}
+        />
 
-          {normalizedSearch ? (
-            searchResults.length ? (
-              searchResults.map((course) => (
-                <Link
-                  key={course.id}
-                  to={`/courses/${course.id}`}
-                  className="nav-dropdown__item"
-                  role="menuitem"
-                  onClick={handleSelect}
-                >
-                  <strong>{course.title}</strong>
-                  <span>
-                    {course.category} · {course.level}
-                  </span>
-                </Link>
-              ))
-            ) : (
-              <p className="nav-dropdown__empty">
-                {courses === null ? 'Đang tải khóa học...' : 'Không tìm thấy khóa học phù hợp.'}
-              </p>
-            )
-          ) : (
-            coursesNavSubmenu.map((item) => (
-              <Link key={item.to} to={item.to} className="nav-dropdown__item" role="menuitem" onClick={handleSelect}>
-                <strong>{item.title}</strong>
-                <span>{item.subtitle}</span>
+        {normalizedSearch ? (
+          searchResults.length ? (
+            searchResults.map((course) => (
+              <Link
+                key={course.id}
+                to={`/courses/${course.id}`}
+                className="site-menu__sub-link"
+                role="menuitem"
+                onClick={handleSelect}
+              >
+                {course.title}
+                <span>
+                  {course.category} · {course.level}
+                </span>
               </Link>
             ))
-          )}
-        </div>
-      ) : null}
-    </div>
+          ) : (
+            <p className="site-menu__empty">
+              {courses === null ? 'Đang tải khóa học...' : 'Không tìm thấy khóa học phù hợp.'}
+            </p>
+          )
+        ) : (
+          renderDefaultItems()
+        )}
+      </div>
+    </li>
   );
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
+// Bản -clean (336×242) đã crop sát: hình thật chiếm 312×218, gần kín khung.
+// File logo-ngoaingu3k.png mà trang thật dùng là 678×369 nhưng hình thật cũng
+// chỉ 312×218 nằm giữa — 54% chiều cao là nền trong suốt, nên cùng một chiều
+// cao khung thì bản -clean hiện to hơn ~1.5×.
+const LOGO_SRC = '/images/imported/logo-ngoaingu3k-clean.png';
+
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
@@ -469,7 +550,11 @@ function TopBar({ theme, setTheme, themeLabel }) {
   const topbarRef = useRef(null);
   const signedIn = Boolean(auth.session);
   const currentRole = auth.profile?.role || auth.role || 'student';
-  const visibleLinks = navLinks.filter((link) => !link.role || (signedIn && link.role === currentRole));
+  const audience = signedIn ? currentRole : 'guest';
+  const visibleLinks = navLinks.filter((link) => {
+    if (link.audience) return link.audience.includes(audience);
+    return !link.role || (signedIn && link.role === currentRole);
+  });
 
   function closeMobileMenu() {
     setMobileOpen(false);
@@ -485,69 +570,93 @@ function TopBar({ theme, setTheme, themeLabel }) {
     }
     document.addEventListener('mousedown', onOutside);
     document.addEventListener('keydown', onKey);
+    // Drawer off-canvas phủ full màn: khoá cuộn nền để không bị "scroll xuyên".
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('mousedown', onOutside);
       document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
     };
   }, [mobileOpen]);
 
   return (
-    <header className="topbar topbar--enterprise">
-      <div className="topbar-inner" ref={topbarRef}>
-        <Link className="brand-block" to="/home" onClick={closeMobileMenu}>
-          <div className="brand-mark brand-mark--enterprise brand-mark--image">
-            <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
-          </div>
-          <div className="brand-copy">
-            <div className="brand">{contact.companyName}</div>
-            <div className="brand-subtitle">
-              {signedIn ? auth.profile?.full_name || auth.user?.email || 'Member' : 'Enterprise English learning platform'}
-            </div>
-          </div>
+    <header className="site-header">
+      <div className="site-header__inner" ref={topbarRef}>
+        <Link className="site-header__logo" to="/home" onClick={closeMobileMenu}>
+          <img src={LOGO_SRC} alt={contact.companyName} />
         </Link>
 
-        <nav id="topbar-mobile-nav" className={`nav ${mobileOpen ? 'nav--open' : ''}`}>
-          {visibleLinks.map((link) =>
-            link.to === '/courses' ? (
-              <CoursesNavItem key={link.to} label={link.label} onNavigate={closeMobileMenu} />
-            ) : (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) => `nav-link ${isActive && activeHeaderLink !== 'contact' ? 'is-active' : ''}`}
+        <nav id="site-nav" className={`site-nav ${mobileOpen ? 'is-open' : ''}`} aria-label="Menu chính">
+          {/* Đầu drawer, chỉ hiện ở ≤1024px */}
+          <div className="site-nav__head">
+            <img src={LOGO_SRC} alt="" />
+            <button type="button" className="site-nav__close" aria-label="Đóng menu" onClick={closeMobileMenu}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12" />
+                <path d="M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <ul className="site-menu">
+            {visibleLinks.map((link) =>
+              link.courseGroup ? (
+                <CoursesNavItem
+                  key={link.to}
+                  label={link.label}
+                  to={link.to}
+                  group={link.courseGroup}
+                  muteActive={activeHeaderLink === 'contact'}
+                  onNavigate={() => {
+                    setActiveHeaderLink('');
+                    closeMobileMenu();
+                  }}
+                />
+              ) : (
+                <li key={link.to} className="site-menu__item">
+                  <NavLink
+                    to={link.to}
+                    className={({ isActive }) =>
+                      `site-menu__link ${isActive && activeHeaderLink !== 'contact' ? 'is-active' : ''}`
+                    }
+                    onClick={() => {
+                      setActiveHeaderLink('');
+                      closeMobileMenu();
+                    }}
+                  >
+                    {link.label}
+                  </NavLink>
+                </li>
+              )
+            )}
+            <li className="site-menu__item">
+              <a
+                className={`site-menu__link ${activeHeaderLink === 'contact' ? 'is-active' : ''}`}
+                href="#contact"
                 onClick={() => {
-                  setActiveHeaderLink('');
+                  setActiveHeaderLink('contact');
                   closeMobileMenu();
                 }}
               >
-                {link.label}
-              </NavLink>
-            )
-          )}
-          <a
-            className={`nav-link ${activeHeaderLink === 'contact' ? 'is-active' : ''}`}
-            href="#contact"
-            onClick={() => {
-              setActiveHeaderLink('contact');
-              closeMobileMenu();
-            }}
-          >
-            {ui.contact}
-          </a>
+                {ui.contact}
+              </a>
+            </li>
+          </ul>
 
           {!signedIn ? (
-            <div className="nav__mobile-auth">
-              <Link className="topbar-auth topbar-auth--ghost" to="/auth" onClick={closeMobileMenu}>
+            <div className="site-nav__auth">
+              <Link className="site-header__login" to="/auth" onClick={closeMobileMenu}>
                 {ui.signIn}
               </Link>
-              <Link className="topbar-auth topbar-auth--solid" to="/auth?mode=sign-up" onClick={closeMobileMenu}>
+              <Link className="site-header__signup" to="/auth?mode=sign-up" onClick={closeMobileMenu}>
                 {ui.signUp}
               </Link>
             </div>
           ) : null}
         </nav>
 
-        <div className="toolbar">
+        <div className="site-header__actions">
           <button
             className={`theme-toggle ${theme === 'dark' ? 'is-dark' : ''}`}
             type="button"
@@ -563,41 +672,37 @@ function TopBar({ theme, setTheme, themeLabel }) {
               </span>
             </span>
           </button>
+
           {signedIn ? (
             <UserAvatar />
           ) : (
-            <>
-              <Link className="topbar-auth topbar-auth--ghost" to="/auth">
-                {ui.signIn}
-              </Link>
-              <Link className="topbar-auth topbar-auth--solid" to="/auth?mode=sign-up">
-                {ui.signUp}
-              </Link>
-            </>
+            <Link className="site-header__login" to="/auth">
+              {ui.signIn}
+            </Link>
           )}
+
           <button
             type="button"
-            className="topbar-menu-toggle"
+            className="site-header__burger"
             aria-label={mobileOpen ? 'Đóng menu' : 'Mở menu'}
             aria-expanded={mobileOpen}
-            aria-controls="topbar-mobile-nav"
+            aria-controls="site-nav"
             onClick={() => setMobileOpen((value) => !value)}
           >
-            {mobileOpen ? (
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 6l12 12" />
-                <path d="M18 6 6 18" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 7h16" />
-                <path d="M4 12h16" />
-                <path d="M4 17h16" />
-              </svg>
-            )}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h16" />
+              <path d="M4 12h16" />
+              <path d="M4 17h16" />
+            </svg>
           </button>
         </div>
       </div>
+
+      <div
+        className={`site-nav__overlay ${mobileOpen ? 'is-open' : ''}`}
+        onClick={closeMobileMenu}
+        aria-hidden="true"
+      />
     </header>
   );
 }

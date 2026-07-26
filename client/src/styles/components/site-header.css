@@ -1,0 +1,591 @@
+/* Header dựng lại theo đúng header đang chạy trên ngoaingu3k.com (WordPress +
+   Elementor, theme Zilom). Mọi con số ở đây là giá trị computed đo trực tiếp
+   trên trang thật, không phải ước lượng:
+
+     thanh    fixed, cao 87px, nền #6BCF49, container 1250px
+     nav link Nunito 700/16px uppercase trắng, padding 12px 0, li padding 0 11px
+     hover    li nền #07403F, bo 10px
+     dropdown 250px, nền #6BCF49, bo 6px, padding 20px, lật rotateX từ trên xuống
+     CTA      #EC6E23, 16px/800, letter-spacing 2px, padding 12px 24px, bo 30px
+     mobile   thanh 80px + drawer off-canvas 350px trượt từ trái (trang thật
+              chốt ở 1024px, bản này hạ xuống 1240px — lý do ghi ở khối media)
+
+   Header luôn xanh ở cả 2 theme (trang thật không có dark mode) nên các màu ở
+   đây cố ý viết cứng, không dùng biến theme. */
+
+.site-header {
+  --header-green: #6bcf49;
+  --header-ink: #07403f;
+  --header-orange: #ec6e23;
+  --header-height: 87px;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: var(--header-height);
+  background: var(--header-green);
+  font-family: Nunito, ui-sans-serif, system-ui, sans-serif;
+}
+
+.site-header__inner {
+  width: min(1250px, 100%);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+/* Logo thoát khỏi khung 1250px để dính hẳn mép trái viewport: tách khỏi luồng
+   flex bằng position:absolute, rồi bù lại chỗ cho menu bằng padding-left của
+   .site-nav ở dưới. */
+.site-header__logo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  padding-left: 24px;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.site-header__logo img {
+  height: 86px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* ── Menu chính ─────────────────────────────────────────────────────────── */
+/* Ở màn rộng, khung 1250px đã lùi vào giữa đủ xa nên menu không cần đệm thêm
+   (padding = 0, menu giữ nguyên vị trí cũ). Màn hẹp dần thì khoảng lùi đó co
+   lại, padding tự lớn lên để chữ TRANG CHỦ không bao giờ đè lên logo.
+   183px = lề trái logo (24px) + bề rộng logo (~119px) + 40px thở. */
+.site-nav {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding-left: max(0px, calc(183px - (100vw - min(1250px, 100vw)) / 2 - 20px));
+}
+
+/* nowrap bắt buộc: thanh cao cố định 87px, để menu xuống dòng là vỡ layout. */
+.site-menu {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-menu__item {
+  position: relative;
+  margin: 0;
+  padding: 0 11px;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.site-menu__item:hover,
+.site-menu__item:focus-within,
+.site-menu__item.is-open {
+  background: var(--header-ink);
+}
+
+/* Trang thật không đánh dấu mục đang mở (mọi link đều trắng phẳng). App này
+   có nhiều khu vực hơn nên giữ lại chỉ báo bằng đúng viên pill của hover —
+   xoá selector .is-active dưới đây là trở về y hệt bản gốc. */
+.site-menu__item:has(> .site-menu__link.is-active) {
+  background: var(--header-ink);
+}
+
+.site-menu__link {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.8;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.site-menu__link:hover,
+.site-menu__link:focus-visible {
+  color: #ffffff;
+}
+
+.site-menu__caret {
+  width: 10px;
+  height: 8px;
+  margin-left: 3px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.25s ease;
+}
+
+.site-menu__item.is-open .site-menu__caret {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown ───────────────────────────────────────────────────────────── */
+/* top:100% đặt panel ngay dưới link (y ≈ 70px), tức 17px cuối cùng của panel
+   nằm lấp sau thanh header — cùng màu xanh nên nhìn như panel bắt đầu đúng
+   mép dưới header, giống hệt trang thật, mà chuột không bị hụt khoảng trống. */
+.site-menu__sub {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 99;
+  width: 250px;
+  padding: 20px;
+  background: var(--header-green);
+  border-radius: 6px;
+  box-shadow: 0 0 20px 0 rgba(62, 28, 131, 0.1);
+  opacity: 0;
+  visibility: hidden;
+  transform: perspective(600px) rotateX(-90deg);
+  transform-origin: 50% 0;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    visibility 0.3s;
+}
+
+.site-menu__item.is-open > .site-menu__sub {
+  opacity: 1;
+  visibility: visible;
+  transform: perspective(600px) rotateX(0deg);
+}
+
+.site-menu__sub-link {
+  display: block;
+  padding: 12px 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-transform: capitalize;
+  text-decoration: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.site-menu__sub-link:hover {
+  opacity: 0.82;
+  transform: translateX(4px);
+}
+
+.site-menu__sub-link span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.site-menu__search {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.site-menu__search::placeholder {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.site-menu__search:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 1px;
+}
+
+.site-menu__empty {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+}
+
+/* ── Cụm bên phải ───────────────────────────────────────────────────────── */
+.site-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.site-header__login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: 30px;
+  background: var(--header-orange);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 2px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.site-header__login:hover {
+  background: #d55f19;
+  transform: translateY(-1px);
+}
+
+.site-header__signup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 30px;
+  background: transparent;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 2px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-header__signup:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Nút gạt theme dùng chung style cũ, chỉ ép về cặp trắng cố định vì nền dưới
+   nó giờ luôn là xanh lá, không còn là mặt kính đổi theo theme. */
+.site-header .theme-toggle__track,
+:root[data-theme='light'] .site-header .theme-toggle__track {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.site-header .theme-toggle:hover .theme-toggle__track,
+:root[data-theme='light'] .site-header .theme-toggle:hover .theme-toggle__track {
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+.site-header .theme-toggle.is-dark .theme-toggle__track {
+  background: rgba(7, 64, 63, 0.55);
+  border-color: rgba(7, 64, 63, 0.75);
+}
+
+.site-header .theme-toggle.is-dark .theme-toggle__thumb {
+  color: var(--header-ink);
+}
+
+.site-header__burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.site-header__burger:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.site-header__burger svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.site-nav__head,
+.site-nav__auth,
+.site-nav__overlay {
+  display: none;
+}
+
+/* Header fixed nên bị tách khỏi luồng: bù lại đúng chiều cao cho phần nội
+   dung (phòng thi immersive không có header nên loại trừ). */
+.app-shell:not(.app-shell--immersive) .site-main {
+  padding-top: var(--site-header-height, 87px);
+}
+
+/* App có 6–7 mục menu (trang thật chỉ 5) nên ở dải desktop hẹp phải bóp lại
+   một nấc, nếu không menu sẽ đâm vào cụm nút bên phải. Trên 1400px vẫn đúng
+   nguyên spec 16px / padding 11px của trang thật. */
+@media (min-width: 1241px) and (max-width: 1400px) {
+  .site-menu__item {
+    padding: 0 7px;
+  }
+
+  .site-menu__link {
+    font-size: 15px;
+  }
+
+  .site-header__login {
+    padding: 11px 18px;
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+
+  .site-header__actions {
+    gap: 10px;
+  }
+}
+
+/* ── Off-canvas drawer ───────────────────────────────────────────────────
+   Trang thật đổi sang mobile ở 1024px, nhưng nó chỉ có 5 mục menu ngắn. App
+   này 6–7 mục nhãn tiếng Việt dài + logo chiếm 159px sát mép trái, đo ra thì
+   dưới ~1240px là menu đè lên cụm nút phải — nên hạ sớm hơn.
+   ĐỔI SỐ NÀY thì phải đổi luôn MOBILE_NAV_QUERY trong AppLayout.jsx. */
+@media (max-width: 1240px) {
+  :root {
+    --site-header-height: 80px;
+  }
+
+  .site-header {
+    --header-height: 80px;
+  }
+
+  .site-header__inner {
+    padding: 0 20px;
+    gap: 12px;
+  }
+
+  .site-header__logo {
+    padding-left: 16px;
+  }
+
+  .site-header__logo img {
+    height: 60px;
+  }
+
+  .site-header__burger {
+    display: inline-flex;
+  }
+
+  .site-header__actions > .site-header__login,
+  .site-header__actions > .site-header__signup {
+    display: none;
+  }
+
+  /* Drawer trắng 350px trượt từ trái, transition .35s — cùng thông số với
+     .gva-offcanvas-content của trang thật. */
+  .site-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    width: min(350px, 86vw);
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    /* drawer là lớp phủ riêng, không còn phải né logo */
+    padding-left: 0;
+    background: #ffffff;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
+    transform: translateX(-100%);
+    transition: transform 0.35s ease;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .site-nav.is-open {
+    transform: translateX(0);
+  }
+
+  .site-nav__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--header-green);
+  }
+
+  .site-nav__head img {
+    height: 56px;
+    width: auto;
+  }
+
+  .site-nav__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    cursor: pointer;
+  }
+
+  .site-nav__close svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .site-menu {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    padding: 8px 0;
+  }
+
+  .site-menu__item,
+  .site-menu__item:hover,
+  .site-menu__item:focus-within,
+  .site-menu__item.is-open,
+  .site-menu__item:has(> .site-menu__link.is-active) {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border-bottom: 1px solid rgba(7, 64, 63, 0.08);
+  }
+
+  .site-menu__link {
+    padding: 14px 20px;
+    color: var(--header-ink);
+    font-size: 15px;
+  }
+
+  .site-menu__item:has(> .site-menu__link.is-active) > .site-menu__link {
+    color: var(--header-orange);
+  }
+
+  .site-menu__caret {
+    margin-left: auto;
+    width: 14px;
+    height: 10px;
+  }
+
+  /* Trong drawer submenu là khối tĩnh xổ xuống, không phải panel nổi. */
+  .site-menu__sub {
+    position: static;
+    width: auto;
+    padding: 0 20px 12px 34px;
+    border-radius: 0;
+    background: rgba(107, 207, 73, 0.1);
+    box-shadow: none;
+    transform: none;
+    transition: none;
+    display: none;
+  }
+
+  .site-menu__item.is-open > .site-menu__sub {
+    display: block;
+    transform: none;
+  }
+
+  .site-menu__sub-link {
+    padding: 10px 0;
+    color: var(--header-ink);
+    font-size: 15px;
+  }
+
+  .site-menu__sub-link span {
+    color: rgba(7, 64, 63, 0.62);
+  }
+
+  .site-menu__search {
+    border-color: rgba(7, 64, 63, 0.25);
+    background: #ffffff;
+    color: var(--header-ink);
+  }
+
+  .site-menu__search::placeholder {
+    color: rgba(7, 64, 63, 0.55);
+  }
+
+  .site-menu__empty {
+    color: rgba(7, 64, 63, 0.7);
+  }
+
+  .site-nav__auth {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 20px 24px;
+  }
+
+  .site-nav__auth .site-header__signup {
+    border-color: var(--header-ink);
+    color: var(--header-ink);
+  }
+
+  .site-nav__auth .site-header__signup:hover {
+    background: rgba(7, 64, 63, 0.08);
+  }
+
+  .site-nav__overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s;
+  }
+
+  .site-nav__overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@media (max-width: 460px) {
+  .site-header__inner {
+    padding: 0 14px;
+  }
+
+  .site-header__logo img {
+    height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-menu__sub,
+  .site-nav,
+  .site-nav__overlay,
+  .site-menu__caret,
+  .site-header__login {
+    transition-duration: 0.01ms;
+  }
+}
