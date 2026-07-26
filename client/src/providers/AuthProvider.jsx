@@ -104,6 +104,10 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(!supabase);
   const [loading, setLoading] = useState(Boolean(supabase));
   const skipNextLoginLogRef = useRef(false);
+  // Id của user đang thực sự đăng nhập — dùng để phân biệt "đổi user thật"
+  // (login / logout / đổi tài khoản) với các sự kiện Supabase phát lại cho
+  // CÙNG một user (SIGNED_IN khi focus lại tab, TOKEN_REFRESHED định kỳ).
+  const loadedProfileUserIdRef = useRef(initialMockAuth?.session?.user?.id ?? null);
 
   useEffect(() => {
     if (!supabase) {
@@ -298,6 +302,7 @@ export function AuthProvider({ children }) {
 
         const nextSession = data.session ?? null;
         setSession(nextSession);
+        loadedProfileUserIdRef.current = nextSession?.user?.id ?? null;
         if (nextSession?.user?.id) {
           await loadProfile(nextSession.user.id);
         } else {
@@ -326,21 +331,27 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      if (event === 'SIGNED_IN' && nextSession?.user?.id) {
+      const nextUserId = nextSession?.user?.id ?? null;
+      // Chỉ coi là "đổi user thật" khi identity thay đổi. Supabase phát lại
+      // SIGNED_IN mỗi lần focus lại tab và TOKEN_REFRESHED định kỳ cho CÙNG
+      // một user — đó không phải chuyển phiên thật.
+      const isUserTransition = nextUserId !== loadedProfileUserIdRef.current;
+
+      if (event === 'SIGNED_IN' && nextUserId && isUserTransition) {
         if (skipNextLoginLogRef.current) {
           skipNextLoginLogRef.current = false;
         } else {
-          void logActivity(nextSession.user.id, 'login');
+          void logActivity(nextUserId, 'login');
         }
       }
 
-      // Supabase tự refresh access token định kỳ trong nền — người dùng
-      // không hề đổi, chỉ token đổi. Trước đây sự kiện này cũng làm
-      // `ready` về false, khiến ProtectedRoute bật lại toàn màn hình
-      // "Đang tải phiên..." và xóa mất giao diện đang thao tác (VD giữa
-      // lúc giảng viên đang sửa khóa học). Chỉ cập nhật session, giữ
-      // nguyên `ready`/`loading`.
-      if (event === 'TOKEN_REFRESHED') {
+      // Sự kiện phát lại cho cùng user (SIGNED_IN khi focus, TOKEN_REFRESHED):
+      // chỉ cập nhật session tại chỗ, KHÔNG đụng `ready`/`loading`. Nếu để
+      // `ready` về false, ProtectedRoute sẽ thay toàn màn bằng "Đang tải
+      // phiên..." rồi remount dashboard, chạy lại các lệnh tải dữ liệu chậm
+      // → lặp lỗi "quá thời gian chờ" và nháy cả màn (bug bảng điều khiển
+      // giảng viên). Chỉ chạy vòng loading khi user thật sự đổi.
+      if (!isUserTransition) {
         setSession(nextSession);
         return;
       }
@@ -348,8 +359,9 @@ export function AuthProvider({ children }) {
       setLoading(true);
       setReady(false);
       setSession(nextSession);
-      if (nextSession?.user?.id) {
-        await loadProfile(nextSession.user.id);
+      loadedProfileUserIdRef.current = nextUserId;
+      if (nextUserId) {
+        await loadProfile(nextUserId);
       } else {
         setProfile(null);
         setRoleState('student');
