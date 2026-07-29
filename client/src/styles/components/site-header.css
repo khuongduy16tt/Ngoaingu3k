@@ -172,6 +172,17 @@
   transform: perspective(600px) rotateX(0deg);
 }
 
+/* Submenu tĩnh (Phòng học): không có ô tìm kiếm, danh sách ngắn nhưng phụ đề
+   dài hơn nên nới rộng và bớt padding dọc. */
+.site-menu__sub--compact {
+  width: 268px;
+  padding: 12px 20px;
+}
+
+.site-menu__sub--compact .site-menu__sub-link + .site-menu__sub-link {
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
 .site-menu__sub-link {
   display: block;
   padding: 12px 0;

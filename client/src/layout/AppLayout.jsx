@@ -336,6 +336,104 @@ function CaretIcon() {
   );
 }
 
+// Dropdown đơn giản cho các mục có submenu tĩnh (Phòng học → Phòng học /
+// Flashcard / Tạo flashcard). Dùng chung khung mở-đóng và CSS với dropdown khóa
+// học, nhưng không có ô tìm kiếm vì danh sách cố định và rất ngắn.
+function SubmenuNavItem({ label, to, items, muteActive, onNavigate }) {
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+  const closeTimeoutRef = useRef(null);
+
+  function clearCloseTimeout() {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }
+
+  function openNow() {
+    clearCloseTimeout();
+    setOpen(true);
+  }
+
+  function closeWithDelay() {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => setOpen(false), NAV_DROPDOWN_CLOSE_DELAY_MS);
+  }
+
+  useEffect(() => clearCloseTimeout, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setOpen(false);
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function handleSelect() {
+    clearCloseTimeout();
+    setOpen(false);
+    onNavigate?.();
+  }
+
+  // Sáng khi đang ở bất kỳ trang nào trong submenu, không chỉ trang của link cha.
+  const isActive =
+    !muteActive &&
+    items.some((item) => location.pathname.startsWith(item.to.split('?')[0]));
+
+  return (
+    <li
+      className={`site-menu__item ${open ? 'is-open' : ''}`}
+      ref={wrapperRef}
+      onMouseEnter={openNow}
+      onMouseLeave={closeWithDelay}
+    >
+      <Link
+        to={to}
+        className={`site-menu__link ${isActive ? 'is-active' : ''}`}
+        aria-expanded={open}
+        onClick={(event) => {
+          // Trên mobile/touch không có hover: chạm lần đầu chỉ mở submenu.
+          if (!open && window.matchMedia(MOBILE_NAV_QUERY).matches) {
+            event.preventDefault();
+            openNow();
+            return;
+          }
+          handleSelect();
+        }}
+      >
+        {label}
+        <CaretIcon />
+      </Link>
+
+      <div className="site-menu__sub site-menu__sub--compact" role="menu">
+        {items.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className="site-menu__sub-link"
+            role="menuitem"
+            onClick={handleSelect}
+          >
+            {item.title}
+            <span>{item.subtitle}</span>
+          </Link>
+        ))}
+      </div>
+    </li>
+  );
+}
+
 function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -607,6 +705,22 @@ function TopBar({ theme, setTheme, themeLabel }) {
                   label={link.label}
                   to={link.to}
                   group={link.courseGroup}
+                  muteActive={activeHeaderLink === 'contact'}
+                  onNavigate={() => {
+                    setActiveHeaderLink('');
+                    closeMobileMenu();
+                  }}
+                />
+              ) : link.submenu ? (
+                <SubmenuNavItem
+                  key={link.to}
+                  label={link.label}
+                  to={link.to}
+                  // Mục có `roles` chỉ hiện với đúng vai trò — "Tạo flashcard"
+                  // chỉ dành cho giảng viên và admin.
+                  items={link.submenu.filter(
+                    (item) => !item.roles || (signedIn && item.roles.includes(currentRole))
+                  )}
                   muteActive={activeHeaderLink === 'contact'}
                   onNavigate={() => {
                     setActiveHeaderLink('');

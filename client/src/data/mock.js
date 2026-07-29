@@ -20,9 +20,23 @@ export const navLinks = [
     audience: ['guest', 'student']
   },
   { label: 'Khóa học', to: '/courses', courseGroup: 'all', audience: ['teacher', 'admin'] },
-  { label: 'Phòng học', to: '/learn' },
+  {
+    label: 'Phòng học',
+    to: '/learn',
+    // Flashcard là chức năng con của phần học nhưng có trang riêng, nên nằm
+    // trong submenu của Phòng học thay vì thành một mục điều hướng riêng.
+    submenu: [
+      { title: 'Phòng học', subtitle: 'Video bài giảng và bài tập theo khóa', to: '/learn' },
+      { title: 'Flashcard', subtitle: 'Thẻ ghi nhớ, Học, Kiểm tra, Ghép cặp', to: '/flashcards' },
+      {
+        title: 'Tạo flashcard',
+        subtitle: 'Nhập bộ thẻ mới cho khóa bạn phụ trách',
+        to: '/flashcards?create=1',
+        roles: ['teacher', 'admin']
+      }
+    ]
+  },
   { label: 'Phòng thi', to: '/exams' },
-  { label: 'Flashcard', to: '/flashcards' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'teacher' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'admin' },
   { label: 'Bài tập', to: '/dashboard/student', role: 'student' },

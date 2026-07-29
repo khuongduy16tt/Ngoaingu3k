@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
 import { getCourseCatalog, getMyCourses, getOwnedCourseIds } from '../lib/courseService';
@@ -23,8 +24,9 @@ const SAMPLE = `你好\txin chào\n谢谢\tcảm ơn\n再见\ttạm biệt`;
 
 // Panel nhập bộ thẻ — chỉ giảng viên/admin thấy. Dán text, chọn dấu phân cách,
 // xem trước rồi mới lưu, đúng luồng của Quizlet.
-function FlashcardImportPanel({ courses, onSaved }) {
+function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
   const auth = useAuth();
+  const panelRef = useRef(null);
   const [courseId, setCourseId] = useState(courses[0]?.id || '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -41,6 +43,13 @@ function FlashcardImportPanel({ courses, onSaved }) {
       setCourseId(courses[0].id);
     }
   }, [courses, courseId]);
+
+  // Vào từ menu "Tạo flashcard" thì cuộn thẳng tới panel này.
+  useEffect(() => {
+    if (autoFocus && panelRef.current) {
+      panelRef.current.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }, [autoFocus]);
 
   const parsed = useMemo(
     () =>
@@ -88,7 +97,7 @@ function FlashcardImportPanel({ courses, onSaved }) {
   const canSave = Boolean(courseId) && Boolean(title.trim()) && parsed.cards.length > 0 && !parsed.error;
 
   return (
-    <section className="content-card content-card--enterprise fc-import">
+    <section className="content-card content-card--enterprise fc-import" ref={panelRef}>
       <div className="section-head">
         <div>
           <span className="eyebrow">Chỉ giảng viên</span>
@@ -245,6 +254,8 @@ export default function FlashcardsPage() {
   const auth = useAuth();
   const role = getEffectiveRole(auth);
   const canImport = role === 'teacher' || role === 'admin';
+  const [searchParams] = useSearchParams();
+  const wantsCreate = searchParams.get('create') === '1';
 
   const [sets, setSets] = useState([]);
   const [teacherCourses, setTeacherCourses] = useState([]);
@@ -339,7 +350,11 @@ export default function FlashcardsPage() {
       </section>
 
       {canImport ? (
-        <FlashcardImportPanel courses={teacherCourses} onSaved={() => setReloadKey((v) => v + 1)} />
+        <FlashcardImportPanel
+          courses={teacherCourses}
+          autoFocus={wantsCreate && !loading}
+          onSaved={() => setReloadKey((v) => v + 1)}
+        />
       ) : null}
 
       {loading ? (
