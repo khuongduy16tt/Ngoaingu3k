@@ -561,3 +561,151 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
+
+-- =============================================================================
+-- Flashcard: bộ thẻ gắn theo khóa học. Chỉ giảng viên phụ trách khóa (và admin)
+-- được tạo/sửa/nhập thẻ; học viên đã mua khóa thì đọc được.
+-- =============================================================================
+
+create table if not exists public.flashcard_sets (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  title text not null,
+  description text,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.flashcards (
+  id uuid primary key default gen_random_uuid(),
+  set_id uuid not null references public.flashcard_sets(id) on delete cascade,
+  term text not null,
+  definition text not null default '',
+  position int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists flashcard_sets_course_id_idx on public.flashcard_sets(course_id);
+create index if not exists flashcards_set_id_position_idx on public.flashcards(set_id, position);
+
+-- Tiến độ học từng thẻ, dùng cho chế độ Learn (thẻ sai được lặp lại nhiều hơn).
+create table if not exists public.flashcard_progress (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  card_id uuid not null references public.flashcards(id) on delete cascade,
+  correct_streak int not null default 0,
+  wrong_count int not null default 0,
+  mastered boolean not null default false,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, card_id)
+);
+
+alter table public.flashcard_sets enable row level security;
+alter table public.flashcards enable row level security;
+alter table public.flashcard_progress enable row level security;
+
+-- Gom điều kiện "được xem bộ thẻ của khóa này" vào một hàm security definer:
+-- flashcards phải kiểm tra qua flashcard_sets, mà bản thân flashcard_sets cũng
+-- có RLS — để nguyên sẽ đệ quy policy giống lesson_assignments.
+create or replace function public.can_read_flashcard_set(p_set_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.flashcard_sets fset
+    join public.courses course on course.id = fset.course_id
+    where fset.id = p_set_id
+      and (
+        course.teacher_id = auth.uid()
+        or exists (
+          select 1 from public.orders paid_order
+          where paid_order.course_id = course.id
+            and paid_order.user_id = auth.uid()
+            and paid_order.status = 'paid'
+        )
+        or exists (
+          select 1 from public.profiles profile
+          where profile.id = auth.uid() and profile.role = 'admin'
+        )
+      )
+  );
+$$;
+
+create or replace function public.can_manage_flashcard_set(p_set_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.flashcard_sets fset
+    join public.courses course on course.id = fset.course_id
+    where fset.id = p_set_id
+      and (
+        course.teacher_id = auth.uid()
+        or exists (
+          select 1 from public.profiles profile
+          where profile.id = auth.uid() and profile.role = 'admin'
+        )
+      )
+  );
+$$;
+
+drop policy if exists "read flashcard sets of accessible courses" on public.flashcard_sets;
+create policy "read flashcard sets of accessible courses"
+on public.flashcard_sets
+for select
+using (public.can_read_flashcard_set(id));
+
+-- Chỉ giảng viên phụ trách khóa mới được tạo bộ thẻ cho khóa đó.
+drop policy if exists "teachers manage own course flashcard sets" on public.flashcard_sets;
+create policy "teachers manage own course flashcard sets"
+on public.flashcard_sets
+for all
+using (
+  exists (
+    select 1 from public.courses course
+    where course.id = flashcard_sets.course_id and course.teacher_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.courses course
+    where course.id = flashcard_sets.course_id and course.teacher_id = auth.uid()
+  )
+);
+
+drop policy if exists "admins manage all flashcard sets" on public.flashcard_sets;
+create policy "admins manage all flashcard sets"
+on public.flashcard_sets
+for all
+using (
+  exists (select 1 from public.profiles profile where profile.id = auth.uid() and profile.role = 'admin')
+)
+with check (
+  exists (select 1 from public.profiles profile where profile.id = auth.uid() and profile.role = 'admin')
+);
+
+drop policy if exists "read flashcards of accessible sets" on public.flashcards;
+create policy "read flashcards of accessible sets"
+on public.flashcards
+for select
+using (public.can_read_flashcard_set(set_id));
+
+drop policy if exists "manage flashcards of own sets" on public.flashcards;
+create policy "manage flashcards of own sets"
+on public.flashcards
+for all
+using (public.can_manage_flashcard_set(set_id))
+with check (public.can_manage_flashcard_set(set_id));
+
+drop policy if exists "users manage own flashcard progress" on public.flashcard_progress;
+create policy "users manage own flashcard progress"
+on public.flashcard_progress
+for all
+using (user_id = auth.uid())
+with check (user_id = auth.uid());

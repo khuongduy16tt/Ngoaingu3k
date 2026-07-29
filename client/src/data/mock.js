@@ -22,6 +22,7 @@ export const navLinks = [
   { label: 'Khóa học', to: '/courses', courseGroup: 'all', audience: ['teacher', 'admin'] },
   { label: 'Phòng học', to: '/learn' },
   { label: 'Phòng thi', to: '/exams' },
+  { label: 'Flashcard', to: '/flashcards' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'teacher' },
   { label: 'Tiến độ học sinh', to: '/student-progress', role: 'admin' },
   { label: 'Bài tập', to: '/dashboard/student', role: 'student' },

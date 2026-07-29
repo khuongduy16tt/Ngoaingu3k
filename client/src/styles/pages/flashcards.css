@@ -1,0 +1,481 @@
+/* ==========================================================================
+   Flashcard: nhập bộ thẻ (chỉ giảng viên) và 4 chế độ học
+   Thẻ ghi nhớ / Học / Kiểm tra / Ghép cặp.
+   ========================================================================== */
+
+.flashcards-page {
+  display: grid;
+  gap: 18px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+/* ─── Nhập bộ thẻ ─────────────────────────────────────────────────────────── */
+
+.fc-import {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border-radius: var(--radius) !important;
+}
+
+.fc-import__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.fc-import__separators {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.fc-import__separator {
+  display: grid;
+  gap: 8px;
+}
+
+.fc-import__separator > span,
+.fc-test__kinds > span {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fc-import__separator > div,
+.fc-test__kinds > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fc-import__separator .button-ghost {
+  padding: 7px 14px;
+  font-size: 13.5px;
+}
+
+.fc-import__separator .button-ghost.is-active,
+.fc-test__kinds .button-ghost.is-active,
+.fc-toolbar .button-ghost.is-active {
+  background: var(--text) !important;
+  border-color: var(--text) !important;
+  color: var(--surface) !important;
+}
+
+.fc-import__preview {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.fc-import__preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fc-import__preview-list {
+  display: grid;
+  gap: 4px;
+}
+
+.fc-import__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: calc(var(--radius) - 8px);
+  background: var(--surface);
+  font-size: 13.5px;
+}
+
+/* Dòng thiếu định nghĩa: viền đứt để giảng viên thấy mà sửa trước khi lưu. */
+.fc-import__row.is-incomplete {
+  border: 1px dashed color-mix(in srgb, #d1483c 45%, var(--border));
+}
+
+.fc-import__row span:last-child {
+  color: var(--muted);
+}
+
+/* ─── Danh sách bộ thẻ ────────────────────────────────────────────────────── */
+
+.fc-set-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.fc-set-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.fc-set-card__open {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fc-set-card__open strong {
+  font-size: 15px;
+}
+
+.fc-set-card__course {
+  color: var(--accent, #2563eb);
+  font-size: 12.5px;
+}
+
+.fc-set-card__open small {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* ─── Vỏ ngoài phần học ───────────────────────────────────────────────────── */
+
+.fc-study {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: var(--radius) !important;
+}
+
+.fc-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.fc-mode {
+  flex: 1 1 auto;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.fc-mode.is-active {
+  background: var(--text);
+  color: var(--surface);
+  font-weight: 650;
+}
+
+/* ─── Thẻ ghi nhớ ─────────────────────────────────────────────────────────── */
+
+.fc-flashcards {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.fc-card {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: clamp(220px, 34vw, 320px);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.fc-card:hover {
+  border-color: color-mix(in srgb, var(--text) 30%, var(--border));
+}
+
+.fc-card.is-flipped {
+  background: color-mix(in srgb, var(--brand, #2563eb) 8%, var(--surface));
+}
+
+.fc-card__hint {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fc-card__text {
+  font-size: clamp(22px, 3.6vw, 36px);
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.fc-flashcards__nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fc-flashcards__counter {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* ─── Học / Kiểm tra / Ghép cặp ───────────────────────────────────────────── */
+
+.fc-learn,
+.fc-test,
+.fc-match {
+  display: grid;
+  gap: 14px;
+}
+
+.fc-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fc-progress__chip {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.fc-progress__chip.is-mastered {
+  color: #2f9e5f;
+  border-color: color-mix(in srgb, #2f9e5f 40%, var(--border));
+}
+
+.fc-progress__chip.is-learning {
+  color: #c98a2e;
+  border-color: color-mix(in srgb, #c98a2e 40%, var(--border));
+}
+
+.fc-question {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.fc-question h3 {
+  margin: 0;
+  font-size: clamp(20px, 3vw, 30px);
+  overflow-wrap: anywhere;
+}
+
+/* Lựa chọn xếp dọc để đáp án dài không bị che — thống nhất với phần bài tập. */
+.fc-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.fc-option {
+  min-height: 44px;
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.fc-option:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--text) 30%, var(--border));
+}
+
+.fc-option.is-picked {
+  background: color-mix(in srgb, var(--text) 8%, var(--surface));
+}
+
+.fc-option.is-correct {
+  border-color: #2f9e5f;
+  background: color-mix(in srgb, #2f9e5f 14%, var(--surface));
+}
+
+.fc-option.is-wrong {
+  border-color: #d1483c;
+  background: color-mix(in srgb, #d1483c 12%, var(--surface));
+}
+
+.fc-written {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fc-written .lesson-input {
+  flex: 1 1 220px;
+}
+
+.fc-done {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+  text-align: center;
+}
+
+.fc-test__config {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+
+.fc-test__kinds {
+  display: grid;
+  gap: 6px;
+}
+
+.fc-test__questions {
+  display: grid;
+  gap: 12px;
+}
+
+.fc-test__item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.fc-test__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fc-test__head span:first-child {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+}
+
+.fc-test__prompt {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.fc-match__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fc-match__timer {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-match__head span:nth-child(2) {
+  color: var(--muted);
+  margin-right: auto;
+}
+
+.fc-match__board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.fc-tile {
+  display: grid;
+  place-items: center;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.15s ease, opacity 0.2s ease;
+}
+
+.fc-tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--text) 30%, var(--border));
+}
+
+.fc-tile.is-picked {
+  border-color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, var(--surface));
+}
+
+.fc-tile.is-wrong {
+  border-color: #d1483c;
+  background: color-mix(in srgb, #d1483c 14%, var(--surface));
+}
+
+/* Ghép đúng thì ô mờ dần rồi mất, chừa chỗ trống để thấy tiến độ. */
+.fc-tile.is-matched {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .fc-modes {
+    flex-direction: column;
+    border-radius: var(--radius);
+  }
+
+  .fc-mode {
+    border-radius: calc(var(--radius) - 4px);
+  }
+
+  .fc-import__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

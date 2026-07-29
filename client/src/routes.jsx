@@ -23,6 +23,7 @@ const AdminDashboardPage = lazy(() =>
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const ExamsPage = lazy(() => import('./pages/ExamsPage'));
 const ExamRoomPage = lazy(() => import('./pages/ExamRoomPage'));
+const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage'));
 
 function LoadingScreen() {
   return (
@@ -127,6 +128,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
               <ExamsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/flashcards"
+          element={
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <FlashcardsPage />
             </ProtectedRoute>
           }
         />

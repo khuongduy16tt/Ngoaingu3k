@@ -15,5 +15,8 @@
 /* 5. HSK campaign hero section */
 @import './pages/hsk-campaign.css';
 
+/* 5b. Flashcard: nhập bộ thẻ và 4 chế độ học */
+@import './pages/flashcards.css';
+
 /* 6. Header dựng lại 1:1 theo ngoaingu3k.com (nạp cuối để override) */
 @import './components/site-header.css';
