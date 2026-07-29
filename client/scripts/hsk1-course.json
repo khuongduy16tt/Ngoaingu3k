@@ -3983,7 +3983,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "heng"
             },
             {
               "id": "Chủ đề 1-l1-q-2-6",
@@ -4015,7 +4016,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "pie"
             },
             {
               "id": "Chủ đề 1-l1-q-3-7",
@@ -4047,7 +4049,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "dian"
             },
             {
               "id": "Chủ đề 1-l1-q-4-8",
@@ -4079,7 +4082,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "ti"
             },
             {
               "id": "Chủ đề 1-l1-q-5-9",
@@ -4111,7 +4115,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "shu"
             },
             {
               "id": "Chủ đề 1-l1-q-6-10",
@@ -4143,7 +4148,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "na"
             },
             {
               "id": "Chủ đề 1-l1-q-7-11",
@@ -4175,7 +4181,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "hengzhe"
             },
             {
               "id": "Chủ đề 1-l1-q-8-12",
@@ -4207,7 +4214,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "shugou"
             },
             {
               "id": "Chủ đề 1-l1-q-9-13",
@@ -4239,7 +4247,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "hengpie"
             },
             {
               "id": "Chủ đề 1-l1-q-10-14",
@@ -4271,7 +4280,8 @@
               "audioName": "",
               "imageHanzi": "",
               "audioPending": false,
-              "explanation": ""
+              "explanation": "",
+              "strokeId": "shuzhezhegou"
             }
           ],
           "questionCount": 10,

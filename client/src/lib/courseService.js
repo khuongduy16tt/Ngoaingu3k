@@ -246,6 +246,9 @@ function normalizeRemoteLesson(lesson) {
     // Bài luyện đọc / bảng phiên âm (import HSK) — không có video hay câu hỏi chấm điểm.
     readingItems: Array.isArray(metadata.readingItems) ? metadata.readingItems : [],
     pinyinTable: metadata.pinyinTable || '',
+    // Cấu trúc tab của chủ đề (1 tab video + N tab bài tập). Bài học cũ không có
+    // trường này — LearningPage tự dựng tab từ videoUrl + exercises.
+    tabs: Array.isArray(metadata.tabs) ? metadata.tabs : [],
     exercises
   };
 }
@@ -474,6 +477,43 @@ export async function saveLessonQuestionsToSupabase({ lessonId, questions = [], 
   });
 
   return response?.data || { lessonId, questions, questionCount: questions.length };
+}
+
+/**
+ * Lưu cấu trúc tab của một chủ đề (1 tab video + N tab bài tập độc lập).
+ * Gửi kèm `questions` phẳng để `content.exercises` và questionCount vẫn đúng cho
+ * các phần đọc dữ liệu theo model cũ.
+ */
+export async function saveLessonTabsToSupabase({
+  lessonId,
+  tabs = [],
+  questions = [],
+  videoUrl = '',
+  accessToken
+} = {}) {
+  if (!isSupabaseReady()) {
+    throw new Error('Supabase chưa được cấu hình nên chưa thể lưu tab của chủ đề.');
+  }
+
+  if (!isUuid(lessonId)) {
+    throw new Error('Chủ đề cần được đồng bộ Supabase trước khi lưu tab.');
+  }
+
+  if (!accessToken) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để lưu tab.');
+  }
+
+  const response = await apiFetch(`/api/courses/lessons/${lessonId}/questions`, {
+    method: 'PATCH',
+    token: accessToken,
+    body: {
+      questions: Array.isArray(questions) ? questions : [],
+      tabs: Array.isArray(tabs) ? tabs : [],
+      videoUrl
+    }
+  });
+
+  return response?.data || { lessonId, tabs, questions, questionCount: questions.length };
 }
 
 export function getStoredPurchasedCourseIds(userId = 'local') {

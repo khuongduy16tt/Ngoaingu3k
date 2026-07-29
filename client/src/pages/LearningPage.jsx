@@ -17,7 +17,7 @@ import {
   getOwnedCourseIds,
   readAllTeacherManagedCourses,
   PURCHASED_COURSES_STORAGE_KEY,
-  saveLessonQuestionsToSupabase
+  saveLessonTabsToSupabase
 } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import {
@@ -30,6 +30,19 @@ import {
   scoreLessonQuestion,
   scoreLessonQuestions
 } from '../lib/lessonQuestions';
+import {
+  buildLessonTabs,
+  countLessonTabQuestions,
+  createExerciseTab,
+  flattenLessonTabExercises,
+  getExerciseTabs,
+  getVideoTab,
+  serializeLessonTabs
+} from '../lib/lessonTabs';
+import { CHINESE_STROKES, getStrokeById } from '../lib/strokes';
+import { ListeningAudio } from '../components/ListeningAudio';
+import { StrokeGlyph } from '../components/StrokeGlyph';
+import { StrokePractice } from './learning/StrokePractice';
 import { uploadLessonAudio } from '../lib/storageService';
 import { AudioUploadField } from '../components/AudioUploadField';
 import { logActivity } from '../lib/activityService';
@@ -501,6 +514,11 @@ function normalizeVideoQuestionDraft(question, index = 0) {
     sampleAnswer: normalized.sampleAnswer,
     audioUrl: normalized.audioUrl,
     audioName: normalized.audioName,
+    // Giữ lại phần hình của câu hỏi (chữ Hán lớn, nét chữ SVG) và cờ chờ audio:
+    // trình soạn không sửa các trường này nhưng lưu lại thì phải còn nguyên.
+    imageHanzi: normalized.imageHanzi,
+    strokeId: normalized.strokeId,
+    audioPending: normalized.audioPending,
     explanation: normalized.explanation
   };
 }
@@ -523,6 +541,9 @@ function prepareVideoQuestionsForSave(questions) {
         sampleAnswer: '',
         audioUrl: String(question.audioUrl || '').trim(),
         audioName: String(question.audioName || '').trim(),
+        imageHanzi: String(question.imageHanzi || '').trim(),
+        strokeId: String(question.strokeId || '').trim(),
+        audioPending: Boolean(question.audioPending),
         explanation: String(question.explanation || '').trim()
       };
 
@@ -871,14 +892,12 @@ function LessonQuestionFeedback({ question, answer }) {
   );
 }
 
-// Bài luyện đọc / bảng phiên âm (import HSK vỡ lòng): không có video hay câu hỏi
-// chấm điểm — hiển thị bảng phiên âm + danh sách chữ/âm để đọc, có nút phát âm
-// bằng giọng đọc tiếng Trung sẵn có của trình duyệt (không cần file audio).
-function isReadingLesson(lesson) {
-  const hasReading = Array.isArray(lesson?.readingItems) && lesson.readingItems.length > 0;
-  const hasTable = Boolean(lesson?.pinyinTable);
-  const hasExercises = Array.isArray(lesson?.exercises) && lesson.exercises.length > 0;
-  return (hasReading || hasTable) && !hasExercises;
+// Khóa HSK (tiếng Trung) mới có phần luyện nét chữ — nhận diện qua slug/tiêu đề
+// vì khóa được import không mang cờ ngôn ngữ riêng.
+function isHskCourse(course) {
+  return /hsk|trung|hoa|chinese/i.test(
+    [course?.slug, course?.id, course?.title].filter(Boolean).join(' ')
+  );
 }
 
 function speakChinese(text) {
@@ -1018,22 +1037,30 @@ export function LessonReadingPanel({ lesson }) {
   );
 }
 
-export function LessonExercisePreview({ lesson, isTeacher, onSubmitted }) {
+// `tab` là một tab bài tập của chủ đề (model mới). Không truyền `tab` thì rơi về
+// danh sách câu hỏi phẳng trên lesson (model cũ) — giữ nguyên cách gọi cũ.
+export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
+  const source = tab || lesson;
   const questions = useMemo(
-    () => (Array.isArray(lesson?.exercises) ? lesson.exercises : []).map(normalizeLessonQuestion),
-    [lesson?.exercises]
+    () => (Array.isArray(source?.exercises) ? source.exercises : []).map(normalizeLessonQuestion),
+    [source?.exercises]
   );
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
+  // Đổi chủ đề hoặc đổi tab bài tập đều phải xóa đáp án đang làm dở.
   useEffect(() => {
     setAnswers({});
     setSubmitted(false);
-  }, [lesson?.id]);
+  }, [lesson?.id, tab?.id]);
 
   if (!questions.length) {
     return null;
   }
+
+  // Tài nguyên của tab (model mới) ưu tiên hơn tài nguyên chung của chủ đề.
+  const audioUrl = source?.audioUrl || (tab ? '' : lesson?.audioUrl) || '';
+  const imageUrl = source?.imageUrl || (tab ? '' : lesson?.imageUrl) || '';
 
   const answeredCount = questions.filter((question) =>
     isLessonQuestionAnswered(question, answers[question.id])
@@ -1049,25 +1076,35 @@ export function LessonExercisePreview({ lesson, isTeacher, onSubmitted }) {
     <section className="content-card content-card--enterprise excel-lesson-panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">Câu hỏi của video</span>
-          <h2>{lesson.exerciseType || 'Bài luyện sau video'}</h2>
-          <p>{questions.length} câu hỏi được giáo viên giao riêng cho bài học này.</p>
+          <span className="eyebrow">{tab ? 'Bài tập' : 'Câu hỏi của video'}</span>
+          <h2>{tab?.title || lesson.exerciseType || 'Bài luyện sau video'}</h2>
+          <p>
+            {tab?.note || `${questions.length} câu hỏi được giáo viên giao riêng cho bài học này.`}
+          </p>
         </div>
-        <span className="pill">{lesson.sourceSheet || 'Video'}</span>
+        <span className="pill">{questions.length} câu</span>
       </div>
 
-      {lesson.audioUrl || lesson.imageUrl ? (
+      {audioUrl || imageUrl ? (
         <div className="lesson-asset-strip">
-          {lesson.audioUrl ? (
+          {audioUrl ? (
             <div className="lesson-upload-box">
-              <strong>{lesson.audioName || 'File nghe'}</strong>
-              <audio controls src={lesson.audioUrl} className="lesson-audio" />
+              <strong>{source.audioName || lesson?.audioName || 'File nghe'}</strong>
+              <ListeningAudio
+                src={audioUrl}
+                label={source.audioName || lesson?.audioName || 'File nghe'}
+                className="lesson-audio"
+              />
             </div>
           ) : null}
-          {lesson.imageUrl ? (
+          {imageUrl ? (
             <div className="lesson-upload-box">
-              <strong>{lesson.imageName || 'Ảnh minh họa'}</strong>
-              <img className="lesson-image-preview" src={lesson.imageUrl} alt={lesson.imageName || lesson.title} />
+              <strong>{source.imageName || lesson?.imageName || 'Ảnh minh họa'}</strong>
+              <img
+                className="lesson-image-preview"
+                src={imageUrl}
+                alt={source.imageName || lesson?.imageName || lesson?.title || 'Ảnh đề bài'}
+              />
             </div>
           ) : null}
         </div>
@@ -1093,9 +1130,16 @@ export function LessonExercisePreview({ lesson, isTeacher, onSubmitted }) {
               </button>
             ) : null}
 
+            {/* Hình nét chữ thay cho ảnh gốc đã mất khi import HSK. */}
+            {question.strokeId && getStrokeById(question.strokeId) ? (
+              <div className="lesson-question__stroke">
+                <StrokeGlyph stroke={getStrokeById(question.strokeId)} size={132} />
+              </div>
+            ) : null}
+
             {question.audioUrl ? (
               <div className="lesson-question__audio">
-                <audio controls src={question.audioUrl} preload="auto" />
+                <ListeningAudio src={question.audioUrl} label={`Câu ${index + 1}`} />
               </div>
             ) : question.audioPending ? (
               <div className="lesson-question__audio-pending">
@@ -1163,6 +1207,143 @@ export function LessonExercisePreview({ lesson, isTeacher, onSubmitted }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+// Hai phần độc lập của một chủ đề: Video và Bài tập. Bấm "Bài tập" mới trải ra
+// danh sách tab con ("Bài tập ngữ pháp 1", "Bài tập nghe 2"...), mỗi tab con là
+// một đề riêng — tránh đổ toàn bộ 7-8 bài tập ra cùng một màn hình.
+export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExercisesSubmitted }) {
+  const tabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
+  const videoTab = useMemo(() => getVideoTab(tabs), [tabs]);
+  const exerciseTabs = useMemo(() => getExerciseTabs(tabs), [tabs]);
+
+  const [activePart, setActivePart] = useState('video');
+  const [activeExerciseTabId, setActiveExerciseTabId] = useState(exerciseTabs[0]?.id || '');
+
+  // Đổi chủ đề → quay lại phần Video và chọn lại tab bài tập đầu tiên.
+  useEffect(() => {
+    setActivePart('video');
+    setActiveExerciseTabId('');
+  }, [lesson?.id]);
+
+  // Giữ tab con hợp lệ khi giáo viên vừa thêm/xóa tab.
+  useEffect(() => {
+    setActiveExerciseTabId((previous) =>
+      previous && exerciseTabs.some((tab) => tab.id === previous) ? previous : exerciseTabs[0]?.id || ''
+    );
+  }, [exerciseTabs]);
+
+  const activeExerciseTab =
+    exerciseTabs.find((tab) => tab.id === activeExerciseTabId) || exerciseTabs[0] || null;
+  const totalQuestions = exerciseTabs.reduce((total, tab) => total + countLessonTabQuestions(tab), 0);
+  const videoContentTab = videoTab || {};
+  const readingLesson = {
+    ...lesson,
+    readingItems: videoContentTab.readingItems?.length ? videoContentTab.readingItems : lesson?.readingItems,
+    pinyinTable: videoContentTab.pinyinTable || lesson?.pinyinTable
+  };
+  const hasReadingContent =
+    Boolean(readingLesson.pinyinTable) || Boolean(readingLesson.readingItems?.length);
+
+  return (
+    <div className="lesson-tabs">
+      <div className="lesson-tabs__parts" role="tablist" aria-label="Nội dung chủ đề">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activePart === 'video'}
+          className={`lesson-tabs__part ${activePart === 'video' ? 'is-active' : ''}`}
+          onClick={() => setActivePart('video')}
+        >
+          <span className="lesson-tabs__part-label">Video bài học</span>
+          <span className="lesson-tabs__part-meta">
+            {videoTab?.videoUrl ? 'Đã có video' : hasReadingContent ? 'Nội dung đọc' : 'Chưa có video'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activePart === 'exercise'}
+          className={`lesson-tabs__part ${activePart === 'exercise' ? 'is-active' : ''}`}
+          onClick={() => setActivePart('exercise')}
+        >
+          <span className="lesson-tabs__part-label">Bài tập</span>
+          <span className="lesson-tabs__part-meta">
+            {exerciseTabs.length
+              ? `${exerciseTabs.length} bài · ${totalQuestions} câu`
+              : 'Chưa có bài tập'}
+          </span>
+        </button>
+      </div>
+
+      {activePart === 'video' ? (
+        <div className="lesson-tabs__panel">
+          <LessonVideoPlayer
+            lesson={{
+              ...lesson,
+              videoUrl: videoContentTab.videoUrl || lesson?.videoUrl,
+              videoTitle: videoContentTab.videoTitle || lesson?.videoTitle,
+              note: videoContentTab.note || lesson?.note
+            }}
+            isTeacher={isTeacher}
+            dashboardPath={dashboardPath}
+          />
+          {hasReadingContent ? <LessonReadingPanel lesson={readingLesson} /> : null}
+        </div>
+      ) : (
+        <div className="lesson-tabs__panel">
+          {exerciseTabs.length ? (
+            <>
+              {/* Tab con chỉ trải ra khi đang ở phần Bài tập */}
+              <div className="lesson-tabs__subtabs" role="tablist" aria-label="Các bài tập của chủ đề">
+                {exerciseTabs.map((tab, index) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab.id === activeExerciseTab?.id}
+                    className={`lesson-tabs__subtab ${tab.id === activeExerciseTab?.id ? 'is-active' : ''}`}
+                    onClick={() => setActiveExerciseTabId(tab.id)}
+                  >
+                    <span className="lesson-tabs__subtab-index">{index + 1}</span>
+                    <span className="lesson-tabs__subtab-title">{tab.title}</span>
+                    <span className="lesson-tabs__subtab-count">{countLessonTabQuestions(tab)}</span>
+                  </button>
+                ))}
+              </div>
+
+              {activeExerciseTab && countLessonTabQuestions(activeExerciseTab) ? (
+                <LessonExercisePreview
+                  key={activeExerciseTab.id}
+                  lesson={lesson}
+                  tab={activeExerciseTab}
+                  isTeacher={isTeacher}
+                  onSubmitted={onExercisesSubmitted}
+                />
+              ) : (
+                <section className="content-card content-card--enterprise video-question-empty">
+                  <span className="eyebrow">Bài tập</span>
+                  <h2>{activeExerciseTab?.title || 'Bài tập'} chưa có câu hỏi</h2>
+                  <p>Giảng viên chưa thêm câu hỏi cho tab này.</p>
+                </section>
+              )}
+            </>
+          ) : (
+            <section className="content-card content-card--enterprise video-question-empty">
+              <span className="eyebrow">Bài tập</span>
+              <h2>Chủ đề này chưa có bài tập</h2>
+              <p>
+                {isTeacher
+                  ? 'Mở phần quản lý bên dưới để thêm tab bài tập cho chủ đề.'
+                  : 'Giảng viên chưa giao bài tập cho chủ đề này. Hãy xem hết video trước.'}
+              </p>
+            </section>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1548,6 +1729,182 @@ Giải thích: Hello nghĩa là xin chào.`}
   );
 }
 
+// Bảng quản lý tab của giảng viên: thêm / đổi tên / sắp xếp / xóa tab bài tập,
+// và sửa câu hỏi của từng tab bằng đúng trình soạn câu hỏi cũ.
+function LessonTabManager({ lesson, saving, status, onSave }) {
+  const tabsKey = useMemo(
+    () => JSON.stringify(lesson?.tabs || lesson?.exercises || []),
+    [lesson?.tabs, lesson?.exercises]
+  );
+  const [draftTabs, setDraftTabs] = useState(() => buildLessonTabs(lesson));
+  const [selectedTabId, setSelectedTabId] = useState('');
+
+  useEffect(() => {
+    setDraftTabs(buildLessonTabs(lesson));
+    setSelectedTabId('');
+  }, [lesson?.id, tabsKey]);
+
+  const exerciseTabs = getExerciseTabs(draftTabs);
+  const videoTab = getVideoTab(draftTabs);
+  const selectedTab = exerciseTabs.find((tab) => tab.id === selectedTabId) || exerciseTabs[0] || null;
+
+  function patchTab(tabId, patch) {
+    setDraftTabs((previous) => previous.map((tab) => (tab.id === tabId ? { ...tab, ...patch } : tab)));
+  }
+
+  function addExerciseTab() {
+    setDraftTabs((previous) => {
+      const nextTab = createExerciseTab(previous);
+      setSelectedTabId(nextTab.id);
+      return [...previous, nextTab];
+    });
+  }
+
+  function deleteTab(tabId) {
+    setDraftTabs((previous) => previous.filter((tab) => tab.id !== tabId));
+    setSelectedTabId('');
+  }
+
+  // Đổi chỗ trong danh sách tab bài tập, giữ nguyên vị trí tab video.
+  function moveTab(tabId, direction) {
+    setDraftTabs((previous) => {
+      const order = getExerciseTabs(previous);
+      const index = order.findIndex((tab) => tab.id === tabId);
+      const target = index + direction;
+
+      if (index < 0 || target < 0 || target >= order.length) {
+        return previous;
+      }
+
+      const reordered = [...order];
+      [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+
+      let cursor = 0;
+      return previous.map((tab) => (tab.kind === 'exercise' ? reordered[cursor++] : tab));
+    });
+  }
+
+  function saveTabs(nextTabs) {
+    setDraftTabs(nextTabs);
+    onSave(serializeLessonTabs(nextTabs));
+  }
+
+  function handleSaveTabQuestions(tabId, questions) {
+    saveTabs(draftTabs.map((tab) => (tab.id === tabId ? { ...tab, exercises: questions } : tab)));
+  }
+
+  return (
+    <section className="content-card content-card--enterprise lesson-tab-manager">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Quản lý chủ đề</span>
+          <h2>Các tab của chủ đề này</h2>
+          <p>
+            Mỗi chủ đề gồm 1 tab video và tuỳ ý tab bài tập độc lập. Đặt tên dễ nhận diện như
+            &ldquo;Bài tập ngữ pháp 1&rdquo;, &ldquo;Bài tập nghe 2&rdquo;.
+          </p>
+        </div>
+        <div className="video-question-panel__toolbar">
+          <button type="button" className="button-ghost" onClick={addExerciseTab}>
+            + Thêm tab bài tập
+          </button>
+          <button type="button" className="button" onClick={() => saveTabs(draftTabs)} disabled={saving}>
+            {saving ? 'Đang lưu...' : 'Lưu cấu trúc tab'}
+          </button>
+        </div>
+      </div>
+
+      {videoTab ? (
+        <div className="lesson-tab-manager__row lesson-tab-manager__row--video">
+          <span className="pill">Video</span>
+          <label className="auth-field lesson-tab-manager__field">
+            <span>Link video bài học</span>
+            <input
+              className="lesson-input"
+              value={videoTab.videoUrl}
+              onChange={(event) => patchTab(videoTab.id, { videoUrl: event.target.value })}
+              placeholder="Dán link Google Drive / YouTube"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {exerciseTabs.length ? (
+        <div className="lesson-tab-manager__list">
+          {exerciseTabs.map((tab, index) => (
+            <div
+              key={tab.id}
+              className={`lesson-tab-manager__row ${tab.id === selectedTab?.id ? 'is-selected' : ''}`}
+            >
+              <button
+                type="button"
+                className="lesson-tab-manager__pick"
+                onClick={() => setSelectedTabId(tab.id)}
+                title="Sửa câu hỏi của tab này"
+              >
+                {index + 1}
+              </button>
+              <label className="auth-field lesson-tab-manager__field">
+                <span>Tên tab</span>
+                <input
+                  className="lesson-input"
+                  value={tab.title}
+                  onChange={(event) => patchTab(tab.id, { title: event.target.value })}
+                  placeholder="VD: Bài tập ngữ pháp 1"
+                />
+              </label>
+              <span className="pill">{countLessonTabQuestions(tab)} câu</span>
+              <div className="lesson-tab-manager__actions">
+                <button type="button" className="button-ghost" onClick={() => moveTab(tab.id, -1)} disabled={index === 0}>
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="button-ghost"
+                  onClick={() => moveTab(tab.id, 1)}
+                  disabled={index === exerciseTabs.length - 1}
+                >
+                  ↓
+                </button>
+                <button type="button" className="button-ghost" onClick={() => deleteTab(tab.id)}>
+                  Xóa
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          Chủ đề chưa có tab bài tập nào. Bấm &ldquo;Thêm tab bài tập&rdquo; để tạo tab đầu tiên.
+        </div>
+      )}
+
+      {status?.text ? (
+        <div className={status.type === 'success' ? 'exercise-feedback success' : 'exercise-feedback'}>
+          {status.text}
+        </div>
+      ) : null}
+
+      {selectedTab ? (
+        <div className="lesson-tab-manager__editor">
+          <h3>Câu hỏi của &ldquo;{selectedTab.title}&rdquo;</h3>
+          <VideoQuestionEditor
+            key={selectedTab.id}
+            lesson={{
+              id: `${lesson?.id || 'lesson'}:${selectedTab.id}`,
+              databaseId: lesson?.databaseId,
+              exercises: selectedTab.exercises
+            }}
+            saving={saving}
+            status={null}
+            onSave={(questions) => handleSaveTabQuestions(selectedTab.id, questions)}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
   const questions = useMemo(() => getAssignmentQuestions(assignment), [assignment]);
   const [answers, setAnswers] = useState(() => attempt?.answers || {});
@@ -1599,7 +1956,7 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
 
             {question.audioUrl ? (
               <div className="lesson-question__audio">
-                <audio controls src={question.audioUrl} preload="auto" />
+                <ListeningAudio src={question.audioUrl} label={`Câu ${index + 1}`} />
               </div>
             ) : null}
 
@@ -1701,6 +2058,8 @@ export default function LearningPage() {
   const [currentCourse, setCurrentCourse] = useState(() => cachedRoomState?.currentCourse || null);
   const [lessons, setLessons] = useState(() => cachedRoomState?.lessons || []);
   const [selectedLessonId, setSelectedLessonId] = useState(() => cachedRoomState?.selectedLessonId || lessonId || '');
+  // Bật phần "Luyện nét chữ Hán" ghim đầu thanh bên (thay cho nội dung bài học).
+  const [showStrokePractice, setShowStrokePractice] = useState(false);
   const [loadingCourse, setLoadingCourse] = useState(() => !cachedRoomState);
   const [audioMap, setAudioMap] = useState(() => readStoredJson(storageKeys.audioByLesson, {}));
   const [fileMap, setFileMap] = useState(() => readStoredJson(storageKeys.filesByLesson, {}));
@@ -2345,23 +2704,30 @@ export default function LearningPage() {
     }
   }
 
-  async function handleSaveVideoQuestions(nextQuestions) {
+  // Lưu cả cấu trúc tab của chủ đề. `exercises` phẳng vẫn được ghi kèm để phần
+  // đếm câu hỏi và các bản đọc cũ không phải đổi theo.
+  async function handleSaveLessonTabs(nextTabs) {
     if (!currentLesson) {
-      setLessonQuestionStatus({ type: 'error', text: 'Chưa chọn bài học để lưu câu hỏi video.' });
+      setLessonQuestionStatus({ type: 'error', text: 'Chưa chọn chủ đề để lưu tab.' });
       return;
     }
 
     setLessonQuestionSaving(true);
     setLessonQuestionStatus({ type: '', text: '' });
 
+    const flattenedExercises = flattenLessonTabExercises(nextTabs);
+    const videoUrl = getVideoTab(nextTabs)?.videoUrl || currentLesson.videoUrl || '';
+
     try {
-      const saved = await saveLessonQuestionsToSupabase({
+      await saveLessonTabsToSupabase({
         lessonId: currentLesson.databaseId || currentLesson.id,
-        questions: nextQuestions,
+        tabs: nextTabs,
+        questions: flattenedExercises,
+        videoUrl,
         accessToken: auth.session?.access_token
       });
-      const savedQuestions = prepareVideoQuestionsForSave(saved?.questions || nextQuestions);
-      const updateLessonQuestions = (lesson) => {
+
+      const updateLessonTabs = (lesson) => {
         const isCurrentLesson =
           lesson.id === currentLesson.id ||
           lesson.databaseId === currentLesson.databaseId ||
@@ -2373,13 +2739,14 @@ export default function LearningPage() {
 
         return {
           ...lesson,
-          exercises: savedQuestions,
-          questionCount: savedQuestions.length,
-          exerciseType: lesson.exerciseType || 'Bài luyện video'
+          tabs: nextTabs,
+          videoUrl,
+          exercises: flattenedExercises,
+          questionCount: flattenedExercises.length
         };
       };
 
-      setLessons((previous) => previous.map(updateLessonQuestions));
+      setLessons((previous) => previous.map(updateLessonTabs));
       setCurrentCourse((previous) => {
         if (!previous?.sections?.length) {
           return previous;
@@ -2389,20 +2756,20 @@ export default function LearningPage() {
           ...previous,
           sections: previous.sections.map((section) => ({
             ...section,
-            lessons: (section.lessons || []).map(updateLessonQuestions)
+            lessons: (section.lessons || []).map(updateLessonTabs)
           }))
         };
       });
+
+      const exerciseTabCount = getExerciseTabs(nextTabs).length;
       setLessonQuestionStatus({
         type: 'success',
-        text: savedQuestions.length
-          ? `Đã lưu ${savedQuestions.length} câu hỏi video vào Supabase.`
-          : 'Đã xóa toàn bộ câu hỏi video trên Supabase.'
+        text: `Đã lưu ${exerciseTabCount} tab bài tập (${flattenedExercises.length} câu) vào Supabase.`
       });
     } catch (error) {
       setLessonQuestionStatus({
         type: 'error',
-        text: error.message || 'Chưa thể lưu câu hỏi video lên Supabase.'
+        text: error.message || 'Chưa thể lưu cấu trúc tab lên Supabase.'
       });
     } finally {
       setLessonQuestionSaving(false);
@@ -2492,6 +2859,7 @@ export default function LearningPage() {
         courseKey: currentCourseId
       });
     }
+    setShowStrokePractice(false);
     setSelectedLessonId(nextLessonId);
     navigate(`/learn/${currentCourseId}/${nextLessonId}`);
   }
@@ -2616,6 +2984,22 @@ export default function LearningPage() {
             </div>
           ) : null}
 
+          {/* Luyện nét chữ Hán: chức năng riêng, ghim đầu danh sách của khóa HSK
+              nên không nằm trong cấu trúc chương/bài đã import. */}
+          {isHskCourse(currentCourse) ? (
+            <button
+              type="button"
+              className={`stroke-pinned-entry ${showStrokePractice ? 'is-active' : ''}`}
+              onClick={() => setShowStrokePractice(true)}
+            >
+              <span className="stroke-pinned-entry__icon" aria-hidden="true">✍</span>
+              <span className="stroke-pinned-entry__copy">
+                <strong>Luyện nét chữ Hán</strong>
+                <span>{CHINESE_STROKES.length} nét · bảng nét và bài luyện</span>
+              </span>
+            </button>
+          ) : null}
+
           <div className="lesson-sidebar__sections">
             {sections.map((section, sectionIndex) => {
               const isExpanded = expandedSections[sectionIndex] ?? (sectionIndex === 0);
@@ -2675,7 +3059,9 @@ export default function LearningPage() {
         </aside>
 
         <div className="learning-stage">
-          {hasLessonAccess ? (
+          {showStrokePractice ? (
+            <StrokePractice />
+          ) : hasLessonAccess ? (
             <>
               <div className="learning-lesson-title-row">
                 <h1>{currentLesson.title}</h1>
@@ -2707,31 +3093,21 @@ export default function LearningPage() {
                 )}
               </div>
 
-              <LessonVideoPlayer lesson={currentLesson} isTeacher={isTeacher} dashboardPath={getDashboardPathForRole(currentRole)} />
-
-              {isReadingLesson(currentLesson) ? (
-                <LessonReadingPanel lesson={currentLesson} />
-              ) : null}
+              {/* Video và Bài tập là hai mục độc lập; bài tập trải ra theo tab con. */}
+              <LessonTabbedContent
+                lesson={currentLesson}
+                isTeacher={isTeacher}
+                dashboardPath={getDashboardPathForRole(currentRole)}
+                onExercisesSubmitted={handleLessonExercisesSubmitted}
+              />
 
               {isTeacher ? (
-                <VideoQuestionEditor
+                <LessonTabManager
                   lesson={currentLesson}
                   saving={lessonQuestionSaving}
                   status={lessonQuestionStatus}
-                  onSave={handleSaveVideoQuestions}
+                  onSave={handleSaveLessonTabs}
                 />
-              ) : currentLessonExercises.length ? (
-                <LessonExercisePreview
-                  lesson={currentLesson}
-                  isTeacher={isTeacher}
-                  onSubmitted={handleLessonExercisesSubmitted}
-                />
-              ) : !isReadingLesson(currentLesson) ? (
-                <section className="content-card content-card--enterprise video-question-empty">
-                  <span className="eyebrow">Bài luyện</span>
-                  <h2>Chưa có câu hỏi cho video này</h2>
-                  <p>Giảng viên chưa giao bài luyện trực tiếp dưới video. Hãy xem hết video và làm các nhiệm vụ được giao nếu có.</p>
-                </section>
               ) : null}
 
               {isTeacher ? (

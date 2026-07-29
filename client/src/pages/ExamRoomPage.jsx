@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
+import { ListeningAudio } from '../components/ListeningAudio';
 import { getEffectiveRole } from '../lib/permissions';
 import { getCourseCatalog, getOwnedCourseIds } from '../lib/courseService';
 import {
@@ -600,8 +601,8 @@ export default function ExamRoomPage() {
         <main className="exam-room__main">
           {currentSection.type === 'listening' && currentSection.audioUrl ? (
             <div className="exam-room__audio">
-              <span>File nghe — bạn có thể tua và nghe lại trong thời gian của phần thi.</span>
-              <audio controls src={currentSection.audioUrl} preload="auto" />
+              <span>File nghe — bạn có thể tua, nghe lại và chỉnh tốc độ trong thời gian của phần thi.</span>
+              <ListeningAudio src={currentSection.audioUrl} label={currentSection.title || 'Phần nghe'} />
             </div>
           ) : null}
 

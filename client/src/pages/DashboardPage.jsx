@@ -25,6 +25,16 @@ import {
   saveCourseToSupabase,
   writeTeacherManagedCourses
 } from '../lib/courseService';
+import { ListeningAudio } from '../components/ListeningAudio';
+import {
+  buildLessonTabs,
+  countLessonTabQuestions,
+  createExerciseTab,
+  flattenLessonTabExercises,
+  getExerciseTabs,
+  getVideoTab,
+  serializeLessonTabs
+} from '../lib/lessonTabs';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getActivityLogs } from '../lib/activityService';
 import {
@@ -512,7 +522,8 @@ function getCourseQuestionCount(sections = []) {
 }
 
 function LessonStudentViewPreview({ lesson, showAnswers = false }) {
-  const exercises = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
+  // Xem trước theo đúng cấu trúc học viên thấy: từng tab bài tập một nhóm riêng.
+  const exerciseTabs = getExerciseTabs(buildLessonTabs(lesson));
   const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
   const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
   const videoIssue = getVideoEmbedIssue(rawVideoUrl);
@@ -572,7 +583,11 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
           {lesson.audioUrl ? (
             <div className="lesson-upload-box">
               <strong>{lesson.audioName || 'File nghe'}</strong>
-              <audio controls src={lesson.audioUrl} className="lesson-audio" />
+              <ListeningAudio
+                src={lesson.audioUrl}
+                label={lesson.audioName || 'File nghe'}
+                className="lesson-audio"
+              />
             </div>
           ) : null}
           {lesson.imageUrl ? (
@@ -584,34 +599,54 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
         </div>
       ) : null}
 
-      <div className="generated-question-preview">
-        {exercises.length ? (
-          exercises.map((exercise, index) => (
-            <article key={exercise.id || `${lesson.id}-preview-${index}`} className="generated-question-preview__item">
-              <strong>{exercise.prompt || `${lesson.exerciseType || 'Câu hỏi'} - Câu ${exercise.number || index + 1}`}</strong>
-              {exercise.options?.length ? (
-                <div className="exercise-options">
-                  {exercise.options.map((option) => (
-                    <span
-                      key={`${exercise.id}-${option.label}`}
-                      className={showAnswers && option.label === (exercise.correctAnswer || exercise.answer) ? 'answer-pill is-correct' : 'answer-pill'}
-                    >
-                      {option.label}. {option.text}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-state">Bài này không có lựa chọn đáp án.</p>
-              )}
-              {showAnswers && (exercise.correctAnswer || exercise.answer) ? (
-                <div className="exercise-feedback success">Đáp án: {exercise.correctAnswer || exercise.answer}</div>
-              ) : null}
-            </article>
-          ))
-        ) : (
-          <p className="empty-state">Bài này chưa có câu hỏi.</p>
-        )}
-      </div>
+      {exerciseTabs.length ? (
+        exerciseTabs.map((tab) => (
+          <div key={tab.id} className="generated-question-preview">
+            <div className="generated-question-preview__tab-head">
+              <strong>{tab.title}</strong>
+              <span className="pill">{countLessonTabQuestions(tab)} câu</span>
+            </div>
+
+            {tab.exercises.length ? (
+              tab.exercises.map((exercise, index) => (
+                <article
+                  key={exercise.id || `${lesson.id}-${tab.id}-preview-${index}`}
+                  className="generated-question-preview__item"
+                >
+                  <strong>{exercise.prompt || `${tab.title} - Câu ${exercise.number || index + 1}`}</strong>
+                  {exercise.options?.length ? (
+                    <div className="exercise-options">
+                      {exercise.options.map((option) => (
+                        <span
+                          key={`${exercise.id}-${option.label}`}
+                          className={
+                            showAnswers && option.label === (exercise.correctAnswer || exercise.answer)
+                              ? 'answer-pill is-correct'
+                              : 'answer-pill'
+                          }
+                        >
+                          {option.label}. {option.text}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">Bài này không có lựa chọn đáp án.</p>
+                  )}
+                  {showAnswers && (exercise.correctAnswer || exercise.answer) ? (
+                    <div className="exercise-feedback success">Đáp án: {exercise.correctAnswer || exercise.answer}</div>
+                  ) : null}
+                </article>
+              ))
+            ) : (
+              <p className="empty-state">Tab này chưa có câu hỏi.</p>
+            )}
+          </div>
+        ))
+      ) : (
+        <div className="generated-question-preview">
+          <p className="empty-state">Chủ đề này chưa có bài tập.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -637,6 +672,8 @@ export function TeacherDashboardPage() {
   const [importDriveLink, setImportDriveLink] = useState('');
   const [selectedDraftLessonId, setSelectedDraftLessonId] = useState('');
   const [studentPreviewLessonId, setStudentPreviewLessonId] = useState('');
+  // Tab bài tập đang được soạn trong bài học đang chọn.
+  const [activeDraftTabId, setActiveDraftTabId] = useState('');
   const [draggedDraftLessonId, setDraggedDraftLessonId] = useState('');
   const [draftLessonDropTarget, setDraftLessonDropTarget] = useState(null);
   const [draggedDraftSectionIndex, setDraggedDraftSectionIndex] = useState(null);
@@ -810,6 +847,21 @@ export function TeacherDashboardPage() {
   const selectedDraftLessonSection = selectedDraftLesson
     ? courseDraft.sections[selectedDraftLesson.sectionIndex] || null
     : null;
+  // Chủ đề đang soạn được nhìn dưới dạng tab: 1 tab video + N tab bài tập.
+  const selectedDraftTabs = useMemo(() => buildLessonTabs(selectedDraftLesson), [selectedDraftLesson]);
+  const selectedDraftExerciseTabs = useMemo(() => getExerciseTabs(selectedDraftTabs), [selectedDraftTabs]);
+  const activeDraftTab =
+    selectedDraftExerciseTabs.find((tab) => tab.id === activeDraftTabId) || selectedDraftExerciseTabs[0] || null;
+  const activeDraftTabQuestions = Array.isArray(activeDraftTab?.exercises) ? activeDraftTab.exercises : [];
+
+  // Đổi bài học → chọn lại tab bài tập đầu tiên; tab vừa bị xóa cũng rơi về đây.
+  useEffect(() => {
+    setActiveDraftTabId((previous) =>
+      previous && selectedDraftExerciseTabs.some((tab) => tab.id === previous)
+        ? previous
+        : selectedDraftExerciseTabs[0]?.id || ''
+    );
+  }, [selectedDraftLessonId, selectedDraftExerciseTabs]);
   const hasDraftAudio = draftLessons.some((lesson) => lesson.audioUrl || lesson.audioName);
   const hasDraftImage = draftLessons.some((lesson) => lesson.imageUrl || lesson.imageName);
   const hasDraftVideo = draftLessons.some((lesson) => lesson.videoUrl);
@@ -1298,46 +1350,115 @@ export function TeacherDashboardPage() {
     });
   }
 
-  function updateDraftQuestion(sectionIndex, lessonIndex, questionIndex, patch) {
-    setCourseDraft((previous) => {
-      const nextSections = previous.sections.map((section, currentSectionIndex) => {
+  // Ghi lại danh sách tab của một bài học trong bản nháp. `exercises`/`questions`
+  // phẳng được đồng bộ từ mọi tab bài tập để bước đăng khóa học và phần đếm câu
+  // hỏi không phải đổi theo.
+  function setDraftLessonTabs(sectionIndex, lessonIndex, updateTabs) {
+    setCourseDraft((previous) => ({
+      ...previous,
+      sections: previous.sections.map((section, currentSectionIndex) => {
         if (currentSectionIndex !== sectionIndex) return section;
 
         return {
           ...section,
           lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
             if (currentLessonIndex !== lessonIndex) return lesson;
-            const questions = Array.isArray(lesson.exercises) ? lesson.exercises : Array.isArray(lesson.questions) ? lesson.questions : [];
-            const nextQuestions = questions.map((question, currentQuestionIndex) =>
-              currentQuestionIndex === questionIndex ? { ...question, ...patch } : question
-            );
+
+            const nextTabs = updateTabs(buildLessonTabs(lesson), lesson);
+            if (!nextTabs) return lesson;
+
+            const flattened = flattenLessonTabExercises(nextTabs);
+            const videoTab = getVideoTab(nextTabs);
 
             return {
               ...lesson,
-              questions: nextQuestions,
-              exercises: nextQuestions,
-              questionCount: nextQuestions.length
+              tabs: serializeLessonTabs(nextTabs),
+              videoUrl: videoTab?.videoUrl || '',
+              videoEmbedUrl: videoTab?.videoUrl ? getEmbeddableVideoUrl(videoTab.videoUrl) : '',
+              questions: flattened,
+              exercises: flattened,
+              questionCount: flattened.length
             };
           })
         };
-      });
+      })
+    }));
+  }
 
-      return {
-        ...previous,
-        sections: nextSections
-      };
+  // Sửa danh sách câu hỏi của đúng một tab bài tập.
+  function setDraftTabQuestions(sectionIndex, lessonIndex, tabId, mapQuestions) {
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs) =>
+      tabs.map((tab) =>
+        tab.id === tabId ? { ...tab, exercises: mapQuestions(tab.exercises || [], tab) } : tab
+      )
+    );
+  }
+
+  function addDraftExerciseTab(sectionIndex, lessonIndex) {
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs) => {
+      const nextTab = createExerciseTab(tabs);
+      setActiveDraftTabId(nextTab.id);
+      return [...tabs, nextTab];
+    });
+    setImportMessage({ type: 'success', text: 'Đã thêm một tab bài tập cho chủ đề.' });
+  }
+
+  function renameDraftTab(sectionIndex, lessonIndex, tabId, title) {
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs) =>
+      tabs.map((tab) => (tab.id === tabId ? { ...tab, title } : tab))
+    );
+  }
+
+  function deleteDraftTab(sectionIndex, lessonIndex, tabId) {
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs) => tabs.filter((tab) => tab.id !== tabId));
+    setActiveDraftTabId('');
+    setImportMessage({ type: 'success', text: 'Đã xóa tab bài tập khỏi chủ đề.' });
+  }
+
+  // Đổi chỗ hai tab bài tập, giữ nguyên vị trí tab video.
+  function moveDraftTab(sectionIndex, lessonIndex, tabId, direction) {
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs) => {
+      const order = getExerciseTabs(tabs);
+      const index = order.findIndex((tab) => tab.id === tabId);
+      const target = index + direction;
+
+      if (index < 0 || target < 0 || target >= order.length) return null;
+
+      const reordered = [...order];
+      [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+
+      let cursor = 0;
+      return tabs.map((tab) => (tab.kind === 'exercise' ? reordered[cursor++] : tab));
     });
   }
 
-  function updateDraftQuestionOption(sectionIndex, lessonIndex, questionIndex, optionIndex, value) {
-    const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
-    const questions = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
-    const question = questions[questionIndex];
-    const options = (question?.options || []).map((option, currentOptionIndex) =>
-      currentOptionIndex === optionIndex ? { ...option, text: value } : option
+  function updateDraftLessonVideoUrl(sectionIndex, lessonIndex, videoUrl, videoTitle) {
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs) =>
+      tabs.map((tab) => (tab.kind === 'video' ? { ...tab, videoUrl, videoTitle } : tab))
     );
+  }
 
-    updateDraftQuestion(sectionIndex, lessonIndex, questionIndex, { options });
+  function updateDraftQuestion(sectionIndex, lessonIndex, tabId, questionIndex, patch) {
+    setDraftTabQuestions(sectionIndex, lessonIndex, tabId, (questions) =>
+      questions.map((question, currentQuestionIndex) =>
+        currentQuestionIndex === questionIndex ? { ...question, ...patch } : question
+      )
+    );
+  }
+
+  function updateDraftQuestionOption(sectionIndex, lessonIndex, tabId, questionIndex, optionIndex, value) {
+    setDraftTabQuestions(sectionIndex, lessonIndex, tabId, (questions) =>
+      questions.map((question, currentQuestionIndex) => {
+        if (currentQuestionIndex !== questionIndex) return question;
+
+        return {
+          ...question,
+          options: (question.options || []).map((option, currentOptionIndex) =>
+            currentOptionIndex === optionIndex ? { ...option, text: value } : option
+          )
+        };
+      })
+    );
   }
 
   function createDraftLessonQuestion(lesson, index = 0) {
@@ -1352,94 +1473,81 @@ export function TeacherDashboardPage() {
     };
   }
 
-  function appendDraftLessonQuestions(sectionIndex, lessonIndex, questionsToAdd = []) {
-    setCourseDraft((previous) => {
-      const nextSections = previous.sections.map((section, currentSectionIndex) => {
-        if (currentSectionIndex !== sectionIndex) return section;
+  // Thêm câu hỏi vào một tab bài tập. Chủ đề chưa có tab nào thì tự tạo tab đầu
+  // tiên rồi đổ câu hỏi vào đó, để nhập Excel trên bài học mới vẫn chạy.
+  function appendDraftLessonQuestions(sectionIndex, lessonIndex, tabId, questionsToAdd = []) {
+    let createdTabId = '';
+
+    setDraftLessonTabs(sectionIndex, lessonIndex, (tabs, lesson) => {
+      let nextTabs = tabs;
+      let targetId = tabId && tabs.some((tab) => tab.id === tabId) ? tabId : getExerciseTabs(tabs)[0]?.id || '';
+
+      if (!targetId) {
+        const nextTab = createExerciseTab(tabs);
+        nextTabs = [...tabs, nextTab];
+        targetId = nextTab.id;
+        createdTabId = nextTab.id;
+      }
+
+      return nextTabs.map((tab) => {
+        if (tab.id !== targetId) return tab;
+
+        const questions = Array.isArray(tab.exercises) ? tab.exercises : [];
 
         return {
-          ...section,
-          lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
-            if (currentLessonIndex !== lessonIndex) return lesson;
-            const questions = Array.isArray(lesson.exercises) ? lesson.exercises : Array.isArray(lesson.questions) ? lesson.questions : [];
-            const nextQuestions = [
-              ...questions,
-              ...questionsToAdd.map((question, questionIndex) => ({
-                ...question,
-                id: question.id || `${lesson.id || 'lesson'}-question-${Date.now()}-${questionIndex}`,
-                number: String(questions.length + questionIndex + 1),
-                options: Array.isArray(question.options) && question.options.length
+          ...tab,
+          exercises: [
+            ...questions,
+            ...questionsToAdd.map((question, questionIndex) => ({
+              ...question,
+              id: question.id || `${lesson.id || 'lesson'}-question-${Date.now()}-${questionIndex}`,
+              number: String(questions.length + questionIndex + 1),
+              options:
+                Array.isArray(question.options) && question.options.length
                   ? question.options.map((option, optionIndex) => ({
                       label: option.label || DRAFT_OPTION_LABELS[optionIndex] || String(optionIndex + 1),
                       text: option.text || option.value || ''
                     }))
                   : DRAFT_OPTION_LABELS.map((label) => ({ label, text: '' })),
-                answer: question.correctAnswer || question.answer || 'A',
-                correctAnswer: question.correctAnswer || question.answer || 'A',
-                note: question.note || question.explanation || ''
-              }))
-            ];
-
-            return {
-              ...lesson,
-              questions: nextQuestions,
-              exercises: nextQuestions,
-              questionCount: nextQuestions.length
-            };
-          })
+              answer: question.correctAnswer || question.answer || 'A',
+              correctAnswer: question.correctAnswer || question.answer || 'A',
+              note: question.note || question.explanation || ''
+            }))
+          ]
         };
       });
-
-      return {
-        ...previous,
-        sections: nextSections
-      };
     });
+
+    if (createdTabId) {
+      setActiveDraftTabId(createdTabId);
+    }
   }
 
-  function addDraftLessonQuestion(sectionIndex, lessonIndex) {
+  function addDraftLessonQuestion(sectionIndex, lessonIndex, tabId) {
     const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
-    const questions = Array.isArray(lesson?.exercises) ? lesson.exercises : Array.isArray(lesson?.questions) ? lesson.questions : [];
-    appendDraftLessonQuestions(sectionIndex, lessonIndex, [createDraftLessonQuestion(lesson, questions.length)]);
-    setImportMessage({ type: 'success', text: 'Đã thêm một câu hỏi thủ công cho bài học.' });
+    const tabs = buildLessonTabs(lesson);
+    const targetTab = getExerciseTabs(tabs).find((tab) => tab.id === tabId) || getExerciseTabs(tabs)[0];
+    const questionCount = Array.isArray(targetTab?.exercises) ? targetTab.exercises.length : 0;
+
+    appendDraftLessonQuestions(sectionIndex, lessonIndex, tabId, [
+      createDraftLessonQuestion(lesson, questionCount)
+    ]);
+    setImportMessage({ type: 'success', text: 'Đã thêm một câu hỏi thủ công cho tab bài tập.' });
   }
 
-  function deleteDraftQuestion(sectionIndex, lessonIndex, questionIndex) {
-    setCourseDraft((previous) => {
-      const nextSections = previous.sections.map((section, currentSectionIndex) => {
-        if (currentSectionIndex !== sectionIndex) return section;
-
-        return {
-          ...section,
-          lessons: (section.lessons || []).map((lesson, currentLessonIndex) => {
-            if (currentLessonIndex !== lessonIndex) return lesson;
-            const questions = Array.isArray(lesson.exercises) ? lesson.exercises : Array.isArray(lesson.questions) ? lesson.questions : [];
-            const nextQuestions = questions
-              .filter((_, currentQuestionIndex) => currentQuestionIndex !== questionIndex)
-              .map((question, currentQuestionIndex) => ({
-                ...question,
-                number: String(currentQuestionIndex + 1)
-              }));
-
-            return {
-              ...lesson,
-              questions: nextQuestions,
-              exercises: nextQuestions,
-              questionCount: nextQuestions.length
-            };
-          })
-        };
-      });
-
-      return {
-        ...previous,
-        sections: nextSections
-      };
-    });
-    setImportMessage({ type: 'success', text: 'Đã xóa câu hỏi khỏi bài học.' });
+  function deleteDraftQuestion(sectionIndex, lessonIndex, tabId, questionIndex) {
+    setDraftTabQuestions(sectionIndex, lessonIndex, tabId, (questions) =>
+      questions
+        .filter((_, currentQuestionIndex) => currentQuestionIndex !== questionIndex)
+        .map((question, currentQuestionIndex) => ({
+          ...question,
+          number: String(currentQuestionIndex + 1)
+        }))
+    );
+    setImportMessage({ type: 'success', text: 'Đã xóa câu hỏi khỏi tab bài tập.' });
   }
 
-  async function handleDraftLessonQuestionFile(sectionIndex, lessonIndex, file) {
+  async function handleDraftLessonQuestionFile(sectionIndex, lessonIndex, tabId, file) {
     if (!file) return;
 
     try {
@@ -1454,8 +1562,8 @@ export function TeacherDashboardPage() {
         return;
       }
 
-      appendDraftLessonQuestions(sectionIndex, lessonIndex, questions);
-      setImportMessage({ type: 'success', text: `Đã thêm ${questions.length} câu hỏi từ ${file.name} cho bài học.` });
+      appendDraftLessonQuestions(sectionIndex, lessonIndex, tabId, questions);
+      setImportMessage({ type: 'success', text: `Đã thêm ${questions.length} câu hỏi từ ${file.name} vào tab bài tập.` });
     } catch {
       setImportMessage({ type: 'error', text: 'Không thể đọc file Excel bài tập. Hãy kiểm tra lại cấu trúc file.' });
     }
@@ -2433,11 +2541,15 @@ export function TeacherDashboardPage() {
                         <input
                           value={selectedDraftLesson.videoUrl || ''}
                           onChange={(event) =>
-                            updateDraftLesson(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, {
-                              videoUrl: event.target.value,
-                              videoEmbedUrl: getEmbeddableVideoUrl(event.target.value),
-                              videoTitle: selectedDraftLesson.videoTitle || selectedDraftLesson.title || `Bài ${selectedDraftLesson.lessonNumber || ''}`.trim()
-                            })
+                            // Ghi vào tab video để lesson.videoUrl và tab không lệch nhau.
+                            updateDraftLessonVideoUrl(
+                              selectedDraftLesson.sectionIndex,
+                              selectedDraftLesson.lessonIndex,
+                              event.target.value,
+                              selectedDraftLesson.videoTitle ||
+                                selectedDraftLesson.title ||
+                                `Bài ${selectedDraftLesson.lessonNumber || ''}`.trim()
+                            )
                           }
                           placeholder="Dán link share Google Drive của video bài học"
                         />
@@ -2485,13 +2597,111 @@ export function TeacherDashboardPage() {
                       </label>
                     </div>
 
+                    {/* Chủ đề gồm nhiều tab bài tập độc lập — chọn tab rồi soạn câu hỏi cho riêng tab đó. */}
+                    <div className="draft-tab-bar">
+                      <div className="draft-tab-bar__head">
+                        <span className="eyebrow">Tab bài tập của chủ đề</span>
+                        <button
+                          type="button"
+                          className="button-ghost"
+                          onClick={() =>
+                            addDraftExerciseTab(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex)
+                          }
+                        >
+                          + Thêm tab
+                        </button>
+                      </div>
+
+                      {selectedDraftExerciseTabs.length ? (
+                        <div className="draft-tab-bar__list">
+                          {selectedDraftExerciseTabs.map((tab, tabIndex) => (
+                            <div
+                              key={tab.id}
+                              className={`draft-tab-chip ${tab.id === activeDraftTab?.id ? 'is-active' : ''}`}
+                            >
+                              <button
+                                type="button"
+                                className="draft-tab-chip__select"
+                                onClick={() => setActiveDraftTabId(tab.id)}
+                                title="Soạn câu hỏi cho tab này"
+                              >
+                                {tabIndex + 1}
+                              </button>
+                              <input
+                                className="draft-tab-chip__title"
+                                value={tab.title}
+                                onChange={(event) =>
+                                  renameDraftTab(
+                                    selectedDraftLesson.sectionIndex,
+                                    selectedDraftLesson.lessonIndex,
+                                    tab.id,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder="VD: Bài tập ngữ pháp 1"
+                              />
+                              <span className="pill">{countLessonTabQuestions(tab)}</span>
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                disabled={tabIndex === 0}
+                                onClick={() =>
+                                  moveDraftTab(
+                                    selectedDraftLesson.sectionIndex,
+                                    selectedDraftLesson.lessonIndex,
+                                    tab.id,
+                                    -1
+                                  )
+                                }
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                disabled={tabIndex === selectedDraftExerciseTabs.length - 1}
+                                onClick={() =>
+                                  moveDraftTab(
+                                    selectedDraftLesson.sectionIndex,
+                                    selectedDraftLesson.lessonIndex,
+                                    tab.id,
+                                    1
+                                  )
+                                }
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                onClick={() =>
+                                  deleteDraftTab(
+                                    selectedDraftLesson.sectionIndex,
+                                    selectedDraftLesson.lessonIndex,
+                                    tab.id
+                                  )
+                                }
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="field-hint">
+                          Chủ đề chưa có tab bài tập. Bấm &ldquo;Thêm tab&rdquo;, hoặc nhập Excel / thêm câu hỏi thủ
+                          công bên dưới để tự tạo tab đầu tiên.
+                        </p>
+                      )}
+                    </div>
+
                     <div className="lesson-question-editor">
                       <div className="lesson-question-editor__toolbar">
                         <div>
-                          <span className="eyebrow">Bài vận dụng dưới video</span>
-                          <strong>
-                            {(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).length} câu
-                          </strong>
+                          <span className="eyebrow">
+                            {activeDraftTab ? `Câu hỏi · ${activeDraftTab.title}` : 'Bài vận dụng dưới video'}
+                          </span>
+                          <strong>{activeDraftTabQuestions.length} câu</strong>
                         </div>
                         <div className="lesson-question-editor__actions">
                           <label className="button-ghost video-question-file-button">
@@ -2503,6 +2713,7 @@ export function TeacherDashboardPage() {
                                 void handleDraftLessonQuestionFile(
                                   selectedDraftLesson.sectionIndex,
                                   selectedDraftLesson.lessonIndex,
+                                  activeDraftTab?.id || '',
                                   event.target.files?.[0]
                                 );
                                 event.target.value = '';
@@ -2512,14 +2723,20 @@ export function TeacherDashboardPage() {
                           <button
                             type="button"
                             className="button-ghost"
-                            onClick={() => addDraftLessonQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex)}
+                            onClick={() =>
+                              addDraftLessonQuestion(
+                                selectedDraftLesson.sectionIndex,
+                                selectedDraftLesson.lessonIndex,
+                                activeDraftTab?.id || ''
+                              )
+                            }
                           >
                             Thêm thủ công
                           </button>
                         </div>
                       </div>
 
-                      {(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).map(
+                      {activeDraftTabQuestions.map(
                         (question, questionIndex) => (
                           <article key={question.id || `${selectedDraftLesson.id}-q-${questionIndex}`} className="lesson-question-editor__item">
                             <div className="lesson-question-editor__head">
@@ -2529,7 +2746,7 @@ export function TeacherDashboardPage() {
                                 <select
                                   value={question.correctAnswer || question.answer || ''}
                                   onChange={(event) =>
-                                    updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                    updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
                                       answer: event.target.value,
                                       correctAnswer: event.target.value
                                     })
@@ -2550,6 +2767,7 @@ export function TeacherDashboardPage() {
                                   deleteDraftQuestion(
                                     selectedDraftLesson.sectionIndex,
                                     selectedDraftLesson.lessonIndex,
+                                    activeDraftTab?.id,
                                     questionIndex
                                   )
                                 }
@@ -2563,7 +2781,7 @@ export function TeacherDashboardPage() {
                               <input
                                 value={question.prompt || ''}
                                 onChange={(event) =>
-                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
                                     prompt: event.target.value
                                   })
                                 }
@@ -2580,6 +2798,7 @@ export function TeacherDashboardPage() {
                                       updateDraftQuestionOption(
                                         selectedDraftLesson.sectionIndex,
                                         selectedDraftLesson.lessonIndex,
+                                        activeDraftTab?.id,
                                         questionIndex,
                                         optionIndex,
                                         event.target.value
@@ -2596,7 +2815,7 @@ export function TeacherDashboardPage() {
                                 className="button-ghost"
                                 onClick={() => {
                                   const nextLabel = ['A', 'B', 'C', 'D'][(question.options || []).length];
-                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
                                     options: [...(question.options || []), { label: nextLabel, text: '' }]
                                   });
                                 }}
@@ -2610,7 +2829,7 @@ export function TeacherDashboardPage() {
                               <input
                                 value={question.note || ''}
                                 onChange={(event) =>
-                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, questionIndex, {
+                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
                                     note: event.target.value
                                   })
                                 }
