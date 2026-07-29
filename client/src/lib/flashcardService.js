@@ -172,6 +172,18 @@ export async function saveFlashcardSet({ setId, courseId, title, description = '
     );
   }
 
+  // RLS chỉ cho giảng viên phụ trách khóa (và admin) ghi. Lỗi thô của Postgres
+  // không nói được nguyên nhân, nên dịch lại cho người dùng hiểu.
+  const describeError = (error) => {
+    const message = String(error?.message || '');
+    if (/row-level security/i.test(message)) {
+      return new Error(
+        'Bạn không phụ trách khóa học này nên không thể tạo bộ thẻ cho nó. Hãy chọn khóa của bạn, hoặc nhờ quản trị viên gán khóa cho bạn.'
+      );
+    }
+    return error;
+  };
+
   const setPayload = {
     course_id: courseId,
     title: String(title).trim(),
@@ -184,7 +196,7 @@ export async function saveFlashcardSet({ setId, courseId, title, description = '
   if (savedSetId) {
     const { error } = await supabase.from('flashcard_sets').update(setPayload).eq('id', savedSetId);
     if (error) {
-      throw error;
+      throw describeError(error);
     }
     // Nhập lại thì thay trọn danh sách thẻ.
     const { error: deleteError } = await supabase.from('flashcards').delete().eq('set_id', savedSetId);
@@ -198,7 +210,7 @@ export async function saveFlashcardSet({ setId, courseId, title, description = '
       .select('id')
       .single();
     if (error) {
-      throw error;
+      throw describeError(error);
     }
     savedSetId = data.id;
   }
@@ -213,7 +225,7 @@ export async function saveFlashcardSet({ setId, courseId, title, description = '
   );
 
   if (insertError) {
-    throw insertError;
+    throw describeError(insertError);
   }
 
   return getFlashcardSetById(savedSetId);

@@ -299,14 +299,14 @@ export default function FlashcardsPage() {
         const owned = await getOwnedCourseIds(auth.user?.id, catalog);
         let ownCourses = [];
 
-        if (canImport) {
-          const mine = await getMyCourses({ accessToken: auth.session?.access_token });
-          ownCourses = mine.length
-            ? mine
-            : catalog.filter((course) => course.teacherId === auth.user?.id);
-          if (!ownCourses.length) {
-            ownCourses = catalog;
-          }
+        if (role === 'admin') {
+          // Admin có policy quản trị mọi bộ thẻ nên chọn được khóa bất kỳ.
+          ownCourses = catalog;
+        } else if (canImport) {
+          // Chỉ khóa giảng viên thực sự phụ trách. Trước đây rơi về cả danh mục
+          // khi danh sách rỗng, khiến giảng viên chọn được khóa của người khác
+          // rồi ăn nguyên lỗi RLS thô lúc bấm lưu.
+          ownCourses = await getMyCourses({ accessToken: auth.session?.access_token });
         }
 
         const visibleCourseIds = canImport
