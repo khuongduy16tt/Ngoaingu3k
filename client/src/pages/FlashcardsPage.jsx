@@ -22,6 +22,27 @@ import { usePageTitle } from '../hooks/usePageTitle';
 
 const SAMPLE = `你好\txin chào\n谢谢\tcảm ơn\n再见\ttạm biệt`;
 
+// `course.id` ở client là slug; khóa ngoại của flashcard_sets là UUID trong
+// bảng courses, nằm ở `databaseId`.
+function getCourseKey(course) {
+  return course?.databaseId || course?.id || '';
+}
+
+// `getOwnedCourseIds` trả lẫn cả slug lẫn UUID, nên phải tra ngược qua danh mục
+// để lấy đúng UUID trước khi lọc bộ thẻ.
+function resolveCourseUuids(identifiers = [], catalog = []) {
+  const byKey = new Map();
+  catalog.forEach((course) => {
+    const uuid = getCourseKey(course);
+    if (!uuid) return;
+    byKey.set(String(course.id), uuid);
+    byKey.set(String(course.databaseId || ''), uuid);
+    if (course.slug) byKey.set(String(course.slug), uuid);
+  });
+
+  return [...new Set(identifiers.map((id) => byKey.get(String(id))).filter(Boolean))];
+}
+
 // Panel nhập bộ thẻ — chỉ giảng viên/admin thấy. Dán text, chọn dấu phân cách,
 // xem trước rồi mới lưu, đúng luồng của Quizlet.
 function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
@@ -39,8 +60,9 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
   const [status, setStatus] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    if (!courseId && courses[0]?.id) {
-      setCourseId(courses[0].id);
+    const first = getCourseKey(courses[0]);
+    if (!courseId && first) {
+      setCourseId(first);
     }
   }, [courses, courseId]);
 
@@ -113,7 +135,7 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
               <span>Khóa học</span>
               <select value={courseId} onChange={(event) => setCourseId(event.target.value)}>
                 {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
+                  <option key={course.id} value={getCourseKey(course)}>
                     {course.title}
                   </option>
                 ))}
@@ -288,8 +310,8 @@ export default function FlashcardsPage() {
         }
 
         const visibleCourseIds = canImport
-          ? ownCourses.map((course) => course.id)
-          : owned;
+          ? ownCourses.map(getCourseKey).filter(Boolean)
+          : resolveCourseUuids(owned, catalog);
 
         const nextSets = await getFlashcardSets({ courseIds: visibleCourseIds });
 

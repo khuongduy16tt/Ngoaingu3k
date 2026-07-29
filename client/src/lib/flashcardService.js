@@ -10,6 +10,15 @@ import { normalizeFlashcards } from './flashcardParser';
 export const MOCK_FLASHCARD_SETS_STORAGE_KEY = 'ngoaingu3k-mock-flashcard-sets';
 export const MOCK_FLASHCARD_PROGRESS_STORAGE_KEY = 'ngoaingu3k-mock-flashcard-progress';
 
+// `courses.id` ở client là SLUG (xem normalizeCourse), còn khóa ngoại
+// flashcard_sets.course_id là UUID của bảng courses — phải dùng `databaseId`.
+// Lọc trước khi query để một slug lọt vào không làm Postgres ném lỗi kiểu.
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || '')
+  );
+}
+
 export function normalizeFlashcardSet(set, index = 0) {
   return {
     id: String(set?.id || `set-${index + 1}`),
@@ -57,13 +66,21 @@ export async function getFlashcardSets({ courseIds = [] } = {}) {
     return allowed.length ? sets.filter((set) => allowed.includes(String(set.courseId))) : sets;
   }
 
+  const allowedUuids = allowed.filter(isUuid);
+
+  // Có truyền khóa nhưng không khóa nào là UUID -> không có gì hợp lệ để lọc;
+  // trả rỗng thay vì bỏ điều kiện lọc và lộ bộ thẻ của khóa khác.
+  if (allowed.length && !allowedUuids.length) {
+    return [];
+  }
+
   let query = supabase
     .from('flashcard_sets')
     .select('id, course_id, title, description, created_by, created_at, updated_at, courses(title)')
     .order('created_at', { ascending: false });
 
-  if (allowed.length) {
-    query = query.in('course_id', allowed);
+  if (allowedUuids.length) {
+    query = query.in('course_id', allowedUuids);
   }
 
   const { data, error } = await query;
@@ -147,6 +164,12 @@ export async function saveFlashcardSet({ setId, courseId, title, description = '
 
     writeMockSets([record, ...sets.filter((set) => String(set.id) !== String(id))]);
     return normalizeFlashcardSet(record);
+  }
+
+  if (!isUuid(courseId)) {
+    throw new Error(
+      'Khóa học chưa được đồng bộ Supabase nên chưa thể gắn bộ thẻ. Hãy đăng khóa học lên Supabase trước.'
+    );
   }
 
   const setPayload = {
