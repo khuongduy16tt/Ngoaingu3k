@@ -12,6 +12,8 @@ export const LESSON_QUESTION_TYPES = [
   { value: 'writing', label: 'Viết (tự luận)' }
 ];
 
+import { findStrokeByVietnameseName } from './strokes';
+
 const OPTION_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export function getLessonQuestionTypeLabel(type) {
@@ -30,6 +32,26 @@ function normalizeOption(option, index) {
     label: OPTION_LABELS[index] || String(index + 1),
     text: String(option || '').trim()
   };
+}
+
+// Bài "Chọn tên gọi đúng của nét trong hình" của khóa HSK đã nhập lên Supabase
+// từ trước không có `strokeId` (ảnh gốc mất khi import), nên câu hỏi không thể
+// trả lời được. Suy ngược ra nét từ chính ĐÁP ÁN ĐÚNG của câu — hình vẽ vì thế
+// luôn khớp đáp án — để khỏi phải nhập lại cả khóa học.
+//
+// Chỉ suy khi đề có nhắc tới "nét" và đáp án đúng tra ra một nét có thật, nên
+// câu như "…gọi là: Nét chữ / Lục thư" (đáp án "Lục thư") không bị gán nhầm.
+function deriveStrokeId({ prompt, options, correctAnswer }) {
+  if (!/nét/i.test(prompt)) {
+    return '';
+  }
+
+  const answer = String(correctAnswer || '').trim();
+  const correctOption =
+    options.find((option) => option.label.toUpperCase() === answer.toUpperCase()) ||
+    options.find((option) => option.text.trim().toLowerCase() === answer.toLowerCase());
+
+  return correctOption ? findStrokeByVietnameseName(correctOption.text)?.id || '' : '';
 }
 
 export function normalizeLessonQuestion(question, index = 0) {
@@ -55,12 +77,15 @@ export function normalizeLessonQuestion(question, index = 0) {
     ? question.acceptedAnswers.map((answer) => String(answer).trim()).filter(Boolean)
     : [];
 
+  const prompt = String(question?.prompt || question?.question || '').trim();
+  const correctAnswer = String(question?.correctAnswer ?? question?.answer ?? '').trim();
+
   return {
     id: String(question?.id || `lesson-question-${index + 1}`).trim(),
     type,
-    prompt: String(question?.prompt || question?.question || '').trim(),
+    prompt,
     options,
-    correctAnswer: String(question?.correctAnswer ?? question?.answer ?? '').trim(),
+    correctAnswer,
     acceptedAnswers,
     pairs,
     audioUrl: String(question?.audioUrl || '').trim(),
@@ -70,7 +95,9 @@ export function normalizeLessonQuestion(question, index = 0) {
     imageHanzi: String(question?.imageHanzi || '').trim(),
     // Nét chữ Hán vẽ bằng SVG thay ảnh — dùng cho câu "chọn tên gọi của nét
     // trong hình", vốn mất ảnh gốc khi import.
-    strokeId: String(question?.strokeId || '').trim(),
+    strokeId:
+      String(question?.strokeId || '').trim() ||
+      deriveStrokeId({ prompt, options, correctAnswer }),
     audioPending: Boolean(question?.audioPending),
     explanation: String(question?.explanation || question?.note || '').trim()
   };

@@ -179,3 +179,55 @@ describe('scoreLessonQuestions', () => {
     expect(result).toEqual({ score: 1, maxScore: 1, gradedCount: 1, selfGradedCount: 1 });
   });
 });
+
+// Khóa HSK đã nhập lên Supabase từ trước không có `strokeId`; hình nét được suy
+// ngược từ đáp án đúng để câu hỏi trả lời được mà không phải nhập lại khóa.
+describe('suy ra hình nét khi thiếu strokeId', () => {
+  const strokeQuestion = (correctAnswer, options) => ({
+    type: 'multiple_choice',
+    prompt: 'Chọn tên gọi đúng của nét trong hình',
+    options,
+    correctAnswer
+  });
+
+  it('suy đúng nét từ đáp án đúng', () => {
+    const q = normalizeLessonQuestion(
+      strokeQuestion('B', [
+        { label: 'A', text: 'Nét ngang' },
+        { label: 'B', text: 'Nét sổ móc' }
+      ])
+    );
+    expect(q.strokeId).toBe('shugou');
+  });
+
+  it('strokeId có sẵn thì ưu tiên, không suy đè lên', () => {
+    const q = normalizeLessonQuestion({
+      ...strokeQuestion('A', [{ label: 'A', text: 'Nét ngang' }]),
+      strokeId: 'hengzhe'
+    });
+    expect(q.strokeId).toBe('hengzhe');
+  });
+
+  it('không gán nhầm cho câu chỉ tình cờ có chữ "nét" trong lựa chọn', () => {
+    const q = normalizeLessonQuestion({
+      type: 'multiple_choice',
+      prompt: 'Người Trung Quốc phân loại chữ Hán thành 6 nhóm, gọi là:',
+      options: [
+        { label: 'A', text: 'Nét chữ' },
+        { label: 'B', text: 'Lục thư' }
+      ],
+      correctAnswer: 'B'
+    });
+    expect(q.strokeId).toBe('');
+  });
+
+  it('đề không nhắc tới nét thì không suy', () => {
+    const q = normalizeLessonQuestion({
+      type: 'multiple_choice',
+      prompt: 'Chọn cách đọc đúng',
+      options: [{ label: 'A', text: 'Nét ngang' }],
+      correctAnswer: 'A'
+    });
+    expect(q.strokeId).toBe('');
+  });
+});
