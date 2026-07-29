@@ -253,18 +253,53 @@ function formatLessonContentForAdmin(content) {
   return String(content);
 }
 
-function buildLessonContentPayload(content) {
-  const value = String(content || '').trim();
-  if (!value) {
+function parseAdminLessonContent(content) {
+  if (!content) {
+    return {};
+  }
+
+  if (typeof content === 'object') {
+    return content;
+  }
+
+  if (typeof content !== 'string') {
     return {};
   }
 
   try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' ? parsed : { content: value };
+    const parsed = JSON.parse(content);
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
-    return { content: value };
+    return {};
   }
+}
+
+/**
+ * Dựng `content` để ghi xuống Supabase từ ô soạn thảo của admin.
+ * Ô đó thường chỉ hiện phần ghi chú (xem formatLessonContentForAdmin), nên phải
+ * trộn ngược vào content cũ — thay thẳng sẽ xóa mất tabs/exercises/videoUrl.
+ * Chỉ khi admin dán hẳn một JSON object thì mới coi đó là toàn bộ content.
+ */
+function buildLessonContentPayload(content, existingContent = {}) {
+  const previous = parseAdminLessonContent(existingContent);
+  const value = String(content || '').trim();
+
+  if (!value) {
+    // Xóa trắng ô ghi chú: bỏ note nhưng giữ nguyên phần còn lại.
+    const { note: _note, content: _content, ...rest } = previous;
+    return rest;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch {
+    // không phải JSON — coi là ghi chú thường
+  }
+
+  return Object.keys(previous).length ? { ...previous, note: value } : { content: value };
 }
 
 function normalizeLesson(lesson, chapterLookup = new Map()) {
@@ -278,6 +313,10 @@ function normalizeLesson(lesson, chapterLookup = new Map()) {
     chapterTitle: chapter.title || lesson.chapterTitle || '',
     title: lesson.title || 'Bài học chưa đặt tên',
     content: formatLessonContentForAdmin(lesson.content),
+    // Giữ nguyên object content gốc: ô soạn thảo của admin chỉ hiện phần ghi chú,
+    // nên khi lưu phải trộn lại chứ không được thay cả content — nếu thay, các
+    // trường khác (tabs, exercises, videoUrl, readingItems) sẽ bị xóa sạch.
+    contentRaw: parseAdminLessonContent(lesson.content),
     videoUrl: lesson.video_url || lesson.videoUrl || '',
     position: Number(lesson.position || 0),
     isPreview: Boolean(lesson.is_preview ?? lesson.isPreview),
@@ -603,7 +642,7 @@ export async function saveAdminLesson(lesson) {
       .update({
         title: nextLesson.title,
         video_url: nextLesson.videoUrl || null,
-        content: buildLessonContentPayload(nextLesson.content),
+        content: buildLessonContentPayload(nextLesson.content, nextLesson.contentRaw),
         position: nextLesson.position,
         is_preview: nextLesson.isPreview
       })
@@ -620,7 +659,7 @@ export async function saveAdminLesson(lesson) {
         chapter_id: chapterId,
         title: nextLesson.title,
         video_url: nextLesson.videoUrl || null,
-        content: buildLessonContentPayload(nextLesson.content),
+        content: buildLessonContentPayload(nextLesson.content, nextLesson.contentRaw),
         position: nextLesson.position,
         is_preview: nextLesson.isPreview
       })

@@ -55,14 +55,20 @@ function buildCoursePayload(course, teacherId) {
 }
 
 function buildLessonContent(lesson, position) {
-  const exercises = Array.isArray(lesson?.exercises)
-    ? lesson.exercises
-    : Array.isArray(lesson?.questions)
-      ? lesson.questions
-      : [];
+  // Chủ đề dùng model tab thì `exercises` phẳng được gộp lại từ các tab bài tập,
+  // để questionCount và các bản đọc theo model cũ vẫn đúng.
+  const tabs = Array.isArray(lesson?.tabs) ? lesson.tabs : [];
+  const exercises = tabs.length
+    ? flattenLessonTabExercises(tabs)
+    : Array.isArray(lesson?.exercises)
+      ? lesson.exercises
+      : Array.isArray(lesson?.questions)
+        ? lesson.questions
+        : [];
 
   return {
     version: LESSON_CONTENT_VERSION,
+    ...(tabs.length ? { tabs } : {}),
     videoUrl: lesson?.videoUrl || lesson?.video_url || '',
     videoEmbedUrl: lesson?.videoEmbedUrl || '',
     note: lesson?.note || '',
@@ -112,6 +118,53 @@ function getLessonExercises(lesson) {
     : Array.isArray(lesson?.questions)
       ? lesson.questions
       : [];
+}
+
+// Cấu trúc tab của một chủ đề: 1 tab video + N tab bài tập độc lập. Câu hỏi của
+// từng tab đi qua cùng normalizeLessonQuestion như danh sách phẳng cũ.
+function normalizeLessonTabs(tabs) {
+  if (!Array.isArray(tabs)) {
+    return [];
+  }
+
+  return tabs
+    .map((tab, index) => {
+      const kind = tab?.kind === 'video' ? 'video' : 'exercise';
+      const base = {
+        id: String(tab?.id || `lesson-tab-${index + 1}`).trim(),
+        kind,
+        title: String(tab?.title || (kind === 'video' ? 'Video bài học' : `Bài tập ${index + 1}`)).trim(),
+        note: String(tab?.note || '').trim()
+      };
+
+      if (kind === 'video') {
+        return {
+          ...base,
+          videoUrl: String(tab?.videoUrl || '').trim(),
+          videoTitle: String(tab?.videoTitle || '').trim(),
+          readingItems: Array.isArray(tab?.readingItems) ? tab.readingItems : [],
+          pinyinTable: String(tab?.pinyinTable || '').trim()
+        };
+      }
+
+      return {
+        ...base,
+        audioUrl: String(tab?.audioUrl || '').trim(),
+        audioName: String(tab?.audioName || '').trim(),
+        imageUrl: String(tab?.imageUrl || '').trim(),
+        imageName: String(tab?.imageName || '').trim(),
+        exercises: getLessonExercises(tab)
+          .map(normalizeLessonQuestion)
+          .filter((question) => question.prompt)
+      };
+    })
+    .filter((tab) => tab.title);
+}
+
+function flattenLessonTabExercises(tabs) {
+  return (Array.isArray(tabs) ? tabs : [])
+    .filter((tab) => tab?.kind !== 'video')
+    .flatMap((tab) => (Array.isArray(tab?.exercises) ? tab.exercises : []));
 }
 
 const OPTION_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -180,6 +233,8 @@ function normalizeLessonQuestion(question, index) {
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),
     imageHanzi: String(question?.imageHanzi || '').trim(),
+    // Nét chữ Hán vẽ bằng SVG thay ảnh — giữ đồng bộ với client/src/lib/strokes.js.
+    strokeId: String(question?.strokeId || '').trim(),
     audioPending: Boolean(question?.audioPending),
     explanation: String(question?.explanation || question?.note || '').trim()
   };
@@ -579,21 +634,36 @@ router.patch('/lessons/:lessonId/questions', requireAuth, requireRole('teacher',
       return res.status(403).json({ message: 'Bạn không có quyền sửa câu hỏi của bài học này.' });
     }
 
-    const questions = req.body.questions
-      .map(normalizeLessonQuestion)
-      .filter((question) => question.prompt);
     const metadata = parseLessonContent(lesson.content);
+    // Có `tabs` → chủ đề dùng model tab; `exercises` phẳng vẫn được ghi kèm (gộp
+    // từ mọi tab bài tập) để questionCount và các bản đọc cũ không phải đổi theo.
+    const tabs = normalizeLessonTabs(req.body.tabs);
+    const questions = tabs.length
+      ? flattenLessonTabExercises(tabs)
+      : req.body.questions.map(normalizeLessonQuestion).filter((question) => question.prompt);
+
+    const videoTab = tabs.find((tab) => tab.kind === 'video');
+    const nextVideoUrl =
+      typeof req.body.videoUrl === 'string' && req.body.videoUrl.trim()
+        ? req.body.videoUrl.trim()
+        : videoTab?.videoUrl || metadata.videoUrl || lesson.video_url || '';
+
     const nextContent = {
       ...metadata,
       version: LESSON_CONTENT_VERSION,
       questionCount: questions.length,
       exerciseType: metadata.exerciseType || 'Bài luyện video',
+      ...(tabs.length ? { tabs, videoUrl: nextVideoUrl } : {}),
       exercises: questions
     };
 
+    const updatePayload = tabs.length
+      ? { content: nextContent, video_url: nextVideoUrl }
+      : { content: nextContent };
+
     let updateResult = await supabaseAdmin
       .from('lessons')
-      .update({ content: nextContent })
+      .update(updatePayload)
       .eq('id', lessonId)
       .select('id, title, content')
       .single();
@@ -601,7 +671,7 @@ router.patch('/lessons/:lessonId/questions', requireAuth, requireRole('teacher',
     if (updateResult.error && shouldRetrySerializedContent(updateResult.error)) {
       updateResult = await supabaseAdmin
         .from('lessons')
-        .update({ content: JSON.stringify(nextContent) })
+        .update({ ...updatePayload, content: JSON.stringify(nextContent) })
         .eq('id', lessonId)
         .select('id, title, content')
         .single();
@@ -615,7 +685,8 @@ router.patch('/lessons/:lessonId/questions', requireAuth, requireRole('teacher',
       data: {
         lessonId: updateResult.data.id,
         questions,
-        questionCount: questions.length
+        questionCount: questions.length,
+        tabs
       },
       mode: 'supabase'
     });

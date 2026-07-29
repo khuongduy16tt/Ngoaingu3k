@@ -68,6 +68,9 @@ export function normalizeLessonQuestion(question, index = 0) {
     sampleAnswer: String(question?.sampleAnswer || '').trim(),
     // Chữ Hán render lớn thay ảnh (import HSK), và cờ báo câu nghe đang chờ audio.
     imageHanzi: String(question?.imageHanzi || '').trim(),
+    // Nét chữ Hán vẽ bằng SVG thay ảnh — dùng cho câu "chọn tên gọi của nét
+    // trong hình", vốn mất ảnh gốc khi import.
+    strokeId: String(question?.strokeId || '').trim(),
     audioPending: Boolean(question?.audioPending),
     explanation: String(question?.explanation || question?.note || '').trim()
   };
