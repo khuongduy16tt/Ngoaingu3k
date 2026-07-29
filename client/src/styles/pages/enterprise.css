@@ -3749,3 +3749,52 @@ textarea:focus-visible {
     padding: 6px 8px;
   }
 }
+
+/* ==========================================================================
+   Đáp án xếp dọc, mỗi đáp án một dòng đầy chiều ngang. Trước đây các lựa chọn
+   nằm ngang và bọc xuống dòng (flex-wrap), nên đáp án dài bị bóp lại hoặc cắt
+   mất chữ. Chỉ đổi trong hai container đáp án — `.answer-pill` còn được dùng
+   làm filter pill ở dashboard, chỗ đó vẫn phải nằm ngang.
+   ========================================================================== */
+
+.excel-option-grid,
+.exercise-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+/* Pill một dòng -> ô đáp án nhiều dòng: bỏ chiều cao cố định, cho chữ xuống
+   dòng và canh trái để đọc được đáp án dài. */
+.excel-option-grid .answer-pill,
+.exercise-options .answer-pill {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  padding: 11px 16px;
+  border-radius: var(--radius) !important;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+/* Bài luyện nét: lựa chọn dạng chữ cũng xếp dọc cho khớp. Lựa chọn dạng hình
+   thì giữ lưới ngang — ô hình vuông nhỏ, xếp dọc chỉ tốn chiều cao. */
+.stroke-quiz__options {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.stroke-quiz__options--glyph {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+
+.stroke-option:not(.stroke-option--glyph) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
