@@ -1,4 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Fireworks } from '../../components/Fireworks';
+import {
+  isSoundMuted,
+  onSoundMutedChange,
+  playCorrectSound,
+  playFireworksSound,
+  playFlipSound,
+  playWrongSound,
+  setSoundMuted
+} from '../../lib/soundEffects';
 import {
   applyAnswer,
   buildLearnQuestion,
@@ -22,6 +32,35 @@ const TEST_KIND_LABELS = {
   true_false: 'Đúng / Sai',
   written: 'Gõ đáp án'
 };
+
+// Phát tiếng pháo hoa đúng một lần khi khối chúc mừng xuất hiện. Đặt trong
+// component riêng để tiếng không phát lại mỗi lần component cha re-render.
+function CelebrationSound() {
+  useEffect(() => {
+    playFireworksSound();
+  }, []);
+  return null;
+}
+
+// Nút tắt/bật tiếng, dùng chung cho cả 4 chế độ.
+function SoundToggle() {
+  const [muted, setMuted] = useState(isSoundMuted);
+
+  useEffect(() => onSoundMutedChange(setMuted), []);
+
+  return (
+    <button
+      type="button"
+      className={`fc-sound-toggle ${muted ? 'is-muted' : ''}`}
+      onClick={() => setSoundMuted(!muted)}
+      aria-pressed={!muted}
+      title={muted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+    >
+      {muted ? '🔇' : '🔊'}
+      <span>{muted ? 'Đang tắt tiếng' : 'Âm thanh'}</span>
+    </button>
+  );
+}
 
 // ─── Thẻ ghi nhớ ──────────────────────────────────────────────────────────────
 
@@ -57,17 +96,27 @@ function FlashcardsMode({ cards }) {
   const front = definitionFirst ? card.definition : card.term;
   const back = definitionFirst ? card.term : card.definition;
 
+  function flip() {
+    playFlipSound();
+    setFlipped((value) => !value);
+  }
+
   return (
     <div className="fc-flashcards">
-      <button
-        type="button"
-        className={`fc-card ${flipped ? 'is-flipped' : ''}`}
-        onClick={() => setFlipped((value) => !value)}
-        aria-label="Lật thẻ"
-      >
-        <span className="fc-card__hint">{flipped ? 'Mặt sau' : 'Mặt trước — bấm để lật'}</span>
-        <span className="fc-card__text">{flipped ? back : front}</span>
-      </button>
+      {/* Lật 3D thật: cả hai mặt cùng nằm trong DOM và xoay quanh trục Y, nên
+          không bị đổi chữ giữa lúc đang xoay. */}
+      <div className={`fc-card-scene ${flipped ? 'is-flipped' : ''}`}>
+        <button type="button" className="fc-card-inner" onClick={flip} aria-label="Lật thẻ">
+          <span className="fc-card fc-card--front">
+            <span className="fc-card__hint">Mặt trước — bấm để lật</span>
+            <span className="fc-card__text">{front}</span>
+          </span>
+          <span className="fc-card fc-card--back">
+            <span className="fc-card__hint">Mặt sau</span>
+            <span className="fc-card__text">{back}</span>
+          </span>
+        </button>
+      </div>
 
       <div className="fc-flashcards__nav">
         <button type="button" className="button-ghost" onClick={() => go(-1)}>
@@ -123,6 +172,8 @@ function LearnMode({ cards, progress, onProgressChange }) {
   const summary = summarizeProgress(cards, progress);
 
   function submit(isCorrect) {
+    if (isCorrect) playCorrectSound();
+    else playWrongSound();
     setResult({ isCorrect, definition: card.definition });
   }
 
@@ -140,7 +191,9 @@ function LearnMode({ cards, progress, onProgressChange }) {
 
   if (!card) {
     return (
-      <div className="fc-done">
+      <div className="fc-done fc-done--celebrate">
+        <Fireworks />
+        <CelebrationSound />
         <strong>Đã thuộc hết {cards.length} thẻ 🎉</strong>
         <p>Bạn có thể học lại từ đầu để ôn.</p>
         <button
@@ -183,7 +236,12 @@ function LearnMode({ cards, progress, onProgressChange }) {
                   .filter(Boolean)
                   .join(' ')}
                 disabled={Boolean(result)}
-                onClick={() => setResult({ isCorrect: option.id === card.id, pickedId: option.id })}
+                onClick={() => {
+                  const isCorrect = option.id === card.id;
+                  if (isCorrect) playCorrectSound();
+                  else playWrongSound();
+                  setResult({ isCorrect, pickedId: option.id });
+                }}
               >
                 {option.definition}
               </button>
@@ -385,6 +443,15 @@ function TestMode({ cards }) {
         })}
       </div>
 
+      {/* Đúng hết cả đề mới ăn pháo hoa; đúng một phần thì chỉ có tiếng báo. */}
+      {submitted && score.total > 0 && score.correct === score.total ? (
+        <div className="fc-done fc-done--celebrate">
+          <Fireworks />
+          <CelebrationSound />
+          <strong>Đúng cả {score.total} câu 🎉</strong>
+        </div>
+      ) : null}
+
       <div className="excel-lesson-panel__footer">
         <span>
           {submitted
@@ -399,7 +466,13 @@ function TestMode({ cards }) {
           <button
             type="button"
             className="button"
-            onClick={() => setSubmitted(true)}
+            onClick={() => {
+              const result = gradeTest(questions, answers);
+              setSubmitted(true);
+              // Pháo hoa lo phần đúng hết; ở đây chỉ báo đúng/sai chung.
+              if (result.correct < result.total) playWrongSound();
+              else if (!result.total) playCorrectSound();
+            }}
             disabled={answered < questions.length}
           >
             Nộp bài
@@ -487,7 +560,9 @@ function MatchMode({ cards }) {
       </div>
 
       {done ? (
-        <div className="fc-done">
+        <div className="fc-done fc-done--celebrate">
+          <Fireworks />
+          <CelebrationSound />
           <strong>Xong {board.pairCount} cặp trong {elapsed.toFixed(1)} giây 🎉</strong>
           <button type="button" className="button" onClick={restart}>
             Chơi ván mới
@@ -533,7 +608,10 @@ export function FlashcardStudy({ set, progress, onProgressChange }) {
           <h2>{set?.title}</h2>
           {set?.description ? <p>{set.description}</p> : null}
         </div>
-        <span className="pill">{cards.length} thẻ</span>
+        <div className="fc-study__head-side">
+          <SoundToggle />
+          <span className="pill">{cards.length} thẻ</span>
+        </div>
       </div>
 
       <div className="fc-modes" role="tablist" aria-label="Chế độ học">
