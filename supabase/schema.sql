@@ -55,6 +55,9 @@ create table if not exists public.progress (
   lesson_id uuid not null references public.lessons(id) on delete cascade,
   completed boolean not null default false,
   last_position_seconds int not null default 0,
+  -- Điểm bài tập gần nhất của bài học → số sao trên danh sách bài học.
+  score numeric(6, 2),
+  max_score numeric(6, 2),
   updated_at timestamptz not null default now(),
   unique (user_id, lesson_id)
 );

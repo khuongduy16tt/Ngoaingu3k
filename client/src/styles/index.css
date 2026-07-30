@@ -20,3 +20,6 @@
 
 /* 6. Header dựng lại 1:1 theo ngoaingu3k.com (nạp cuối để override) */
 @import './components/site-header.css';
+
+/* 7. Danh sách bài học dùng chung (nạp sau enterprise.css để override h2/button) */
+@import './components/lesson-list.css';

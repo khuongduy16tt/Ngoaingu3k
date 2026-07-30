@@ -40,6 +40,8 @@ import {
   serializeLessonTabs
 } from '../lib/lessonTabs';
 import { CHINESE_STROKES, getStrokeById } from '../lib/strokes';
+import { isLessonComplete } from '../lib/lessonStars';
+import { CourseLessonList } from '../components/CourseLessonList';
 import { ListeningAudio } from '../components/ListeningAudio';
 import { StrokeGlyph } from '../components/StrokeGlyph';
 import { StrokePractice } from './learning/StrokePractice';
@@ -285,10 +287,6 @@ function normalizeLessonStatus(status, index) {
   }
 
   return index <= 1 ? 'active' : 'locked';
-}
-
-function isLessonComplete(lesson, lessonProgressMap) {
-  return Boolean(lessonProgressMap[lesson.id]?.completed || lesson.status === 'done');
 }
 
 function buildLessonsFromCourse(course) {
@@ -1197,7 +1195,8 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
               className="button"
               onClick={() => {
                 setSubmitted(true);
-                onSubmitted?.();
+                // Điểm được đẩy lên để lưu kèm tiến độ → số sao của bài học.
+                onSubmitted?.({ score: result.score, maxScore: result.maxScore });
               }}
               disabled={!canSubmit}
             >
@@ -2776,7 +2775,7 @@ export default function LearningPage() {
     }
   }
 
-  async function handleMarkLessonComplete() {
+  async function handleMarkLessonComplete(result) {
     if (!currentLesson) {
       return;
     }
@@ -2788,14 +2787,17 @@ export default function LearningPage() {
         studentEmail: auth.user?.email,
         courseKey: currentCourseId,
         lesson: currentLesson,
-        completed: true
+        completed: true,
+        score: result?.score,
+        maxScore: result?.maxScore
       });
 
       setLessonProgressMap((previous) => ({
         ...previous,
         [currentLesson.id]: savedProgress
       }));
-      if (auth.user?.id) {
+      // Nộp lại bài tập chỉ cập nhật điểm/sao — không ghi thêm log hoàn thành.
+      if (auth.user?.id && !isCurrentLessonCompleted) {
         void logActivity(auth.user.id, 'complete_lesson', currentLesson.id, currentLesson.title, {
           courseKey: currentCourseId
         });
@@ -2805,10 +2807,10 @@ export default function LearningPage() {
     }
   }
 
-  // Học viên nộp bài luyện của bài học → tự động đánh dấu hoàn thành (nếu chưa).
-  function handleLessonExercisesSubmitted() {
-    if (!isCurrentLessonCompleted && !progressSaving) {
-      void handleMarkLessonComplete();
+  // Học viên nộp bài luyện của bài học → lưu điểm (cho sao) và đánh dấu hoàn thành.
+  function handleLessonExercisesSubmitted(result) {
+    if (!progressSaving) {
+      void handleMarkLessonComplete(result);
     }
   }
 
@@ -2837,7 +2839,7 @@ export default function LearningPage() {
         });
       }
 
-      await handleMarkLessonComplete();
+      await handleMarkLessonComplete(result);
     } finally {
       setAssignmentSavingId('');
     }
@@ -3000,62 +3002,21 @@ export default function LearningPage() {
             </button>
           ) : null}
 
-          <div className="lesson-sidebar__sections">
-            {sections.map((section, sectionIndex) => {
-              const isExpanded = expandedSections[sectionIndex] ?? (sectionIndex === 0);
-              const doneInSection = section.lessons.filter((lesson) => isLessonComplete(lesson, lessonProgressMap)).length;
-              return (
-                <div key={sectionIndex} className={`sidebar-section ${isExpanded ? 'is-expanded' : ''}`}>
-                  <button
-                    className={`sidebar-section__header ${section.isComplete ? 'is-complete' : ''}`}
-                    onClick={() => setExpandedSections((prev) => ({ ...prev, [sectionIndex]: !isExpanded }))}
-                  >
-                    <span className={`sidebar-section__check ${section.isComplete ? 'is-complete' : ''}`} aria-hidden="true">
-                      {section.isComplete ? '✓' : sectionIndex + 1}
-                    </span>
-                    <span className="sidebar-section__title">
-                      <strong>{section.title}</strong>
-                      <small>{doneInSection}/{section.lessons.length} bài</small>
-                    </span>
-                    <span className="sidebar-section__toggle" aria-hidden="true">{isExpanded ? '▼' : '▶'}</span>
-                  </button>
-                  {isExpanded && (
-                    <div className="sidebar-section__lessons">
-                      {section.lessons.map((lesson) => {
-                        const isLessonDone = isLessonComplete(lesson, lessonProgressMap);
-                        const lessonNumber = lesson.lessonNumber;
-
-                        return (
-                          <button
-                            key={lesson.id}
-                            type="button"
-                            className={`lesson-item ${isLessonDone ? 'done' : lesson.status} ${selectedLessonId === lesson.id ? 'is-selected' : ''}`}
-                            onClick={() => handleSelectLesson(lesson.id)}
-                          >
-                            <span className="lesson-item__icon" aria-hidden="true">
-                              {isLessonDone ? '✓' : lessonNumber}
-                            </span>
-                            <span className="lesson-item__copy">
-                              <strong>{lesson.title}</strong>
-                              <span>
-                                {[
-                                  lesson.exerciseType || 'Video',
-                                  lesson.questionCount ? `${lesson.questionCount} câu` : '',
-                                  isLessonDone ? 'Đã học' : lesson.status === 'locked' ? 'Đang khóa' : 'Đang học'
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <CourseLessonList
+            variant="sidebar"
+            sections={sections}
+            progressMap={lessonProgressMap}
+            selectedLessonId={selectedLessonId}
+            onSelectLesson={handleSelectLesson}
+            expandedSections={expandedSections}
+            onToggleSection={(sectionIndex) =>
+              setExpandedSections((prev) => ({
+                ...prev,
+                [sectionIndex]: !(prev[sectionIndex] ?? sectionIndex === 0)
+              }))
+            }
+            emptyMessage="Chương này chưa có bài học nào."
+          />
         </aside>
 
         <div className="learning-stage">

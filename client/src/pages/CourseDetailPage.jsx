@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   confirmCoursePayment,
   getCourseBySlug,
@@ -7,25 +7,19 @@ import {
   getPendingCoursePaymentOrder,
   purchaseCourse
 } from '../lib/courseService';
+import { getLessonProgress } from '../lib/progressService';
+import { isLessonComplete } from '../lib/lessonStars';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { CourseLessonList } from '../components/CourseLessonList';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { PaymentInstructions } from '../components/PaymentInstructions';
-
-const lessonStatusLabels = {
-  done: 'hoàn thành',
-  active: 'đang học',
-  locked: 'đang khóa'
-};
-
-function formatLessonStatus(status) {
-  return lessonStatusLabels[status] || status;
-}
 
 export default function CourseDetailPage() {
   const { courseId } = useParams();
   const auth = useAuth();
+  const navigate = useNavigate();
   usePageTitle(courseId ? `Khóa học ${courseId}` : 'Chi tiết khóa học');
   const currentRole = getEffectiveRole(auth);
   const [course, setCourse] = useState(null);
@@ -36,6 +30,7 @@ export default function CourseDetailPage() {
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [lessonProgressMap, setLessonProgressMap] = useState({});
 
   useEffect(() => {
     if (!auth.ready) {
@@ -66,10 +61,43 @@ export default function CourseDetailPage() {
 
   const isOwned = course ? ownedCourseIds.includes(course.id) : false;
   const courseSections = useMemo(() => course?.sections || [], [course?.sections]);
+  const courseLessons = useMemo(
+    () => courseSections.flatMap((section) => (Array.isArray(section.lessons) ? section.lessons : [])),
+    [courseSections]
+  );
   const sectionPagination = usePagination(courseSections, {
     pageSize: 3,
     resetKey: course?.id || courseId
   });
+
+  // Tiến độ và điểm bài tập của học viên → dấu tích, sao và cúp của danh sách bài học.
+  useEffect(() => {
+    if (!course?.id || !courseLessons.length) {
+      setLessonProgressMap({});
+      return undefined;
+    }
+
+    let alive = true;
+
+    async function loadProgress() {
+      const nextProgress = await getLessonProgress({
+        studentId: auth.user?.id,
+        studentEmail: auth.user?.email,
+        courseKey: course.id,
+        lessons: courseLessons
+      });
+
+      if (alive) {
+        setLessonProgressMap(nextProgress);
+      }
+    }
+
+    void loadProgress();
+
+    return () => {
+      alive = false;
+    };
+  }, [auth.user?.id, auth.user?.email, course?.id, courseLessons]);
 
   async function handlePurchase() {
     if (!course || !auth.session || currentRole !== 'student' || isOwned) {
@@ -229,28 +257,15 @@ export default function CourseDetailPage() {
       />
 
       <section className="section split-layout">
-        <div className="content-card content-card--enterprise">
-          <h2>Nội dung khóa học</h2>
-          {sectionPagination.pageItems.map((section) => (
-            <div key={section.title}>
-              <h3>{section.title}</h3>
-              {section.lessons?.length ? (
-                section.lessons.map((lesson) => (
-                  <div key={lesson.id} className="detail-row">
-                    <span>{lesson.title}</span>
-                    <span>{formatLessonStatus(lesson.status)}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="detail-row">
-                  <span>Danh sách bài học sẽ hiển thị khi chương được đồng bộ.</span>
-                  <span>Xem trước</span>
-                </div>
-              )}
-            </div>
-          ))}
-          <PaginationControls {...sectionPagination} label="chương" />
-        </div>
+        <CourseLessonList
+          sections={sectionPagination.pageItems}
+          progressMap={lessonProgressMap}
+          sectionOffset={(sectionPagination.page - 1) * sectionPagination.pageSize}
+          totalLessonsCount={courseLessons.length}
+          completedLessonsCount={courseLessons.filter((lesson) => isLessonComplete(lesson, lessonProgressMap)).length}
+          onSelectLesson={isOwned ? (lessonId) => navigate(`/learn/${course.id}/${lessonId}`) : undefined}
+          footer={<PaginationControls {...sectionPagination} label="chương" />}
+        />
 
         <div className="content-card content-card--enterprise">
           <h2>Quyền lợi học viên</h2>
