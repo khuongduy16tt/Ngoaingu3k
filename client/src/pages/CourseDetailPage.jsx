@@ -41,7 +41,9 @@ export default function CourseDetailPage() {
 
     async function loadCourse() {
       setLoading(true);
-      const nextCourse = await getCourseBySlug(courseId);
+      // Trang này chỉ liệt kê chương và bài, không làm bài — xin bản không kèm
+      // ngân hàng câu hỏi để khỏi tải cả bộ đề của toàn khóa.
+      const nextCourse = await getCourseBySlug(courseId, { summaryOnly: true });
       const nextOwnedIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
 
       if (alive) {

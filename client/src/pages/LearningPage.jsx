@@ -50,7 +50,8 @@ import { AudioUploadField } from '../components/AudioUploadField';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
-import { parseExcelQuestionFile } from '../lib/excelCourseParser';
+// Thư viện đọc Excel nặng 142KB gzip và chỉ giảng viên mới dùng tới (nút "Nhập
+// Excel" khi soạn câu hỏi). Nạp lúc bấm nút, không gói kèm phần học.
 import { getEmbeddableVideoUrl, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
 import { courseDetail as mockCourseDetail } from '../data/mock';
 
@@ -1471,6 +1472,7 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
         return;
       }
 
+      const { parseExcelQuestionFile } = await import('../lib/excelCourseParser');
       const parsedQuestions = await parseExcelQuestionFile(file);
 
       if (!parsedQuestions.length) {

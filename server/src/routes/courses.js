@@ -13,6 +13,48 @@ function isUuid(value) {
   );
 }
 
+function sortByPosition(rows) {
+  return (Array.isArray(rows) ? [...rows] : []).sort(
+    (a, b) => Number(a?.position ?? 0) - Number(b?.position ?? 0)
+  );
+}
+
+function parseStoredContent(content) {
+  if (!content) return {};
+  if (typeof content === 'string') {
+    try {
+      return JSON.parse(content) || {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof content === 'object' ? content : {};
+}
+
+// Bỏ mảng câu hỏi khỏi content nhưng giữ nguyên mọi metadata nhẹ (video, ghi
+// chú, tab, dạng bài) để client normalize y như cũ. Số câu được tính sẵn ở đây
+// vì client suy ra số câu từ chính mảng vừa bị bỏ.
+function stripLessonQuestions(lesson) {
+  const content = parseStoredContent(lesson?.content);
+  const tabs = Array.isArray(content.tabs) ? content.tabs : [];
+  const looseExercises = Array.isArray(content.exercises) ? content.exercises : [];
+
+  const slimTabs = tabs.map((tab) => {
+    const exercises = Array.isArray(tab?.exercises) ? tab.exercises : [];
+    const { exercises: _dropped, ...rest } = tab || {};
+    return { ...rest, exercises: [], questionCount: exercises.length };
+  });
+
+  const questionCount =
+    Number(content.questionCount) ||
+    looseExercises.length + slimTabs.reduce((total, tab) => total + tab.questionCount, 0);
+
+  return {
+    ...lesson,
+    content: { ...content, tabs: slimTabs, exercises: [], questionCount }
+  };
+}
+
 function createCourseSlug(title) {
   return String(title || 'khoa-hoc')
     .normalize('NFD')
@@ -519,6 +561,9 @@ router.get('/', async (_req, res) => {
       return res.status(500).json({ data: [], message: 'Lỗi truy vấn khóa học.', mode: 'supabase-error' });
     }
 
+    // Danh mục khóa công khai — giống nhau với mọi khách, cho CDN giữ bản trả về.
+    res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+
     return res.json({ data: data || [], mode: 'supabase' });
   } catch (err) {
     console.error('[GET /api/courses]', err.message);
@@ -779,6 +824,11 @@ router.get('/mine', requireAuth, requireRole('teacher', 'admin'), async (req, re
  */
 router.get('/:courseId', async (req, res) => {
   const { courseId } = req.params;
+  // Trang chi tiết khóa chỉ vẽ tên chương và tên bài, nhưng ngân hàng câu hỏi
+  // nằm chung trong lessons.content nên nó phải tải cả bộ đề của toàn khóa —
+  // với HSK 1 là 472KB/530KB payload chỉ để hiện 214 dòng tiêu đề. `?view=summary`
+  // cắt phần câu hỏi ngay tại server và chỉ trả lại số câu.
+  const summaryOnly = String(req.query.view || '') === 'summary';
 
   if (!isSupabaseAdminReady()) {
     const course = mockCourses.find((c) => c.id === courseId || c.slug === courseId);
@@ -787,10 +837,12 @@ router.get('/:courseId', async (req, res) => {
   }
 
   try {
+    // Một truy vấn lồng thay cho ba lượt đi-về courses → chapters → lessons.
     let courseQuery = supabaseAdmin
       .from('courses')
       .select(
-        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months'
+        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months,' +
+          'chapters(id, title, position, lessons(id, chapter_id, title, video_url, content, position, is_preview))'
       );
 
     courseQuery = isUuid(courseId)
@@ -803,36 +855,20 @@ router.get('/:courseId', async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy khóa học.' });
     }
 
-    // Fetch chapters and lessons
-    const { data: chapters } = await supabaseAdmin
-      .from('chapters')
-      .select('id, title, position')
-      .eq('course_id', course.id)
-      .order('position', { ascending: true });
+    const { chapters, ...courseFields } = course;
+    const sections = sortByPosition(chapters).map((chapter) => ({
+      title: chapter.title,
+      lessons: sortByPosition(chapter.lessons).map((lesson) =>
+        summaryOnly ? stripLessonQuestions(lesson) : lesson
+      )
+    }));
 
-    let sections = [];
-    if (chapters?.length) {
-      const chapterIds = chapters.map((c) => c.id);
-      const { data: lessons } = await supabaseAdmin
-        .from('lessons')
-        .select('id, chapter_id, title, video_url, content, position, is_preview')
-        .in('chapter_id', chapterIds)
-        .order('position', { ascending: true });
+    // Nội dung khóa học đổi rất ít so với số lượt xem. Cho CDN của Vercel giữ
+    // bản trả về và phục vụ bản cũ trong lúc lấy bản mới, nên lượt xem thứ hai
+    // trở đi không phải chờ Supabase nữa.
+    res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
 
-      const lessonsByChapter = new Map();
-      (lessons || []).forEach((lesson) => {
-        const arr = lessonsByChapter.get(lesson.chapter_id) || [];
-        arr.push(lesson);
-        lessonsByChapter.set(lesson.chapter_id, arr);
-      });
-
-      sections = chapters.map((chapter) => ({
-        title: chapter.title,
-        lessons: lessonsByChapter.get(chapter.id) || [],
-      }));
-    }
-
-    return res.json({ data: { ...course, sections }, mode: 'supabase' });
+    return res.json({ data: { ...courseFields, sections }, mode: 'supabase' });
   } catch (err) {
     console.error('[GET /api/courses/:courseId]', err.message);
     return res.status(500).json({ message: 'Lỗi máy chủ.' });

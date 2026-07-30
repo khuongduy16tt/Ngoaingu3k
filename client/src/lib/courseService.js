@@ -253,6 +253,12 @@ function normalizeRemoteLesson(lesson) {
   };
 }
 
+function sortByPosition(rows) {
+  return (Array.isArray(rows) ? [...rows] : []).sort(
+    (a, b) => Number(a?.position ?? 0) - Number(b?.position ?? 0)
+  );
+}
+
 function normalizeRemoteSections(sections = []) {
   return (Array.isArray(sections) ? sections : []).map((section) => ({
     title: section.title || 'Nội dung khóa học',
@@ -260,9 +266,11 @@ function normalizeRemoteSections(sections = []) {
   }));
 }
 
-async function getCourseBySlugFromApi(courseSlug) {
+async function getCourseBySlugFromApi(courseSlug, { summaryOnly = false } = {}) {
   try {
-    const response = await apiFetch(`/api/courses/${encodeURIComponent(courseSlug)}`);
+    const response = await apiFetch(
+      `/api/courses/${encodeURIComponent(courseSlug)}${summaryOnly ? '?view=summary' : ''}`
+    );
     const remoteCourse = response?.data;
 
     if (!remoteCourse || typeof remoteCourse !== 'object') {
@@ -724,7 +732,13 @@ export async function confirmCoursePayment({ order, accessToken }) {
   });
 }
 
-export async function getCourseBySlug(courseSlug) {
+/**
+ * @param {string} courseSlug
+ * @param {{ summaryOnly?: boolean }} [options] — `summaryOnly` bỏ ngân hàng câu
+ *   hỏi khỏi payload. Dùng cho trang chỉ hiện danh sách bài (trang chi tiết
+ *   khóa); phòng học vẫn cần bản đầy đủ để làm bài.
+ */
+export async function getCourseBySlug(courseSlug, { summaryOnly = false } = {}) {
   if (!courseSlug) {
     return null;
   }
@@ -763,15 +777,19 @@ export async function getCourseBySlug(courseSlug) {
     };
   }
 
-  const apiCourse = await getCourseBySlugFromApi(courseSlug);
+  const apiCourse = await getCourseBySlugFromApi(courseSlug, { summaryOnly });
   if (apiCourse) {
     return apiCourse;
   }
 
+  // Đường dự phòng khi API không trả lời. Lấy chương và bài lồng ngay trong
+  // truy vấn khóa học — trước đây là ba lượt đi-về nối đuôi nhau (khóa →
+  // chương → bài), mỗi lượt phải chờ lượt trước xong.
   let courseQuery = supabase
     .from('courses')
     .select(
-      'id, slug, title, description, price, status, banner_url, updated_at, package_total_sessions, package_duration_months'
+      'id, slug, title, description, price, status, banner_url, updated_at, package_total_sessions, package_duration_months,' +
+        'chapters(id, title, position, lessons(id, chapter_id, title, video_url, content, position, is_preview))'
     );
 
   courseQuery = isUuid(courseSlug)
@@ -792,38 +810,12 @@ export async function getCourseBySlug(courseSlug) {
   }
 
   const normalizedCourse = normalizeCourse(course);
-
-  const { data: chapters, error: chaptersError } = await supabase
-    .from('chapters')
-    .select('id, title, position')
-    .eq('course_id', course.id)
-    .order('position', { ascending: true });
-
-  let normalizedChapters = [];
-
-  if (!chaptersError && chapters?.length) {
-    const chapterIds = chapters.map((chapter) => chapter.id);
-    const { data: lessonRows, error: lessonsError } = await supabase
-      .from('lessons')
-      .select('id, chapter_id, title, video_url, content, position, is_preview')
-      .in('chapter_id', chapterIds)
-      .order('position', { ascending: true });
-
-    const lessonsByChapter = new Map();
-
-    if (!lessonsError && lessonRows?.length) {
-      lessonRows.forEach((lesson) => {
-        const chapterLessons = lessonsByChapter.get(lesson.chapter_id) || [];
-        chapterLessons.push(normalizeRemoteLesson(lesson));
-        lessonsByChapter.set(lesson.chapter_id, chapterLessons);
-      });
-    }
-
-    normalizedChapters = normalizeRemoteSections(chapters.map((chapter) => ({
+  const normalizedChapters = normalizeRemoteSections(
+    sortByPosition(course.chapters).map((chapter) => ({
       title: chapter.title,
-      lessons: lessonsByChapter.get(chapter.id) || []
-    })));
-  }
+      lessons: sortByPosition(chapter.lessons)
+    }))
+  );
 
   return {
     ...normalizedCourse,

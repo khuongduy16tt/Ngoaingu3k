@@ -49,6 +49,14 @@ create table if not exists public.lessons (
   created_at timestamptz not null default now()
 );
 
+-- Postgres không tự tạo index cho cột khóa ngoại, nên nếu thiếu những index này
+-- thì mỗi lần mở một khóa học đều phải quét tuần tự cả bảng lessons.
+create index if not exists chapters_course_id_position_idx on public.chapters (course_id, position);
+create index if not exists lessons_chapter_id_position_idx on public.lessons (chapter_id, position);
+create index if not exists courses_slug_idx on public.courses (slug);
+create index if not exists courses_status_updated_at_idx on public.courses (status, updated_at desc);
+create index if not exists courses_teacher_id_idx on public.courses (teacher_id);
+
 create table if not exists public.progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -61,6 +69,9 @@ create table if not exists public.progress (
   updated_at timestamptz not null default now(),
   unique (user_id, lesson_id)
 );
+
+-- Chiều user_id đã được ràng buộc unique ở trên phục vụ; chỉ thiếu chiều lesson_id.
+create index if not exists progress_lesson_id_idx on public.progress (lesson_id);
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
