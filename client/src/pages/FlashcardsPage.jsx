@@ -8,6 +8,7 @@ import {
   getFlashcardProgress,
   getFlashcardSetById,
   getFlashcardSets,
+  saveFlashcardProgress,
   saveFlashcardSet
 } from '../lib/flashcardService';
 import {
@@ -328,7 +329,7 @@ export default function FlashcardsPage() {
     return () => {
       active = false;
     };
-  }, [auth.user?.id, auth.session?.access_token, canImport, reloadKey]);
+  }, [auth.user?.id, auth.session?.access_token, canImport, role, reloadKey]);
 
   async function openSet(setId) {
     const full = await getFlashcardSetById(setId);
@@ -338,6 +339,23 @@ export default function FlashcardsPage() {
     const stored = await getFlashcardProgress({ userId: auth.user?.id, setId });
     setActiveSet(full);
     setProgress(Object.keys(stored).length ? stored : createEmptyProgress(full.cards));
+  }
+
+  // Tiến độ Learn phải xuống DB, không thì mất khi rời trang. Có `changedCardId`
+  // (trả lời một câu) thì chỉ lưu dòng đó; không có (bấm "Học lại từ đầu") thì
+  // ghi lại cả bộ.
+  function handleProgressChange(nextProgress, changedCardId) {
+    setProgress(nextProgress);
+
+    if (!activeSet?.id || !auth.user?.id) {
+      return;
+    }
+
+    const payload = changedCardId
+      ? { [changedCardId]: nextProgress[changedCardId] }
+      : nextProgress;
+
+    void saveFlashcardProgress({ userId: auth.user.id, setId: activeSet.id, progress: payload });
   }
 
   async function handleDelete(setId, title) {
@@ -355,7 +373,7 @@ export default function FlashcardsPage() {
         <button type="button" className="button-ghost" onClick={() => setActiveSet(null)}>
           ← Về danh sách bộ thẻ
         </button>
-        <FlashcardStudy set={activeSet} progress={progress} onProgressChange={setProgress} />
+        <FlashcardStudy set={activeSet} progress={progress} onProgressChange={handleProgressChange} />
       </div>
     );
   }

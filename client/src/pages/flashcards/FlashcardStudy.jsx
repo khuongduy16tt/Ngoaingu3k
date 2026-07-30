@@ -127,7 +127,9 @@ function LearnMode({ cards, progress, onProgressChange }) {
   }
 
   function next() {
-    onProgressChange(applyAnswer(progress, card.id, result.isCorrect));
+    // Truyền kèm id thẻ vừa trả lời để trang chỉ lưu đúng một dòng tiến độ,
+    // không upsert lại cả bộ thẻ sau mỗi câu.
+    onProgressChange(applyAnswer(progress, card.id, result.isCorrect), card.id);
     setResult(null);
     setAnswer('');
   }
