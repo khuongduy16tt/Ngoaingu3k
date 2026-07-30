@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"^button\\\\|^button,\\\\| button {\" layout.css components.css pages/enterprise.css)"
+    ]
+  }
+}
