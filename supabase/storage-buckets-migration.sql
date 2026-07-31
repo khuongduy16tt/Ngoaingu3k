@@ -10,7 +10,6 @@
 --   course-images     — ảnh banner khóa học                    (đã có sẵn)
 --   lesson-videos     — "Tải video lên Storage" (mục 10.2)     ← file này tạo
 --   avatars           — ảnh đại diện ở trang Hồ sơ             ← file này tạo
---   assignment-images — ảnh bài tập giao                        ← file này tạo
 --
 -- Chạy trong Supabase → SQL Editor. Chạy lại nhiều lần vẫn an toàn.
 --
@@ -47,19 +46,6 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values (
   'avatars',
   'avatars',
-  true,
-  31457280, -- 30 MB
-  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-)
-on conflict (id) do update
-  set public = excluded.public,
-      file_size_limit = excluded.file_size_limit,
-      allowed_mime_types = excluded.allowed_mime_types;
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'assignment-images',
-  'assignment-images',
   true,
   31457280, -- 30 MB
   array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -166,60 +152,13 @@ on storage.objects
 for select
 using (bucket_id = 'avatars');
 
--- ─── 4. assignment-images: giảng viên và admin được ghi ───────────────────────
-
-drop policy if exists "teachers upload assignment images" on storage.objects;
-create policy "teachers upload assignment images"
-on storage.objects
-for insert
-to authenticated
-with check (
-  bucket_id = 'assignment-images'
-  and exists (
-    select 1
-    from public.profiles profile
-    where profile.id = auth.uid()
-      and profile.role in ('teacher', 'admin')
-  )
-);
-
-drop policy if exists "teachers update assignment images" on storage.objects;
-create policy "teachers update assignment images"
-on storage.objects
-for update
-to authenticated
-using (
-  bucket_id = 'assignment-images'
-  and exists (
-    select 1
-    from public.profiles profile
-    where profile.id = auth.uid()
-      and profile.role in ('teacher', 'admin')
-  )
-)
-with check (
-  bucket_id = 'assignment-images'
-  and exists (
-    select 1
-    from public.profiles profile
-    where profile.id = auth.uid()
-      and profile.role in ('teacher', 'admin')
-  )
-);
-
-drop policy if exists "public read assignment images" on storage.objects;
-create policy "public read assignment images"
-on storage.objects
-for select
-using (bucket_id = 'assignment-images');
-
--- ─── 5. Kiểm tra sau khi chạy ─────────────────────────────────────────────────
--- Phải thấy đủ 6 dòng.
+-- ─── 4. Kiểm tra sau khi chạy ─────────────────────────────────────────────────
+-- Phải thấy đủ 5 dòng.
 
 select id, public, file_size_limit
 from storage.buckets
 where id in (
   'exam-audio', 'exam-images', 'course-images',
-  'lesson-videos', 'avatars', 'assignment-images'
+  'lesson-videos', 'avatars'
 )
 order by id;

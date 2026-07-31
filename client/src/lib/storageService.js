@@ -91,9 +91,8 @@ export async function uploadCourseImage(file, courseId) {
     .upload(path, file, { cacheControl: '3600', upsert: true });
 
   if (error) {
+    // Phía gọi hiện thông báo bảo admin tạo bucket course-images.
     console.error('[uploadCourseImage] Error uploading to course-images:', error.message);
-    // Fallback sang bucket assignment-images hoặc báo lỗi
-    // Để giữ thiết kế chuẩn, chúng ta vẫn báo lỗi và khuyên admin tạo bucket course-images
     return null;
   }
 
@@ -134,36 +133,6 @@ export async function uploadLessonImage(file, lessonId) {
   }
 
   return { path: data.path, url: getPublicUrl('course-images', data.path) };
-}
-
-// ─── Upload Ảnh câu hỏi ──────────────────────────────────────────────────────
-
-/**
- * Upload ảnh đính kèm cho câu hỏi bài tập.
- * @param {File} file - File ảnh (.jpg, .png, .webp, .gif)
- * @param {string} assignmentId
- * @returns {{ path: string, url: string } | null}
- */
-export async function uploadAssignmentImage(file, assignmentId) {
-  if (!isSupabaseReady()) {
-    const url = await readFileAsDataUrl(file);
-    return { path: 'local', url };
-  }
-
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const path = `assignments/${assignmentId || Date.now()}/${Date.now()}.${ext}`;
-
-  const { data, error } = await supabase.storage
-    .from('assignment-images')
-    .upload(path, file, { cacheControl: '3600', upsert: true });
-
-  if (error) {
-    console.error('[uploadAssignmentImage]', error.message);
-    return null;
-  }
-
-  const url = getPublicUrl('assignment-images', data.path);
-  return { path: data.path, url };
 }
 
 // ─── Upload Audio đề thi ──────────────────────────────────────────────────────

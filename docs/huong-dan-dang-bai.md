@@ -516,7 +516,6 @@ Thiếu bucket thì nút upload báo lỗi và **file không được lưu**.
 | `course-images` | Ảnh đại diện (banner) khóa học | 30 MB |
 | `lesson-videos` | Nút **Tải video lên Storage** (mục 10.2) | 500 MB |
 | `avatars` | Ảnh đại diện tài khoản ở trang Hồ sơ | 30 MB |
-| `assignment-images` | Ảnh của bài tập giao | 30 MB |
 
 **Cách nhanh nhất — chạy SQL (1 phút):**
 
@@ -524,7 +523,7 @@ Thiếu bucket thì nút upload báo lỗi và **file không được lưu**.
 2. Bấm **`+ New query`**.
 3. Mở file `supabase/storage-buckets-migration.sql` trong mã nguồn, copy toàn bộ, dán vào ô soạn thảo.
 4. Bấm **`Run`** (hoặc `Ctrl + Enter`).
-5. Kết quả cuối phải liệt kê đủ **6 bucket**. Xong.
+5. Kết quả cuối phải liệt kê đủ **5 bucket**. Xong.
 
 **Cách thủ công — nếu SQL báo lỗi `must be owner of table objects`:**
 
