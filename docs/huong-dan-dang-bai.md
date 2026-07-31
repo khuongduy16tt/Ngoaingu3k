@@ -238,6 +238,15 @@ và các ô thay đổi theo dạng đã chọn:
 
 Đổi dạng câu sẽ xóa dữ liệu đáp án của dạng cũ để không lưu nhầm.
 
+**Ảnh cho từng câu hỏi:** mỗi câu — dạng nào cũng được — có ô **Ảnh của câu hỏi (tùy chọn)**
+nằm dưới cùng, ngay trên ô Ghi chú. Bấm **`Chọn ảnh`** để tải lên, hoặc dán link vào ô
+**Hoặc dán link ảnh**. Ảnh hiện ngay trên phần chọn đáp án của học viên — dùng cho dạng
+"nhìn hình chọn từ". Ô này khác ô **Ảnh nếu có** ở mục 3.2: ô kia là **một** ảnh dùng chung
+cho cả bài, ô này là ảnh **riêng của từng câu**. Dùng được cả hai cùng lúc.
+
+Gắn ảnh cho câu hỏi cũng làm được ở **Phòng học → bảng giảng viên**, cùng chỗ gắn file nghe
+cho câu **Nghe & gõ lại**.
+
 > 💡 Khu **Student view** ngay bên dưới hiện đúng dạng của từng câu, kèm cảnh báo
 > *"Câu này chưa có đáp án đúng nên sẽ bị loại khỏi tổng điểm"* — dùng nó để soát trước khi đăng.
 

@@ -274,6 +274,9 @@ function normalizeLessonQuestion(question, index) {
     sampleAnswer: type === 'writing' ? String(question?.sampleAnswer || '').trim() : '',
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),
+    // Ảnh riêng của từng câu — giữ đồng bộ với client/src/lib/lessonQuestions.js.
+    imageUrl: String(question?.imageUrl || '').trim(),
+    imageName: String(question?.imageName || '').trim(),
     imageHanzi: String(question?.imageHanzi || '').trim(),
     // Nét chữ Hán vẽ bằng SVG thay ảnh — giữ đồng bộ với client/src/lib/strokes.js.
     strokeId: String(question?.strokeId || '').trim(),

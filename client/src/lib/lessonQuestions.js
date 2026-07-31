@@ -91,6 +91,10 @@ export function normalizeLessonQuestion(question, index = 0) {
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),
     sampleAnswer: String(question?.sampleAnswer || '').trim(),
+    // Ảnh minh họa riêng của từng câu (dạng "nhìn hình chọn từ"). Khác
+    // `lesson.imageUrl` vốn là một ảnh dùng chung cho cả bài.
+    imageUrl: String(question?.imageUrl || '').trim(),
+    imageName: String(question?.imageName || '').trim(),
     // Chữ Hán render lớn thay ảnh (import HSK), và cờ báo câu nghe đang chờ audio.
     imageHanzi: String(question?.imageHanzi || '').trim(),
     // Nét chữ Hán vẽ bằng SVG thay ảnh — dùng cho câu "chọn tên gọi của nét

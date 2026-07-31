@@ -231,3 +231,28 @@ describe('suy ra hình nét khi thiếu strokeId', () => {
     expect(q.strokeId).toBe('');
   });
 });
+
+// Ảnh riêng của từng câu (dạng "nhìn hình chọn từ") — khác ảnh dùng chung của
+// cả bài. Trường này phải sống sót qua normalize, nếu không thì giáo viên gắn
+// ảnh xong lưu lại là mất.
+describe('ảnh của câu hỏi', () => {
+  it('giữ imageUrl và imageName', () => {
+    const q = normalizeLessonQuestion({
+      type: 'multiple_choice',
+      prompt: 'Nhìn hình chọn từ đúng',
+      options: [{ label: 'A', text: 'con mèo' }],
+      correctAnswer: 'A',
+      imageUrl: 'https://cdn.example/meo.png',
+      imageName: 'meo.png'
+    });
+
+    expect(q.imageUrl).toBe('https://cdn.example/meo.png');
+    expect(q.imageName).toBe('meo.png');
+  });
+
+  it('mặc định rỗng khi câu không có ảnh', () => {
+    const q = normalizeLessonQuestion({ type: 'fill_blank', prompt: 'Điền từ' });
+    expect(q.imageUrl).toBe('');
+    expect(q.imageName).toBe('');
+  });
+});

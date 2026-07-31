@@ -101,6 +101,41 @@ export async function uploadCourseImage(file, courseId) {
   return { path: data.path, url };
 }
 
+// ─── Upload Ảnh của bài học ──────────────────────────────────────────────────
+
+/**
+ * Upload ảnh minh họa của một bài học ("Ảnh nếu có" trong khung Sửa bài học).
+ * Dùng chung bucket course-images với ảnh banner, khác tiền tố đường dẫn.
+ *
+ * Trước đây ô này đọc file thành data: URL rồi nhét base64 thẳng vào
+ * `lessons.content`. Ảnh 3MB thành ~4MB JSON nằm trong một dòng DB, và cả khóa
+ * học tải về kèm nó mỗi lần học viên mở phòng học.
+ *
+ * @param {File} file - File ảnh (.jpg, .png, .webp, .gif)
+ * @param {string} lessonId
+ * @returns {{ path: string, url: string } | null}
+ */
+export async function uploadLessonImage(file, lessonId) {
+  if (!isSupabaseReady()) {
+    const url = await readFileAsDataUrl(file);
+    return { path: 'local', url };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `lessons/${lessonId || Date.now()}/${Date.now()}.${ext}`;
+
+  const { data, error } = await supabase.storage
+    .from('course-images')
+    .upload(path, file, { cacheControl: '3600', upsert: true });
+
+  if (error) {
+    console.error('[uploadLessonImage]', error.message);
+    return null;
+  }
+
+  return { path: data.path, url: getPublicUrl('course-images', data.path) };
+}
+
 // ─── Upload Ảnh câu hỏi ──────────────────────────────────────────────────────
 
 /**

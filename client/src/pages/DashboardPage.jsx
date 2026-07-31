@@ -26,6 +26,7 @@ import {
   writeTeacherManagedCourses
 } from '../lib/courseService';
 import { ListeningAudio } from '../components/ListeningAudio';
+import { ImageUploadField } from '../components/ImageUploadField';
 import {
   LESSON_QUESTION_TYPES,
   formatLessonCorrectAnswer,
@@ -48,8 +49,8 @@ import {
   exportActivityToExcel
 } from '../lib/reportService';
 import {
-  readFileAsDataUrl,
   uploadLessonAudio,
+  uploadLessonImage,
   uploadLessonVideo,
   validateAudioFile,
   validateImageFile,
@@ -702,6 +703,15 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
                       <strong>{exercise.prompt || `${tab.title} - Câu ${rawExercise.number || index + 1}`}</strong>
                       <span className="pill">{getLessonQuestionTypeLabel(exercise.type)}</span>
                     </div>
+
+                    {exercise.imageUrl ? (
+                      <img
+                        className="lesson-image-preview"
+                        src={exercise.imageUrl}
+                        alt={exercise.imageName || `Ảnh câu ${index + 1}`}
+                        loading="lazy"
+                      />
+                    ) : null}
 
                     {exercise.type === 'multiple_choice' ? (
                       exercise.options.length ? (
@@ -1719,17 +1729,29 @@ export function TeacherDashboardPage() {
         return;
       }
 
-      try {
-        const imageDataUrl = await readFileAsDataUrl(file);
+      // Cùng lý do với file nghe: đọc thành data: URL là nhét cả tấm ảnh dạng
+      // base64 vào `lessons.content`, phình DB và bắt mọi học viên tải kèm.
+      setImportMessage({ type: 'info', text: `Đang tải "${file.name}" lên...` });
 
-        updateDraftLesson(sectionIndex, lessonIndex, {
-          imageName: file.name,
-          imageUrl: imageDataUrl
+      const lessonForImage = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
+      const uploadedImage = await uploadLessonImage(
+        file,
+        lessonForImage?.databaseId || lessonForImage?.id || ''
+      );
+
+      if (!uploadedImage?.url) {
+        setImportMessage({
+          type: 'error',
+          text: 'Không thể tải ảnh lên. Kiểm tra bucket "course-images" trong Supabase Storage rồi thử lại.'
         });
-        setImportMessage({ type: 'success', text: 'Đã thêm ảnh minh họa cho bài học.' });
-      } catch (error) {
-        setImportMessage({ type: 'error', text: error?.message || 'Không thể tải ảnh lên.' });
+        return;
       }
+
+      updateDraftLesson(sectionIndex, lessonIndex, {
+        imageName: file.name,
+        imageUrl: uploadedImage.url
+      });
+      setImportMessage({ type: 'success', text: 'Đã thêm ảnh minh họa cho bài học.' });
 
       return;
     }
@@ -3075,6 +3097,23 @@ export function TeacherDashboardPage() {
                                 <small className="field-hint">Dạng viết không chấm tự động nên không tính vào điểm.</small>
                               </label>
                             ) : null}
+
+                            {/* Ảnh riêng của câu — dùng cho dạng "nhìn hình chọn từ".
+                                Khác ô "Ảnh nếu có" ở trên, vốn là một ảnh dùng chung cả bài. */}
+                            <ImageUploadField
+                              label="Ảnh của câu hỏi (tùy chọn)"
+                              bucketHint="course-images"
+                              imageUrl={question.imageUrl || ''}
+                              imageName={question.imageName || ''}
+                              upload={(file) =>
+                                uploadLessonImage(
+                                  file,
+                                  selectedDraftLesson.databaseId || selectedDraftLesson.id || ''
+                                )
+                              }
+                              onUploaded={({ imageUrl, imageName }) => patchQuestion({ imageUrl, imageName })}
+                              onClear={() => patchQuestion({ imageUrl: '', imageName: '' })}
+                            />
 
                             <label className="auth-field auth-field--full">
                               <span>Ghi chú</span>

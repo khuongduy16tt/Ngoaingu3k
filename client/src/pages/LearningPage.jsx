@@ -45,8 +45,9 @@ import { CourseLessonList } from '../components/CourseLessonList';
 import { ListeningAudio } from '../components/ListeningAudio';
 import { StrokeGlyph } from '../components/StrokeGlyph';
 import { StrokePractice } from './learning/StrokePractice';
-import { uploadLessonAudio } from '../lib/storageService';
+import { uploadLessonAudio, uploadLessonImage } from '../lib/storageService';
 import { AudioUploadField } from '../components/AudioUploadField';
+import { ImageUploadField } from '../components/ImageUploadField';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
@@ -517,6 +518,8 @@ function normalizeVideoQuestionDraft(question, index = 0) {
     sampleAnswer: normalized.sampleAnswer,
     audioUrl: normalized.audioUrl,
     audioName: normalized.audioName,
+    imageUrl: normalized.imageUrl,
+    imageName: normalized.imageName,
     // Giữ lại phần hình của câu hỏi (chữ Hán lớn, nét chữ SVG) và cờ chờ audio:
     // trình soạn không sửa các trường này nhưng lưu lại thì phải còn nguyên.
     imageHanzi: normalized.imageHanzi,
@@ -544,6 +547,8 @@ function prepareVideoQuestionsForSave(questions) {
         sampleAnswer: '',
         audioUrl: String(question.audioUrl || '').trim(),
         audioName: String(question.audioName || '').trim(),
+        imageUrl: String(question.imageUrl || '').trim(),
+        imageName: String(question.imageName || '').trim(),
         imageHanzi: String(question.imageHanzi || '').trim(),
         strokeId: String(question.strokeId || '').trim(),
         audioPending: Boolean(question.audioPending),
@@ -1143,6 +1148,17 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
               </div>
             ) : null}
 
+            {/* Ảnh riêng của câu (dạng "nhìn hình chọn từ"). */}
+            {question.imageUrl ? (
+              <div className="lesson-question__image">
+                <img
+                  src={question.imageUrl}
+                  alt={question.imageName || `Ảnh minh họa câu ${index + 1}`}
+                  loading="lazy"
+                />
+              </div>
+            ) : null}
+
             {question.audioUrl ? (
               <div className="lesson-question__audio">
                 <ListeningAudio src={question.audioUrl} label={`Câu ${index + 1}`} />
@@ -1364,6 +1380,20 @@ function QuestionAudioField({ question, lessonId, onChange }) {
       onUploaded={({ audioUrl, audioName }) => onChange({ audioUrl, audioName })}
       onClear={() => onChange({ audioUrl: '', audioName: '' })}
       upload={(file, onProgress) => uploadLessonAudio(file, lessonId, onProgress)}
+    />
+  );
+}
+
+function QuestionImageField({ question, lessonId, onChange }) {
+  return (
+    <ImageUploadField
+      label="Ảnh của câu hỏi (tùy chọn)"
+      bucketHint="course-images"
+      imageUrl={question.imageUrl || ''}
+      imageName={question.imageName || ''}
+      onUploaded={({ imageUrl, imageName }) => onChange({ imageUrl, imageName })}
+      onClear={() => onChange({ imageUrl: '', imageName: '' })}
+      upload={(file) => uploadLessonImage(file, lessonId)}
     />
   );
 }
@@ -1605,6 +1635,12 @@ Giải thích: Hello nghĩa là xin chào.`}
                   onChange={(patch) => updateQuestion(question.id, patch)}
                 />
               ) : null}
+
+              <QuestionImageField
+                question={question}
+                lessonId={lesson?.databaseId || lesson?.id}
+                onChange={(patch) => updateQuestion(question.id, patch)}
+              />
 
               {question.type === 'multiple_choice' ? (
                 <div className="video-question-options">

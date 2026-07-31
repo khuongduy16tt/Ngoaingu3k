@@ -21,7 +21,10 @@ export function ImageUploadField({
   onClear,
   upload,
   label = 'Ảnh minh họa (tùy chọn)',
-  fileHint = 'JPG, PNG, WebP, GIF — tối đa 30MB'
+  fileHint = 'JPG, PNG, WebP, GIF — tối đa 30MB',
+  // Tên bucket hiện trong thông báo lỗi: câu hỏi đề thi dùng exam-images, câu
+  // hỏi bài học dùng course-images — báo sai bucket thì admin dò nhầm chỗ.
+  bucketHint = 'exam-images'
 }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -46,7 +49,7 @@ export function ImageUploadField({
       if (uploaded?.url) {
         onUploaded({ imageUrl: uploaded.url, imageName: file.name });
       } else {
-        setError('Không thể tải ảnh lên. Kiểm tra bucket "exam-images" trong Supabase Storage.');
+        setError(`Không thể tải ảnh lên. Kiểm tra bucket "${bucketHint}" trong Supabase Storage.`);
       }
     } finally {
       setUploading(false);
