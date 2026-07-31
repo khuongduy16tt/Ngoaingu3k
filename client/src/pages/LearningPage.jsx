@@ -1045,6 +1045,37 @@ export function LessonReadingPanel({ lesson }) {
   );
 }
 
+// File nghe + ảnh đính kèm. Dùng ở hai chỗ: trong khung bài tập, và trong phần
+// Video khi chủ đề không có tab bài tập nào — bài chỉ có mỗi ảnh thì trước đây
+// không hiện ra ở đâu cả, vì khối này nằm lọt trong khung bài tập.
+function LessonAssetStrip({ audioUrl, audioName, imageUrl, imageName, fallbackAlt }) {
+  if (!audioUrl && !imageUrl) {
+    return null;
+  }
+
+  return (
+    <div className="lesson-asset-strip">
+      {audioUrl ? (
+        <div className="lesson-upload-box">
+          <strong>{audioName || 'File nghe'}</strong>
+          <ListeningAudio src={audioUrl} label={audioName || 'File nghe'} className="lesson-audio" />
+        </div>
+      ) : null}
+      {imageUrl ? (
+        <div className="lesson-upload-box">
+          <strong>{imageName || 'Ảnh minh họa'}</strong>
+          <img
+            className="lesson-image-preview"
+            src={imageUrl}
+            alt={imageName || fallbackAlt || 'Ảnh đề bài'}
+            loading="lazy"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // `tab` là một tab bài tập của chủ đề (model mới). Không truyền `tab` thì rơi về
 // danh sách câu hỏi phẳng trên lesson (model cũ) — giữ nguyên cách gọi cũ.
 export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
@@ -1096,30 +1127,13 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
         <span className="pill">{questions.length} câu</span>
       </div>
 
-      {audioUrl || imageUrl ? (
-        <div className="lesson-asset-strip">
-          {audioUrl ? (
-            <div className="lesson-upload-box">
-              <strong>{source.audioName || lesson?.audioName || 'File nghe'}</strong>
-              <ListeningAudio
-                src={audioUrl}
-                label={source.audioName || lesson?.audioName || 'File nghe'}
-                className="lesson-audio"
-              />
-            </div>
-          ) : null}
-          {imageUrl ? (
-            <div className="lesson-upload-box">
-              <strong>{source.imageName || lesson?.imageName || 'Ảnh minh họa'}</strong>
-              <img
-                className="lesson-image-preview"
-                src={imageUrl}
-                alt={source.imageName || lesson?.imageName || lesson?.title || 'Ảnh đề bài'}
-              />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <LessonAssetStrip
+        audioUrl={audioUrl}
+        audioName={source.audioName || lesson?.audioName}
+        imageUrl={imageUrl}
+        imageName={source.imageName || lesson?.imageName}
+        fallbackAlt={lesson?.title}
+      />
 
       <div className="excel-exercise-list">
         {questions.map((question, index) => (
@@ -1316,6 +1330,18 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
             dashboardPath={dashboardPath}
           />
           {hasReadingContent ? <LessonReadingPanel lesson={readingLesson} /> : null}
+
+          {/* Chủ đề không có tab bài tập thì file nghe/ảnh của bài không có chỗ
+              nào để hiện — đưa xuống ngay dưới phần nội dung. */}
+          {!exerciseTabs.length ? (
+            <LessonAssetStrip
+              audioUrl={lesson?.audioUrl}
+              audioName={lesson?.audioName}
+              imageUrl={lesson?.imageUrl}
+              imageName={lesson?.imageName}
+              fallbackAlt={lesson?.title}
+            />
+          ) : null}
         </div>
       ) : (
         <div className="lesson-tabs__panel">
