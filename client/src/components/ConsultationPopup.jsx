@@ -2,51 +2,85 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ConsultationForm, hasSubmittedConsultation } from './ConsultationForm';
 
 const FIRST_OPEN_DELAY_MS = 600;
-const REPEAT_DELAY_MS = 10000;
 const AUTO_CLOSE_AFTER_SUCCESS_MS = 1500;
+// Coi như đã tới cuối trang khi còn cách đáy dưới một màn hình — bắt đúng lúc
+// người đọc sắp hết nội dung, không phải chờ chạm đáy tuyệt đối.
+const BOTTOM_THRESHOLD_PX = 600;
 
-// Popup quảng cáo toàn màn hình: tự hiện khi vào web (che hết trang, có nút
-// X để tắt) — giống 1 quảng cáo pop-up thường thấy, không phải banner mảnh
-// trên đầu trang. Đóng rồi thì 10s sau tự bật lại, lặp vô hạn.
-// CHỈ dựng ở trang chủ (xem AppLayout) — rời trang chủ là component unmount,
-// effect cleanup xoá luôn hẹn giờ đang chờ.
-// Hai trường hợp KHÔNG bật lại:
+// Popup quảng cáo toàn màn hình, hiện ĐÚNG 3 LẦN mỗi lượt vào trang chủ, mỗi
+// lần gắn với một mốc đọc thay vì hẹn giờ lặp:
+//   1. 'dau'   — vừa vào trang;
+//   2. 'vi-sao'— khi khối "Vì sao chọn Ngoaingu3k" (.reasons-section) lọt vào
+//                màn hình;
+//   3. 'cuoi'  — khi cuộn gần hết trang.
+// Mỗi mốc chỉ bắn một lần cho tới khi rời trang chủ. Trước đây popup bật lại
+// sau mỗi 10s vô hạn, đóng bao nhiêu lần cũng hiện lại.
+// CHỈ dựng ở trang chủ (xem AppLayout) — rời trang chủ là component unmount.
+// Hai trường hợp KHÔNG bật:
 //   - người dùng đã gửi form tư vấn thành công (ở đây hoặc form hero trang
 //     chủ) — đã có lead rồi thì không spam tiếp. Cờ nằm ở localStorage nên
 //     giữ qua cả lần mở trình duyệt sau;
 //   - đang có modal .consult-popup khác mở (nút "Tư vấn" nổi ở góc phải) — bật
-//     chồng lên sẽ cướp focus form họ đang gõ dở, nên hoãn thêm một nhịp 10s.
+//     chồng lên sẽ cướp focus form họ đang gõ dở, nên bỏ qua nhịp đó. Mốc chưa
+//     bị tiêu, cuộn qua lại vẫn còn cơ hội bắn.
 export function ConsultationPopup() {
   const [open, setOpen] = useState(false);
-  // Tăng lên để ép lịch hẹn chạy lại khi lần bật trước bị hoãn.
-  const [attempt, setAttempt] = useState(0);
-  const shownOnceRef = useRef(false);
+  const openRef = useRef(false);
+  const firedRef = useRef(new Set());
 
   useEffect(() => {
-    if (open || hasSubmittedConsultation()) {
+    openRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    if (hasSubmittedConsultation()) {
       return undefined;
     }
 
-    const delay = shownOnceRef.current ? REPEAT_DELAY_MS : FIRST_OPEN_DELAY_MS;
-    const timer = setTimeout(() => {
-      shownOnceRef.current = true;
-
-      // Kiểm tra lại lúc bật, không chỉ lúc hẹn giờ: người dùng có thể đã gửi
-      // form tư vấn ở hero trang chủ trong lúc 10s này đang đếm.
-      if (hasSubmittedConsultation()) {
+    function moc(ten) {
+      if (firedRef.current.has(ten) || openRef.current || hasSubmittedConsultation()) {
         return;
       }
 
+      // Modal khác đang mở: bỏ qua lần này nhưng KHÔNG đánh dấu đã bắn.
       if (document.querySelector('.consult-popup')) {
-        setAttempt((value) => value + 1);
         return;
       }
 
+      firedRef.current.add(ten);
       setOpen(true);
-    }, delay);
+    }
 
-    return () => clearTimeout(timer);
-  }, [open, attempt]);
+    // 1. Đầu trang — chờ một nhịp cho trang vẽ xong rồi mới che.
+    const timer = setTimeout(() => moc('dau'), FIRST_OPEN_DELAY_MS);
+
+    // 2. Khối "Vì sao chọn Ngoaingu3k".
+    let observer;
+    const reasons = document.querySelector('.reasons-section');
+    if (reasons && typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        (entries) => entries.forEach((entry) => entry.isIntersecting && moc('vi-sao')),
+        { threshold: 0.35 }
+      );
+      observer.observe(reasons);
+    }
+
+    // 3. Gần cuối trang.
+    function onScroll() {
+      const conLai = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+      if (conLai <= BOTTOM_THRESHOLD_PX) {
+        moc('cuoi');
+      }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      clearTimeout(timer);
+      observer?.disconnect();
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) {
