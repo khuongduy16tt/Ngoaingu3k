@@ -22,7 +22,7 @@ Tên nút và tên ô trong tài liệu là **đúng y như trên màn hình**, 
 | [8](#8-flashcard) | Flashcard | Giảng viên, Admin |
 | [9](#9-đề-thi) | Đề thi | Giảng viên, Admin |
 | [10](#10-phần-dành-cho-admin) | Phần dành riêng cho Admin | Admin |
-| [11](#11-giới-hạn-file-và-lỗi-hay-gặp) | Giới hạn file và lỗi hay gặp | Tất cả |
+| [11](#11-giới-hạn-file-và-lỗi-hay-gặp) | Giới hạn file, tạo bucket và lỗi hay gặp | Tất cả |
 
 ---
 
@@ -224,8 +224,22 @@ Trong khu **Câu hỏi · <tên tab>** có hai cách thêm câu:
 - **`Nhập Excel`** — chọn file `.xls`/`.xlsx`, các câu được nạp thẳng vào tab đang chọn.
 - **`Thêm thủ công`** — tạo một câu trống rồi tự điền.
 
-Với mỗi câu bạn có: **Nội dung câu**, các ô **Lựa chọn A/B/C/D**, nút **`Thêm lựa chọn`** (tối đa 4),
-ô **Đáp án đúng** (chọn nhãn A/B/C/D) và nút **`Xóa câu`**.
+Với mỗi câu bạn có ô **Dạng câu hỏi** (6 dạng ở mục 5.2), ô **Nội dung câu**, nút **`Xóa câu`**,
+và các ô thay đổi theo dạng đã chọn:
+
+| Dạng đã chọn | Ô hiện thêm |
+|---|---|
+| **Trắc nghiệm** | **Lựa chọn A/B/C/D** · nút **`Thêm lựa chọn`** (tối đa 4) · **Đáp án đúng** (chọn nhãn A/B/C/D) |
+| **Đúng / Sai** | **Đáp án đúng**: chọn `Đúng` hoặc `Sai` |
+| **Điền khuyết** | **Đáp án chấp nhận (phân cách bằng dấu phẩy)** |
+| **Nối cặp** | **Các cặp nối** — mỗi dòng viết `Vế trái = Vế phải` |
+| **Nghe & gõ lại** | **Đáp án đúng** — nội dung học viên nghe rồi gõ lại. File nghe của từng câu gắn ở bảng giảng viên trong **Phòng học** |
+| **Viết (tự luận)** | **Đáp án mẫu** (hiện cho học viên sau khi nộp) |
+
+Đổi dạng câu sẽ xóa dữ liệu đáp án của dạng cũ để không lưu nhầm.
+
+> 💡 Khu **Student view** ngay bên dưới hiện đúng dạng của từng câu, kèm cảnh báo
+> *"Câu này chưa có đáp án đúng nên sẽ bị loại khỏi tổng điểm"* — dùng nó để soát trước khi đăng.
 
 ### 5.1. File Excel chỉ chứa câu hỏi
 
@@ -239,6 +253,10 @@ Khác với file cả khóa ở mục 2.2, file này chỉ cần các cột câu
 | Giải thích | `Giải thích`, `Ghi chú`, `Note`, `Explanation` |
 
 Nếu file không có dòng tiêu đề, hệ thống vẫn cố đọc theo vị trí cột (câu hỏi → 4 lựa chọn → đáp án → ghi chú).
+
+> ⚠️ Nhập xong hãy đọc dòng thông báo. Nếu file thiếu cột đáp án hoặc cột lựa chọn, hệ thống báo ngay
+> *"⚠️ N câu chưa có đáp án đúng (kiểm tra cột "Đáp án")"* — những câu đó **không bị gán đáp án bừa**,
+> chúng bị loại khỏi tổng điểm cho tới khi bạn chọn đáp án trong ô **Đáp án đúng**.
 
 ### 5.2. Sáu dạng câu hỏi và cách chấm điểm
 
@@ -257,6 +275,8 @@ Nếu file không có dòng tiêu đề, hệ thống vẫn cố đọc theo v�
    chứ không bị tính 0 điểm. Học viên không bị trừ oan.
 2. Điểm này chính là **số sao** của bài trong danh sách bài học:
    **≥ 80% → 3 sao · ≥ 50% → 2 sao · dưới đó → 1 sao**.
+   Chủ đề có nhiều tab bài tập thì điểm được **cộng dồn các tab đã nộp**, không phải
+   lấy riêng tab nộp sau cùng.
 3. Bài **không có gì để chấm** (bài chỉ có video, mục lục, bài đọc) thì **hoàn thành là được đủ 3 sao** —
    nếu không, bài xem xong sẽ trông y hệt bài làm sai.
 
@@ -272,7 +292,9 @@ Nếu file không có dòng tiêu đề, hệ thống vẫn cố đọc theo v�
 Có hai chỗ gắn audio, dùng cho hai mục đích khác nhau:
 
 - **File nghe của cả bài** — ô **File nghe nếu có** trong khung Sửa bài học (mục 3.2).
-  Dùng khi nhiều câu cùng nghe một đoạn.
+  Dùng khi nhiều câu cùng nghe một đoạn; file hiện ở **mọi tab bài tập** của chủ đề.
+  Chọn file xong hãy chờ dòng *"Đã thêm file nghe cho bài học"* rồi mới đi tiếp — lúc đó file
+  mới thật sự nằm trên server.
 - **File nghe của từng câu** — dùng cho dạng **Nghe & gõ lại**.
 
 ### 6.2. Học viên chỉnh tốc độ
@@ -324,8 +346,10 @@ Nhập bộ thẻ hoạt động **y như Quizlet**: dán một cục text, ch�
 
 Chọn **Tuỳ chỉnh** sẽ hiện thêm ô để bạn tự gõ ký tự, VD `::` hoặc `||`.
 
-6. Xem khu **Xem trước — N thẻ**. Kiểm tra kỹ hai cảnh báo nếu có:
-   - *"N dòng thiếu dấu phân cách"* → những dòng đó bị bỏ, sửa lại rồi dán lại.
+6. Xem khu **Xem trước — N thẻ** (N là số thẻ thật sự sẽ được nhập). Kiểm tra kỹ hai cảnh báo nếu có:
+   - *"Bỏ qua N dòng thiếu dấu phân cách"* → những dòng đó hiện trong danh sách với ghi chú
+     *"— thiếu định nghĩa —"* để bạn dò, nhưng **không được nhập** (thẻ trống một mặt thì
+     không học được ở chế độ nào). Sửa rồi dán lại.
    - *"Đã cắt bớt do quá nhiều dòng"* → đã chạm trần **2000 thẻ**, hãy tách thành nhiều bộ.
 7. Bấm **`Nhập bộ thẻ`**.
 
@@ -454,16 +478,86 @@ Học viên · Đề thi · Điểm · Từng phần · Trạng thái · Nộp l
 
 ### 11.1. Giới hạn dung lượng
 
-| Loại file | Tối đa |
-|---|---|
-| Video | **500 MB** |
-| Ảnh | **30 MB** |
-| Audio | **100 MB** |
-| Số thẻ mỗi bộ flashcard | **2000 thẻ** |
+| Loại file | Giao diện chặn từ | Máy chủ chặn từ |
+|---|---|---|
+| Video | **500 MB** | **50 MB** (xem lưu ý dưới) |
+| Ảnh | **30 MB** | 30 MB |
+| Audio | **100 MB** | **50 MB** (xem lưu ý dưới) |
+| Số thẻ mỗi bộ flashcard | **2000 thẻ** | — |
 
 Ảnh nhận: `.jpg` `.png` `.webp` `.gif` · Video nhận: `.mp4` `.webm` `.mov` `.mkv`
 
-### 11.2. Bảng lỗi thường gặp
+> ⚠️ **Trần thật của file tải lên là 50 MB**, không phải con số ở cột đầu. Supabase có một
+> giới hạn chung cho cả dự án (gói Free = 50 MB/file) và nó thắng mọi cài đặt khác — file
+> 80 MB sẽ qua được bước kiểm tra ở trình duyệt rồi **hỏng ở bước tải lên**.
+>
+> Muốn tải video/audio lớn hơn: **Supabase → Settings → Storage → Upload file size limit**
+> (cần gói trả phí), nâng xong thì upload mới nhận. Không nâng được thì dùng
+> **link Google Drive** cho video (mục 2.1) thay vì tải lên Storage.
+
+### 11.2. Tạo bucket lưu file *(một lần cho mỗi dự án Supabase — việc của Admin)*
+
+File tải lên (video, ảnh, file nghe) được lưu trong **bucket** của Supabase Storage.
+Thiếu bucket thì nút upload báo lỗi và **file không được lưu**.
+
+| Bucket | Dùng cho | Giới hạn |
+|---|---|---|
+| `exam-audio` | File nghe của đề thi **và** ô "File nghe nếu có" của bài học | 100 MB |
+| `exam-images` | Ảnh minh họa câu hỏi đề thi | 30 MB |
+| `course-images` | Ảnh đại diện (banner) khóa học | 30 MB |
+| `lesson-videos` | Nút **Tải video lên Storage** (mục 10.2) | 500 MB |
+| `avatars` | Ảnh đại diện tài khoản ở trang Hồ sơ | 30 MB |
+| `assignment-images` | Ảnh của bài tập giao | 30 MB |
+
+**Cách nhanh nhất — chạy SQL (1 phút):**
+
+1. Vào [supabase.com](https://supabase.com) → chọn dự án → **SQL Editor** (biểu tượng `>_` cột trái).
+2. Bấm **`+ New query`**.
+3. Mở file `supabase/storage-buckets-migration.sql` trong mã nguồn, copy toàn bộ, dán vào ô soạn thảo.
+4. Bấm **`Run`** (hoặc `Ctrl + Enter`).
+5. Kết quả cuối phải liệt kê đủ **6 bucket**. Xong.
+
+**Cách thủ công — nếu SQL báo lỗi `must be owner of table objects`:**
+
+Lỗi đó nghĩa là tài khoản của bạn không đủ quyền sửa schema `storage`. Làm bằng tay:
+
+*Tạo bucket:*
+
+1. Cột trái chọn **Storage** → **`New bucket`**.
+2. **Name**: gõ đúng tên ở bảng trên, ví dụ `lesson-videos` (chữ thường, có dấu gạch ngang).
+3. Bật **Public bucket** — bắt buộc, không bật thì video/ảnh không phát được cho học viên.
+4. Mở **Additional configuration** → **Restrict file size**: nhập theo cột "Giới hạn" ở bảng trên.
+5. Bấm **`Save`**. Lặp lại cho từng bucket còn thiếu.
+
+*Cấp quyền ghi (làm cho mỗi bucket vừa tạo):*
+
+6. **Storage** → chọn bucket → tab **Policies** → **`New policy`** → **`For full customization`**.
+7. Điền:
+   - **Policy name**: `teachers upload` (đặt gì cũng được)
+   - **Allowed operation**: tick **INSERT** và **UPDATE**
+   - **Target roles**: chọn `authenticated`
+   - Ô điều kiện: dán
+     ```sql
+     bucket_id = 'lesson-videos' and exists (
+       select 1 from public.profiles p
+       where p.id = auth.uid() and p.role in ('teacher','admin')
+     )
+     ```
+     (đổi `lesson-videos` thành tên bucket đang cấu hình; riêng `avatars` dùng
+     `bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text`
+     để mỗi người chỉ sửa được ảnh của mình)
+8. **`Save policy`**.
+
+Bucket đã bật *Public* thì quyền **đọc** có sẵn, không cần thêm policy SELECT.
+
+> ⚠️ **Tạo bucket thôi là chưa đủ.** Không có policy ghi, upload sẽ báo
+> *"new row violates row-level security policy"*. Bước 6–8 (hoặc chạy file SQL) là bắt buộc.
+
+> ✅ **Kiểm tra**: vào **Bảng điều khiển → Đăng khóa học mới**, chọn một file nghe ở ô
+> **File nghe nếu có**. Thấy dòng *"Đã thêm file nghe cho bài học"* là bucket đã chạy.
+> Nếu báo *"Không thể tải file nghe lên. Kiểm tra bucket..."* thì bucket còn thiếu hoặc thiếu policy ghi.
+
+### 11.3. Bảng lỗi thường gặp
 
 | Hiện tượng | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -471,6 +565,9 @@ Học viên · Đề thi · Điểm · Từng phần · Trạng thái · Nộp l
 | Báo *"Bạn đang dán link thư mục Google Drive"* | Dán nhầm link folder | Mở đúng file video, copy link Share của **file** |
 | Nhập Excel ra 0 bài | Thiếu dòng tiêu đề | Thêm dòng tiêu đề có chữ `Tên bài`, `Dạng bài` hoặc `Đáp án` |
 | Nhập Excel gộp hết vào 1 bài | Cột A/B/C không đổi giá trị | Ghi tên bài mới ở dòng câu đầu tiên của bài đó |
+| Nhập Excel câu hỏi ra câu **trống lựa chọn** (`A. A`, `B. B`…) | Tiêu đề cột không khớp | Đặt tiêu đề đúng một trong các dạng ở mục 5.1: `Lựa chọn A` / `A` / `Option A` |
+| Câu hỏi trong file Excel **biến mất** | Trước đây dòng có chữ "đáp án", "lựa chọn"… bị nhầm là dòng tiêu đề | Đã sửa: chỉ dòng có từ 2 ô là tên cột mới bị coi là tiêu đề |
+| Học viên báo **không nghe được file nghe** | File chọn xong nhưng chưa tải lên xong | Chờ dòng *"Đã thêm file nghe cho bài học"*. Nếu báo lỗi bucket, nhờ admin tạo bucket `exam-audio` trong Supabase Storage |
 | Flashcard: **không lưu được, báo từ chối** | Bạn không phụ trách khóa đã chọn | Nhờ admin gắn bạn vào khóa ở mục **Giảng viên phụ trách** |
 | Flashcard: *"Bạn chưa phụ trách khóa học nào"* | Chưa được gắn khóa nào | Như trên |
 | Dán 50 dòng nhưng chỉ ra 48 thẻ | 2 dòng thiếu dấu phân cách | Đọc cảnh báo *"N dòng thiếu dấu phân cách"*, sửa rồi dán lại |
