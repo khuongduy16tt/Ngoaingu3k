@@ -635,8 +635,15 @@ export async function getCourseCatalog() {
     return dedupeCourseList(normalizedLocalCourses);
   }
 
-  const normalizedRemoteCourses = (data || []).map((course, index) => normalizeCourse(course, index));
-  const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));
+  // Truy vấn thành công → server là nguồn thật. Cache local chỉ được bù thêm
+  // khóa CHƯA từng đồng bộ; khóa đã có trên server rồi bị xóa (hoặc bị ẩn) thì
+  // phải biến mất khỏi danh mục, không thì xóa trên Supabase xong vào web vẫn
+  // thấy vì bản local không bao giờ tự hết hạn.
+  const remoteRows = data || [];
+  const normalizedRemoteCourses = remoteRows.map((course, index) => normalizeCourse(course, index));
+  const normalizedLocalCourses = reconcileManagedCourses(localTeacherCourses, remoteRows).map(
+    (course, index) => normalizeCourse(course, index)
+  );
 
   return dedupeCourseList([...normalizedRemoteCourses, ...normalizedLocalCourses]);
 }
@@ -869,7 +876,10 @@ export async function getCourseBySlug(courseSlug, { summaryOnly = false } = {}) 
 
   const { data: course, error } = await courseQuery.maybeSingle();
 
-  if (error || !course) {
+  // Hỏi được server nhưng không có dòng nào → khóa đã bị xóa thật. Trả null để
+  // trang báo "không tìm thấy", thay vì dựng lại bản cũ từ cache local.
+  // Chỉ khi truy vấn LỖI (mất mạng, Supabase sập) mới dùng bản local.
+  if (error) {
     if (normalizedLocalCourse) {
       return {
         ...normalizedLocalCourse,
@@ -877,6 +887,10 @@ export async function getCourseBySlug(courseSlug, { summaryOnly = false } = {}) 
       };
     }
 
+    return null;
+  }
+
+  if (!course) {
     return null;
   }
 

@@ -78,3 +78,25 @@ describe('reconcileManagedCourses', () => {
     expect(ketQua).toHaveLength(1);
   });
 });
+
+// Danh mục khóa học trộn cache localStorage của giảng viên vào kết quả từ
+// server. Cache chỉ được cộng thêm nên khóa đã xóa khỏi Supabase vẫn hiện ở
+// trang /courses — đúng triệu chứng "xóa trên Supabase rồi mà web vẫn còn".
+describe('reconcileManagedCourses — dùng cho cả danh mục', () => {
+  it('lọc khóa ma ra khỏi danh sách trộn với dữ liệu server', () => {
+    const server = [{ id: '123e4567-e89b-12d3-a456-426614174000', title: 'HSK 3' }];
+    const cacheLocal = [
+      { id: 'hsk-3', databaseId: '123e4567-e89b-12d3-a456-426614174000', title: 'HSK 3' },
+      { id: 'demo-hsk', databaseId: '999e4567-e89b-12d3-a456-426614174000', title: 'DEMO đã xóa' }
+    ];
+
+    expect(reconcileManagedCourses(cacheLocal, server).map((c) => c.title)).toEqual(['HSK 3']);
+  });
+
+  it('danh sách server rỗng thì bỏ hết khóa đã từng đồng bộ', () => {
+    const cacheLocal = [
+      { id: 'a', databaseId: '123e4567-e89b-12d3-a456-426614174000', title: 'Đã xóa' }
+    ];
+    expect(reconcileManagedCourses(cacheLocal, [])).toEqual([]);
+  });
+});
