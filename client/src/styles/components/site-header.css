@@ -29,48 +29,47 @@
   font-family: Nunito, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Ba khối: logo trái · menu giữa · nút phải.
+   Grid thay cho flex vì cột giữa là `1fr`, nên menu được căn giữa đúng khoảng
+   trống còn lại giữa logo và cụm nút, không bị đẩy lệch khi hai khối hai bên
+   đổi bề rộng (đăng nhập rồi thì nút "Đăng nhập" biến thành avatar). */
+/* 1360px chứ không phải 1250px như trang gốc: trang gốc có 5 mục menu, app này
+   7 mục nhãn tiếng Việt dài (~900px). Logo giờ nằm trong luồng nên chiếm thêm
+   ~125px, cộng lại vượt 1250px và menu sẽ tràn ra sát logo. */
 .site-header__inner {
-  width: min(1250px, 100%);
+  width: min(1360px, 100%);
   height: 100%;
   margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 30px;
+  gap: 32px;
 }
 
-/* Logo thoát khỏi khung 1250px để dính hẳn mép trái viewport: tách khỏi luồng
-   flex bằng position:absolute, rồi bù lại chỗ cho menu bằng padding-left của
-   .site-nav ở dưới. */
 .site-header__logo {
-  position: absolute;
-  left: 0;
-  top: 0;
+  justify-self: start;
   height: 100%;
-  padding-left: 24px;
   display: flex;
   align-items: center;
   text-decoration: none;
 }
 
 .site-header__logo img {
-  height: 86px;
+  height: 72px;
   width: auto;
   display: block;
   object-fit: contain;
 }
 
 /* ── Menu chính ─────────────────────────────────────────────────────────── */
-/* Ở màn rộng, khung 1250px đã lùi vào giữa đủ xa nên menu không cần đệm thêm
-   (padding = 0, menu giữ nguyên vị trí cũ). Màn hẹp dần thì khoảng lùi đó co
-   lại, padding tự lớn lên để chữ TRANG CHỦ không bao giờ đè lên logo.
-   183px = lề trái logo (24px) + bề rộng logo (~119px) + 40px thở. */
+/* Chiếm trọn cột giữa và tự căn giữa trong đó. Logo giờ nằm trong luồng grid
+   nên menu không còn phải chừa chỗ né logo bằng padding tính tay nữa. */
 .site-nav {
-  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
-  padding-left: max(0px, calc(183px - (100vw - min(1250px, 100vw)) / 2 - 20px));
+  justify-content: center;
 }
 
 /* nowrap bắt buộc: thanh cao cố định 87px, để menu xuống dòng là vỡ layout. */
@@ -237,11 +236,10 @@
 
 /* ── Cụm bên phải ───────────────────────────────────────────────────────── */
 .site-header__actions {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 14px;
-  flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .site-header__login {
@@ -351,10 +349,16 @@
   padding-top: var(--site-header-height, 87px);
 }
 
-/* App có 6–7 mục menu (trang thật chỉ 5) nên ở dải desktop hẹp phải bóp lại
-   một nấc, nếu không menu sẽ đâm vào cụm nút bên phải. Trên 1400px vẫn đúng
-   nguyên spec 16px / padding 11px của trang thật. */
-@media (min-width: 1241px) and (max-width: 1400px) {
+/* App có 6–7 mục menu nhãn tiếng Việt dài (trang thật chỉ 5 mục ngắn), nên
+   thay vì nhảy thẳng sang drawer khi hẹp, menu ngang được thu nhỏ dần qua 3
+   nấc. Bề rộng menu đo thật ở từng nấc: 16px→898px · 15px→804px · 14px→735px
+   · 13px→678px. Mỗi nấc chốt ở bề rộng vừa đủ chứa logo + menu + cụm nút,
+   còn dư ~35px thở. Trên 1400px giữ nguyên spec gốc 16px / padding 11px. */
+/* Các nấc chỉ dùng max-width và đè lên nhau theo thứ tự khai báo, KHÔNG dùng
+   cặp (min-width … and max-width …): màn hình có DPI scaling cho viewport lẻ
+   (1200,8px), rơi đúng vào kẽ giữa max-width:1200 và min-width:1201 nên không
+   nấc nào khớp — menu bật lại 16px và tràn ra ngoài. */
+@media (max-width: 1400px) {
   .site-menu__item {
     padding: 0 7px;
   }
@@ -374,12 +378,109 @@
   }
 }
 
-/* ── Off-canvas drawer ───────────────────────────────────────────────────
-   Trang thật đổi sang mobile ở 1024px, nhưng nó chỉ có 5 mục menu ngắn. App
-   này 6–7 mục nhãn tiếng Việt dài + logo chiếm 159px sát mép trái, đo ra thì
-   dưới ~1240px là menu đè lên cụm nút phải — nên hạ sớm hơn.
-   ĐỔI SỐ NÀY thì phải đổi luôn MOBILE_NAV_QUERY trong AppLayout.jsx. */
 @media (max-width: 1240px) {
+  .site-header__inner {
+    padding: 0 16px;
+    gap: 16px;
+  }
+
+  .site-header__logo img {
+    height: 60px;
+  }
+
+  .site-menu__item {
+    padding: 0 5px;
+  }
+
+  .site-menu__link {
+    font-size: 14px;
+  }
+
+  .site-header__login {
+    padding: 10px 16px;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  .site-header__actions {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .site-header__inner {
+    padding: 0 12px;
+    gap: 12px;
+  }
+
+  .site-header__logo img {
+    height: 56px;
+  }
+
+  .site-menu__item {
+    padding: 0 4px;
+  }
+
+  .site-menu__link {
+    font-size: 13px;
+  }
+
+  .site-header__login {
+    padding: 9px 14px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+
+  .site-header__actions {
+    gap: 8px;
+  }
+}
+
+/* Nấc cuối, cốt để giữ menu ngang ở cửa sổ chia đôi màn (768px). Dưới mức này
+   thì kể cả nhãn đã rút gọn cũng không còn xếp một hàng được nữa. */
+@media (max-width: 900px) {
+  .site-header {
+    --header-height: 72px;
+  }
+
+  :root {
+    --site-header-height: 72px;
+  }
+
+  .site-header__inner {
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .site-header__logo img {
+    height: 44px;
+  }
+
+  .site-menu__item {
+    padding: 0 2px;
+  }
+
+  .site-menu__link {
+    font-size: 12px;
+  }
+
+  .site-header__login {
+    padding: 8px 12px;
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+
+  .site-header__actions {
+    gap: 6px;
+  }
+}
+
+/* ── Off-canvas drawer ───────────────────────────────────────────────────
+   Chỉ đổi sang drawer khi menu ngang thật sự hết chỗ. Với nhãn đã rút gọn,
+   nấc 12px cần ~730px nên cửa sổ chia đôi màn (768px) vẫn giữ được menu
+   ngang. Dưới 768px là điện thoại — drawer là lối duy nhất.
+   ĐỔI SỐ NÀY thì phải đổi luôn MOBILE_NAV_QUERY trong AppLayout.jsx. */
+@media (max-width: 767px) {
   :root {
     --site-header-height: 80px;
   }
@@ -388,17 +489,16 @@
     --header-height: 80px;
   }
 
+  /* Menu thành drawer position:fixed nên rời khỏi luồng grid — còn đúng 2 khối
+     logo · nút, khai báo lại 2 cột để không thừa một khe gap bên phải. */
   .site-header__inner {
-    padding: 0 20px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 0 16px;
     gap: 12px;
   }
 
-  .site-header__logo {
-    padding-left: 16px;
-  }
-
   .site-header__logo img {
-    height: 60px;
+    height: 56px;
   }
 
   .site-header__burger {
@@ -410,22 +510,24 @@
     display: none;
   }
 
-  /* Drawer trắng 350px trượt từ trái, transition .35s — cùng thông số với
-     .gva-offcanvas-content của trang thật. */
+  /* Drawer trắng 350px trượt từ PHẢI: nút hamburger nằm ở góc phải, mở ra
+     cùng phía thì panel bung ra ngay dưới ngón tay thay vì bay ngang qua cả
+     màn hình — cũng thuận tay phải hơn khi cầm điện thoại một tay. */
   .site-nav {
     position: fixed;
     top: 0;
-    left: 0;
+    right: 0;
     z-index: 9999;
     width: min(350px, 86vw);
     height: 100dvh;
     flex-direction: column;
     align-items: stretch;
-    /* drawer là lớp phủ riêng, không còn phải né logo */
+    /* huỷ căn giữa của thanh ngang: trong drawer, menu phải bám mép trên */
+    justify-content: flex-start;
     padding-left: 0;
     background: #ffffff;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
-    transform: translateX(-100%);
+    transform: translateX(100%);
     transition: transform 0.35s ease;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -494,6 +596,16 @@
     padding: 14px 20px;
     color: var(--header-ink);
     font-size: 15px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Bản desktop có `.site-menu__link:hover { color: #fff }` cho nền xanh đậm.
+     Trong drawer nền trắng, luật đó biến chữ thành trắng-trên-trắng — rê chuột
+     là mất chữ. Ghi đè bằng cặp màu có tương phản trên nền sáng. */
+  .site-menu__link:hover,
+  .site-menu__link:focus-visible {
+    color: var(--header-orange);
+    background: rgba(107, 207, 73, 0.14);
   }
 
   .site-menu__item:has(> .site-menu__link.is-active) > .site-menu__link {
@@ -528,6 +640,12 @@
     padding: 10px 0;
     color: var(--header-ink);
     font-size: 15px;
+  }
+
+  .site-menu__sub-link:hover,
+  .site-menu__sub-link:focus-visible {
+    opacity: 1;
+    color: var(--header-orange);
   }
 
   .site-menu__sub-link span {

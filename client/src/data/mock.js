@@ -7,14 +7,17 @@ export const roles = ['student', 'teacher', 'admin'];
    lý cả 2 hệ cùng lúc. */
 export const navLinks = [
   { label: 'Trang chủ', to: '/home' },
+  // Nhãn ngắn: hai mục này chiếm 40% bề rộng menu khi ghi đủ "Khóa học tiếng
+  // …", khiến menu ngang phải đổi sang drawer rất sớm. Chữ "khóa học" đã nằm
+  // trong tên panel xổ xuống nên không mất nghĩa.
   {
-    label: 'Khóa học tiếng Anh',
+    label: 'Tiếng Anh',
     to: '/courses#khoa-hoc-ielts',
     courseGroup: 'ielts',
     audience: ['guest', 'student']
   },
   {
-    label: 'Khóa học tiếng Trung',
+    label: 'Tiếng Trung',
     to: '/courses#khoa-hoc-hsk',
     courseGroup: 'hsk',
     audience: ['guest', 'student']
@@ -37,8 +40,8 @@ export const navLinks = [
     ]
   },
   { label: 'Phòng thi', to: '/exams' },
-  { label: 'Tiến độ học sinh', to: '/student-progress', role: 'teacher' },
-  { label: 'Tiến độ học sinh', to: '/student-progress', role: 'admin' },
+  { label: 'Tiến độ', to: '/student-progress', role: 'teacher' },
+  { label: 'Tiến độ', to: '/student-progress', role: 'admin' },
   { label: 'Bài tập', to: '/dashboard/student', role: 'student' },
   { label: 'Bảng điều khiển', to: '/dashboard/teacher', role: 'teacher' },
   { label: 'Bảng điều khiển', to: '/dashboard/admin', role: 'admin' }

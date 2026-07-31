@@ -324,7 +324,7 @@ const coursesNavSubmenu = [
 const NAV_DROPDOWN_MAX_COURSES = 6;
 const NAV_DROPDOWN_CLOSE_DELAY_MS = 300;
 // Phải khớp với breakpoint drawer trong site-header.css.
-const MOBILE_NAV_QUERY = '(max-width: 1240px)';
+const MOBILE_NAV_QUERY = '(max-width: 767px)';
 
 // Chevron-down thay cho icon Font Awesome mà trang thật dùng (10×8px, cách
 // chữ 3px — cùng kích thước với .caret::after bên đó).
