@@ -68,6 +68,13 @@ describe('scoreExamQuestion', () => {
     expect(scoreExamQuestion(fillBlank, '')).toEqual({ score: 0, maxScore: 1 });
   });
 
+  // Cùng một dạng "điền đáp án" phải chấm giống nhau ở bài học và ở phòng thi:
+  // phòng thi từng không bỏ dấu câu nên "Hello World." bị tính sai.
+  it('bỏ qua dấu câu như phần chấm của bài học', () => {
+    expect(scoreExamQuestion(fillBlank, 'Hello World.')).toEqual({ score: 1, maxScore: 1 });
+    expect(scoreExamQuestion(fillBlank, 'hello world!')).toEqual({ score: 1, maxScore: 1 });
+  });
+
   it('gives matching partial credit per correct pair', () => {
     expect(
       scoreExamQuestion(matching, { 0: 'con chó', 1: 'con mèo', 2: 'con chim' })

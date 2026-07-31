@@ -122,11 +122,16 @@ function normalizeExamAttempt(item) {
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 
+// Giữ đúng luật chấm của bài học (lessonQuestions.normalizeFreeText): bỏ
+// hoa/thường, dấu câu và khoảng trắng thừa. Trước đây phòng thi không bỏ dấu
+// câu, nên cùng một câu điền khuyết gõ "NI HAO." đúng ở bài học nhưng sai ở
+// phòng thi.
 function normalizeFreeText(value) {
   return String(value ?? '')
-    .trim()
     .toLowerCase()
-    .replace(/\s+/g, ' ');
+    .replace(/[.,!?;:"'“”‘’]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function getQuestionMaxScore(question) {
