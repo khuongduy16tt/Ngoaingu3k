@@ -272,7 +272,7 @@ function buildOcrExercises(text, sourceName = 'tài liệu') {
   }));
 }
 
-function normalizeLessonStatus(status, index) {
+function normalizeLessonStatus(status) {
   const normalized = String(status || '').toLowerCase();
 
   if (['done', 'active', 'locked'].includes(normalized)) {
@@ -287,7 +287,11 @@ function normalizeLessonStatus(status, index) {
     return 'active';
   }
 
-  return index <= 1 ? 'active' : 'locked';
+  // Bảng `lessons` không có cột trạng thái, nên bài đọc từ Supabase luôn rơi
+  // vào nhánh này. Khóa theo thứ tự bài sẽ gắn ổ khóa "Đang khóa" lên bài thứ 3
+  // trở đi của học viên ĐÃ MUA khóa — quyền học thực tế do hasLessonAccess
+  // (đã mua / được giao / giảng viên) quyết định, không phải vị trí bài.
+  return 'active';
 }
 
 function buildLessonsFromCourse(course) {
@@ -312,7 +316,7 @@ function buildLessonsFromCourse(course) {
     id: lesson.id || lesson.databaseId || `lesson-${index + 1}`,
     databaseId: lesson.databaseId || (/^[0-9a-f-]{36}$/i.test(lesson.id || '') ? lesson.id : ''),
     title: lesson.title,
-    status: normalizeLessonStatus(lesson.status, index),
+    status: normalizeLessonStatus(lesson.status),
     note: lesson.note || lesson.sectionTitle || `Bước ${index + 1} trong lộ trình ${course.title}`,
     lessonNumber: lesson.lessonNumber || String(index + 1),
     exerciseType: lesson.exerciseType || lesson.type || 'Bài học',
@@ -1057,9 +1061,12 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
     return null;
   }
 
-  // Tài nguyên của tab (model mới) ưu tiên hơn tài nguyên chung của chủ đề.
-  const audioUrl = source?.audioUrl || (tab ? '' : lesson?.audioUrl) || '';
-  const imageUrl = source?.imageUrl || (tab ? '' : lesson?.imageUrl) || '';
+  // Tài nguyên của tab (model mới) ưu tiên hơn tài nguyên chung của chủ đề,
+  // nhưng vẫn rơi về tài nguyên của cả bài khi tab không có riêng — ô "File
+  // nghe nếu có" của bài học chỉ có một chỗ nhập, trong khi mọi bài đăng qua
+  // màn Confirm đều có tab, nên nếu không rơi về thì audio không bao giờ hiện.
+  const audioUrl = source?.audioUrl || lesson?.audioUrl || '';
+  const imageUrl = source?.imageUrl || lesson?.imageUrl || '';
 
   const answeredCount = questions.filter((question) =>
     isLessonQuestionAnswered(question, answers[question.id])
@@ -1197,7 +1204,9 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
               onClick={() => {
                 setSubmitted(true);
                 // Điểm được đẩy lên để lưu kèm tiến độ → số sao của bài học.
-                onSubmitted?.({ score: result.score, maxScore: result.maxScore });
+                // Kèm tabId để điểm của các tab trong cùng chủ đề được cộng
+                // dồn thay vì tab nộp sau ghi đè tab nộp trước.
+                onSubmitted?.({ score: result.score, maxScore: result.maxScore, tabId: tab?.id || '' });
               }}
               disabled={!canSubmit}
             >
@@ -1468,7 +1477,7 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
 
     try {
       if (!/\.(xls|xlsx)$/i.test(file.name)) {
-        setImportStatus('Vui lÃ²ng chá»n file Excel .xls hoáº·c .xlsx.');
+        setImportStatus('Vui lòng chọn file Excel .xls hoặc .xlsx.');
         return;
       }
 
@@ -1476,7 +1485,7 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
       const parsedQuestions = await parseExcelQuestionFile(file);
 
       if (!parsedQuestions.length) {
-        setImportStatus('File Excel chÆ°a cÃ³ cÃ¢u há»i há»£p lá»‡. DÃ¹ng cá»™t CÃ¢u há»i, A, B, C, D, ÄÃ¡p Ã¡n, Giáº£i thÃ­ch.');
+        setImportStatus('File Excel chưa có câu hỏi hợp lệ. Dùng cột Câu hỏi, A, B, C, D, Đáp án, Giải thích.');
         return;
       }
 
@@ -1492,9 +1501,9 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
       );
 
       setDraftQuestions((previous) => [...previous, ...nextQuestions]);
-      setImportStatus(`ÄÃ£ thÃªm ${nextQuestions.length} cÃ¢u há»i tá»« ${file.name}.`);
+      setImportStatus(`Đã thêm ${nextQuestions.length} câu hỏi từ ${file.name}.`);
     } catch {
-      setImportStatus('KhÃ´ng thá»ƒ Ä‘á»c file Excel. HÃ£y kiá»ƒm tra láº¡i cáº¥u trÃºc file.');
+      setImportStatus('Không thể đọc file Excel. Hãy kiểm tra lại cấu trúc file.');
     }
   }
 
@@ -1514,7 +1523,7 @@ function VideoQuestionEditor({ lesson, saving, status, onSave }) {
         </div>
         <div className="video-question-panel__toolbar">
           <label className="button-ghost video-question-file-button">
-            Nháº­p Excel
+            Nhập Excel
             <input
               type="file"
               accept=".xls,.xlsx"
@@ -2117,6 +2126,9 @@ export default function LearningPage() {
   const lastLoadedRoleRef = useRef(null);
   const availableCoursesRef = useRef(availableCourses);
   const purchasedCoursesRef = useRef(purchasedCourses);
+  // Điểm từng tab bài tập đã nộp, theo chủ đề: { [lessonId]: { [tabId]: {...} } }.
+  // Dùng để cộng dồn điểm của cả chủ đề khi lưu tiến độ.
+  const lessonTabScoresRef = useRef({});
 
   useEffect(() => {
     availableCoursesRef.current = availableCourses;
@@ -2810,10 +2822,34 @@ export default function LearningPage() {
   }
 
   // Học viên nộp bài luyện của bài học → lưu điểm (cho sao) và đánh dấu hoàn thành.
+  //
+  // Một chủ đề có nhiều tab bài tập, mỗi tab nộp riêng. Điểm phải là TỔNG của
+  // các tab đã nộp: trước đây tab nộp sau ghi đè tab nộp trước, nên làm đúng
+  // hết tab 1 rồi sai một câu ở tab 2 là tụt từ 3 sao xuống 1 sao.
   function handleLessonExercisesSubmitted(result) {
-    if (!progressSaving) {
-      void handleMarkLessonComplete(result);
+    if (progressSaving) {
+      return;
     }
+
+    const lessonKey = currentLesson?.id || '';
+    const submittedTabs = {
+      ...(lessonTabScoresRef.current[lessonKey] || {}),
+      [result?.tabId || 'default']: {
+        score: Number(result?.score) || 0,
+        maxScore: Number(result?.maxScore) || 0
+      }
+    };
+    lessonTabScoresRef.current[lessonKey] = submittedTabs;
+
+    const total = Object.values(submittedTabs).reduce(
+      (sum, tabResult) => ({
+        score: sum.score + tabResult.score,
+        maxScore: sum.maxScore + tabResult.maxScore
+      }),
+      { score: 0, maxScore: 0 }
+    );
+
+    void handleMarkLessonComplete(total);
   }
 
   async function handleSubmitAssignment(assignment, answers, result) {
