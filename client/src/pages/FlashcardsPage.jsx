@@ -230,9 +230,13 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
           {parsed.cards.length ? (
             <div className="fc-import__preview">
               <div className="fc-import__preview-head">
-                <strong>Xem trước — {parsed.cards.length} thẻ</strong>
+                {/* Đếm số thẻ THỰC SỰ được nhập: dòng thiếu định nghĩa vẫn hiện
+                    trong danh sách để sửa, nhưng không được lưu thành thẻ. */}
+                <strong>Xem trước — {parsed.cards.filter((card) => card.term && card.definition).length} thẻ</strong>
                 {parsed.rowsWithoutSeparator ? (
-                  <span className="pill">{parsed.rowsWithoutSeparator} dòng thiếu dấu phân cách</span>
+                  <span className="pill">
+                    Bỏ qua {parsed.rowsWithoutSeparator} dòng thiếu dấu phân cách
+                  </span>
                 ) : null}
                 {parsed.truncated ? <span className="pill">Đã cắt bớt do quá nhiều dòng</span> : null}
               </div>

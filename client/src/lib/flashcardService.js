@@ -131,7 +131,11 @@ export async function getFlashcardSetById(setId) {
  * luồng "nhập lại từ text dán vào", không phải sửa từng thẻ.
  */
 export async function saveFlashcardSet({ setId, courseId, title, description = '', cards = [], userId } = {}) {
-  const normalizedCards = normalizeFlashcards(cards);
+  // Dòng thiếu dấu phân cách vẫn được giữ trong phần XEM TRƯỚC (kèm cảnh báo
+  // "N dòng thiếu dấu phân cách") để giáo viên thấy mà sửa, nhưng không được
+  // nhập thật: thẻ trống một mặt là thẻ không học được ở cả 4 chế độ — chế độ
+  // Ghép cặp hiện ra một ô trắng không ghép vào đâu.
+  const normalizedCards = normalizeFlashcards(cards).filter((card) => card.term && card.definition);
 
   if (!courseId) {
     throw new Error('Hãy chọn khóa học cho bộ thẻ.');
