@@ -59,9 +59,35 @@ function getCorrectOption({ answer, options }) {
   };
 }
 
+// Ô tiêu đề là ô CHỈ chứa tên cột. Trước đây chỉ cần chuỗi xuất hiện ở bất kỳ
+// đâu trong dòng, nên câu hỏi kiểu "Chọn đáp án đúng cho câu sau" bị coi là
+// dòng tiêu đề và biến mất khỏi bộ đề mà không báo gì.
+const HEADER_CELL_PATTERNS = [
+  /^t[eê]n b[aà]i/i,
+  /^s[oố] b[aà]i$/i,
+  /^d[aạ]ng b[aà]i/i,
+  /^c[aâ]u s[oố]$/i,
+  /^c[aâ]u h[oỏ]i$/i,
+  /^lua chon\s*[a-d]?$/i,
+  /^lựa chọn\s*[a-d]?$/i,
+  /^dap an\s*[a-d]?$/i,
+  /^đáp án\s*[a-d]?$/i,
+  /^ghi ch[uú]/i,
+  /^giai thich$/i,
+  /^giải thích$/i,
+  /^(question|prompt|answer|correct|note|explanation|option\s*[a-d]?)$/i
+];
+
 function isHeaderLikeRow(row) {
-  const cells = [row[0], row[1], row[2], row[3], row[4], row[8], row[9]].map(cleanCell).join(' ');
-  return /tên bài|dang bai|dạng bài|lua chon|lựa chọn|dap an|đáp án|ghi chú/i.test(cells);
+  const cells = [row[0], row[1], row[2], row[3], row[4], row[8], row[9]].map(cleanCell).filter(Boolean);
+  if (!cells.length) {
+    return false;
+  }
+
+  const headerCells = cells.filter((cell) => HEADER_CELL_PATTERNS.some((pattern) => pattern.test(cell)));
+  // Dòng tiêu đề thật luôn có nhiều ô là tên cột; một ô lọt chữ "đáp án" giữa
+  // nội dung câu hỏi thì không.
+  return headerCells.length >= 2 || (cells.length === 1 && headerCells.length === 1);
 }
 
 function isOptionHeaderRow(row) {
@@ -256,7 +282,10 @@ function createQuestionFromParts({ prompt, optionValues, answer, note, index, sh
     prompt: prompt || `Cau ${index + 1}`,
     options,
     answer,
-    correctAnswer: correctOption.correctAnswer || options[0]?.label || '',
+    // Không đoán đáp án khi file thiếu cột "Đáp án": mặc định về A sẽ chấm sai
+    // âm thầm cho cả bộ đề. Để trống thì câu bị loại khỏi tổng điểm và giáo
+    // viên thấy ngay ô "Đáp án đúng" chưa chọn.
+    correctAnswer: correctOption.correctAnswer,
     correctOptionText: correctOption.correctOptionText,
     note,
     explanation: note
@@ -266,19 +295,28 @@ function createQuestionFromParts({ prompt, optionValues, answer, note, index, sh
 function parseQuestionSheet(sheetName, sheet) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
   const headerIndex = rows.findIndex((row) =>
-    row.some((cell) => /c[aâ]u\s*h[oỏ]i|question|prompt|dap an|Ä‘Ã¡p Ã¡n|answer|correct/i.test(cleanCell(cell)))
+    row.some((cell) => /c[aâ]u\s*h[oỏ]i|question|prompt|dap an|đáp án|answer|correct/i.test(cleanCell(cell)))
   );
   const headers = headerIndex >= 0 ? rows[headerIndex] : [];
   const contentRows = headerIndex >= 0 ? rows.slice(headerIndex + 1) : rows;
 
   const promptIndex = findColumn(headers, [/c[aâ]u\s*h[oỏ]i/i, /question/i, /prompt/i, /noi dung/i, /n[oộ]i dung/i]);
-  const answerIndex = findColumn(headers, [/dap an/i, /Ä‘Ã¡p Ã¡n/i, /answer/i, /correct/i]);
-  const noteIndex = findColumn(headers, [/giai thich/i, /giáº£i thÃ­ch/i, /note/i, /ghi chu/i, /explanation/i]);
+  const answerIndex = findColumn(headers, [/dap an/i, /đáp án/i, /answer/i, /correct/i]);
+  const noteIndex = findColumn(headers, [
+    /giai thich/i,
+    /giải thích/i,
+    /note/i,
+    /ghi chu/i,
+    /ghi chú/i,
+    /explanation/i
+  ]);
   const optionIndexes = ['A', 'B', 'C', 'D'].map((label) =>
     findColumn(headers, [
       new RegExp(`^${label}$`, 'i'),
       new RegExp(`lua chon\\s*${label}`, 'i'),
-      new RegExp(`lá»±a chá»n\\s*${label}`, 'i'),
+      new RegExp(`lựa chọn\\s*${label}`, 'i'),
+      new RegExp(`dap an\\s*${label}`, 'i'),
+      new RegExp(`đáp án\\s*${label}`, 'i'),
       new RegExp(`option\\s*${label}`, 'i')
     ])
   );
