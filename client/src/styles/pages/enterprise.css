@@ -623,10 +623,56 @@ textarea:focus-visible {
   background: color-mix(in srgb, var(--success) 10%, var(--surface)) !important;
 }
 
+/* Đáp án sai phải ĐỎ rõ. Bản cũ pha viền 34% và nền 8% rồi để nguyên màu chữ,
+   nhìn ra thành "bị làm mờ" chứ không ra "sai" — nhất là khi nằm cạnh viên đáp
+   án đúng cũng nhạt tương tự. Dùng đúng cường độ như .fc-option.is-wrong bên
+   flashcard và .stroke-option.is-wrong bên luyện nét chữ cho cả app thống nhất. */
 .answer-pill.is-wrong {
-  border-color: color-mix(in srgb, var(--danger) 34%, var(--border)) !important;
-  background: color-mix(in srgb, var(--danger) 8%, var(--surface)) !important;
-  color: var(--text) !important;
+  border-color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface)) !important;
+  color: var(--danger) !important;
+  font-weight: 700 !important;
+}
+
+/* Ô gõ đáp án của dạng Điền khuyết và Nghe & gõ lại. */
+.exam-fill-input.is-wrong {
+  border-color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface)) !important;
+  color: var(--danger) !important;
+  font-weight: 600 !important;
+}
+
+.exam-fill-input.is-correct {
+  border-color: var(--success) !important;
+  background: color-mix(in srgb, var(--success) 10%, var(--surface)) !important;
+}
+
+/* Từng cặp của câu Nối cặp — sai cặp nào đỏ đúng dòng đó. */
+.exam-matching__row.is-wrong .exam-matching__left {
+  color: var(--danger) !important;
+  font-weight: 700 !important;
+}
+
+.exam-matching__row.is-wrong select {
+  border-color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface)) !important;
+  color: var(--danger) !important;
+}
+
+.exam-matching__row.is-correct select {
+  border-color: var(--success) !important;
+  background: color-mix(in srgb, var(--success) 10%, var(--surface)) !important;
+}
+
+/* Dòng "Chưa đúng. Đáp án: …" — trước đây dùng chung màu xám của mọi thông báo. */
+.exercise-feedback.error {
+  color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface)) !important;
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border)) !important;
+}
+
+.exercise-feedback.error .exercise-feedback__note {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text)) !important;
 }
 
 .auth-message,

@@ -744,7 +744,7 @@ function stableShuffleValues(values, seed) {
   return [...values].sort((left, right) => hash(`${seed}:${left}`) - hash(`${seed}:${right}`));
 }
 
-function LessonMatchingInput({ question, answer, onChange, disabled }) {
+function LessonMatchingInput({ question, answer, onChange, disabled, revealAnswer }) {
   const rightOptions = useMemo(
     () => stableShuffleValues(question.pairs.map((pair) => pair.right), question.id),
     [question]
@@ -756,23 +756,31 @@ function LessonMatchingInput({ question, answer, onChange, disabled }) {
 
   return (
     <div className="exam-matching">
-      {question.pairs.map((pair, index) => (
-        <div key={`${pair.left}-${index}`} className="exam-matching__row">
-          <span className="exam-matching__left">{pair.left}</span>
-          <select
-            value={String(answer?.[index] ?? answer?.[String(index)] ?? '')}
-            onChange={(event) => setPairAnswer(index, event.target.value)}
-            disabled={disabled}
-          >
-            <option value="">-- Chọn --</option>
-            {rightOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-      ))}
+      {question.pairs.map((pair, index) => {
+        const daChon = String(answer?.[index] ?? answer?.[String(index)] ?? '');
+        // Chấm từng cặp: câu nối 5 cặp mà chỉ sai 1 thì phải thấy sai ở đúng
+        // dòng nào, không thể chỉ báo chung một dòng "Đúng 4/5 cặp".
+        const trangThai = revealAnswer ? (daChon === pair.right ? 'is-correct' : 'is-wrong') : '';
+
+        return (
+          <div key={`${pair.left}-${index}`} className={`exam-matching__row ${trangThai}`.trim()}>
+            <span className="exam-matching__left">{pair.left}</span>
+            <select
+              className={trangThai}
+              value={daChon}
+              onChange={(event) => setPairAnswer(index, event.target.value)}
+              disabled={disabled}
+            >
+              <option value="">-- Chọn --</option>
+              {rightOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -811,9 +819,13 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
   }
 
   if (question.type === 'fill_blank' || question.type === 'listening') {
+    // Ô gõ đáp án trước đây không đổi gì sau khi nộp — sai hay đúng nhìn y hệt.
+    const ketQua = revealAnswer ? scoreLessonQuestion(question, answer) : null;
+    const trangThai = ketQua?.maxScore ? (ketQua.score === ketQua.maxScore ? 'is-correct' : 'is-wrong') : '';
+
     return (
       <input
-        className="exam-fill-input"
+        className={`exam-fill-input ${trangThai}`.trim()}
         type="text"
         value={String(answer ?? '')}
         placeholder={
@@ -826,7 +838,15 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
   }
 
   if (question.type === 'matching') {
-    return <LessonMatchingInput question={question} answer={answer} onChange={onChange} disabled={disabled} />;
+    return (
+      <LessonMatchingInput
+        question={question}
+        answer={answer}
+        onChange={onChange}
+        disabled={disabled}
+        revealAnswer={revealAnswer}
+      />
+    );
   }
 
   if (question.type === 'writing') {
@@ -892,8 +912,9 @@ function LessonQuestionFeedback({ question, answer }) {
       ? `Đúng ${score}/${maxScore} cặp. Đáp án: ${formatLessonCorrectAnswer(question)}`
       : `Chưa đúng. Đáp án: ${formatLessonCorrectAnswer(question)}`;
 
+  // Câu sai phải đỏ rõ, không để chung màu xám với các dòng thông tin khác.
   return (
-    <div className={isCorrect ? 'exercise-feedback success' : 'exercise-feedback'}>
+    <div className={isCorrect ? 'exercise-feedback success' : 'exercise-feedback error'}>
       {message}
       {question.explanation ? <div className="exercise-feedback__note">{question.explanation}</div> : null}
     </div>
