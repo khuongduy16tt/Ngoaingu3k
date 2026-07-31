@@ -27,6 +27,12 @@ import {
 } from '../lib/courseService';
 import { ListeningAudio } from '../components/ListeningAudio';
 import {
+  LESSON_QUESTION_TYPES,
+  formatLessonCorrectAnswer,
+  getLessonQuestionTypeLabel,
+  normalizeLessonQuestion
+} from '../lib/lessonQuestions';
+import {
   buildLessonTabs,
   countLessonTabQuestions,
   createExerciseTab,
@@ -41,7 +47,14 @@ import {
   exportAdminRegistrationsToExcel,
   exportActivityToExcel
 } from '../lib/reportService';
-import { readFileAsDataUrl, uploadLessonVideo, validateImageFile, validateVideoFile } from '../lib/storageService';
+import {
+  readFileAsDataUrl,
+  uploadLessonAudio,
+  uploadLessonVideo,
+  validateAudioFile,
+  validateImageFile,
+  validateVideoFile
+} from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import {
   average,
@@ -509,6 +522,72 @@ function getDraftLessonKey(lesson) {
   return lesson?.id || `${lesson?.sectionIndex || 0}-${lesson?.lessonIndex || 0}`;
 }
 
+// ─── Câu hỏi nhiều dạng trong màn Confirm ────────────────────────────────────
+// Trình soạn giữ song song bản text đang gõ (`pairsText`, `acceptedAnswersText`)
+// và bản đã tách (`pairs`, `acceptedAnswers`) mà học viên dùng để làm bài — gõ
+// dở một dòng "dog =" thì không bị mất chữ, còn dữ liệu lưu xuống vẫn đúng
+// định dạng chung với trình soạn ở Phòng học.
+
+function getDraftQuestionType(question) {
+  return LESSON_QUESTION_TYPES.some((item) => item.value === question?.type) ? question.type : 'multiple_choice';
+}
+
+function getAcceptedAnswersText(question) {
+  if (typeof question?.acceptedAnswersText === 'string') {
+    return question.acceptedAnswersText;
+  }
+  return (question?.acceptedAnswers || []).join(', ');
+}
+
+function getPairsText(question) {
+  if (typeof question?.pairsText === 'string') {
+    return question.pairsText;
+  }
+  return (question?.pairs || []).map((pair) => `${pair.left} = ${pair.right}`).join('\n');
+}
+
+function parseAcceptedAnswers(text) {
+  return String(text || '')
+    .split(',')
+    .map((answer) => answer.trim())
+    .filter(Boolean);
+}
+
+function parsePairs(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => {
+      const [left, ...rest] = line.split('=');
+      return { left: String(left || '').trim(), right: rest.join('=').trim() };
+    })
+    .filter((pair) => pair.left && pair.right);
+}
+
+// Đổi dạng câu thì bỏ dữ liệu của dạng cũ, tránh lưu kèm đáp án thừa gây nhầm.
+function buildDraftQuestionTypePatch(question, type) {
+  const base = {
+    type,
+    correctAnswer: type === 'true_false' ? 'true' : '',
+    answer: type === 'true_false' ? 'true' : '',
+    acceptedAnswers: [],
+    acceptedAnswersText: '',
+    pairs: [],
+    pairsText: '',
+    sampleAnswer: ''
+  };
+
+  if (type !== 'multiple_choice') {
+    return { ...base, options: [] };
+  }
+
+  // Quay lại trắc nghiệm: dựng lại khung 4 lựa chọn trống nếu đã bị xóa.
+  const options = (question?.options || []).filter((option) => option?.label);
+  return {
+    ...base,
+    options: options.length ? options : DRAFT_OPTION_LABELS.map((label) => ({ label, text: '' }))
+  };
+}
+
 function getCourseQuestionCount(sections = []) {
   return sections.reduce(
     (total, section) =>
@@ -608,35 +687,65 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
             </div>
 
             {tab.exercises.length ? (
-              tab.exercises.map((exercise, index) => (
-                <article
-                  key={exercise.id || `${lesson.id}-${tab.id}-preview-${index}`}
-                  className="generated-question-preview__item"
-                >
-                  <strong>{exercise.prompt || `${tab.title} - Câu ${exercise.number || index + 1}`}</strong>
-                  {exercise.options?.length ? (
-                    <div className="exercise-options">
-                      {exercise.options.map((option) => (
-                        <span
-                          key={`${exercise.id}-${option.label}`}
-                          className={
-                            showAnswers && option.label === (exercise.correctAnswer || exercise.answer)
-                              ? 'answer-pill is-correct'
-                              : 'answer-pill'
-                          }
-                        >
-                          {option.label}. {option.text}
-                        </span>
-                      ))}
+              tab.exercises.map((rawExercise, index) => {
+                // Chuẩn hóa bằng đúng hàm học viên dùng, để xem trước phản ánh
+                // được cả 6 dạng câu chứ không riêng trắc nghiệm.
+                const exercise = normalizeLessonQuestion(rawExercise, index);
+                const correctAnswerText = formatLessonCorrectAnswer(exercise);
+
+                return (
+                  <article
+                    key={exercise.id || `${lesson.id}-${tab.id}-preview-${index}`}
+                    className="generated-question-preview__item"
+                  >
+                    <div className="generated-question-preview__head">
+                      <strong>{exercise.prompt || `${tab.title} - Câu ${rawExercise.number || index + 1}`}</strong>
+                      <span className="pill">{getLessonQuestionTypeLabel(exercise.type)}</span>
                     </div>
-                  ) : (
-                    <p className="empty-state">Bài này không có lựa chọn đáp án.</p>
-                  )}
-                  {showAnswers && (exercise.correctAnswer || exercise.answer) ? (
-                    <div className="exercise-feedback success">Đáp án: {exercise.correctAnswer || exercise.answer}</div>
-                  ) : null}
-                </article>
-              ))
+
+                    {exercise.type === 'multiple_choice' ? (
+                      exercise.options.length ? (
+                        <div className="exercise-options">
+                          {exercise.options.map((option) => (
+                            <span
+                              key={`${exercise.id}-${option.label}`}
+                              className={
+                                showAnswers && `${option.label}. ${option.text}` === correctAnswerText
+                                  ? 'answer-pill is-correct'
+                                  : 'answer-pill'
+                              }
+                            >
+                              {option.label}. {option.text}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="empty-state">Câu này chưa có lựa chọn đáp án.</p>
+                      )
+                    ) : null}
+
+                    {exercise.type === 'matching' && exercise.pairs.length ? (
+                      <div className="exercise-options">
+                        {exercise.pairs.map((pair) => (
+                          <span key={`${exercise.id}-${pair.left}`} className="answer-pill">
+                            {pair.left} → {showAnswers ? pair.right : '?'}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {showAnswers && correctAnswerText ? (
+                      <div className="exercise-feedback success">Đáp án: {correctAnswerText}</div>
+                    ) : null}
+
+                    {!correctAnswerText && exercise.type !== 'writing' ? (
+                      <div className="exercise-feedback">
+                        ⚠️ Câu này chưa có đáp án đúng nên sẽ bị loại khỏi tổng điểm.
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })
             ) : (
               <p className="empty-state">Tab này chưa có câu hỏi.</p>
             )}
@@ -1509,8 +1618,10 @@ export function TeacherDashboardPage() {
                       text: option.text || option.value || ''
                     }))
                   : DRAFT_OPTION_LABELS.map((label) => ({ label, text: '' })),
-              answer: question.correctAnswer || question.answer || 'A',
-              correctAnswer: question.correctAnswer || question.answer || 'A',
+              // Để trống khi file nhập không có đáp án — ép về 'A' sẽ chấm sai
+              // âm thầm cho cả bộ đề vừa nhập.
+              answer: question.correctAnswer || question.answer || '',
+              correctAnswer: question.correctAnswer || question.answer || '',
               note: question.note || question.explanation || ''
             }))
           ]
@@ -1563,7 +1674,24 @@ export function TeacherDashboardPage() {
       }
 
       appendDraftLessonQuestions(sectionIndex, lessonIndex, tabId, questions);
-      setImportMessage({ type: 'success', text: `Đã thêm ${questions.length} câu hỏi từ ${file.name} vào tab bài tập.` });
+
+      // Cảnh báo ngay tại chỗ nhập: file thiếu cột đáp án / cột lựa chọn thì
+      // câu vẫn vào tab nhưng học viên không làm được, trước đây không báo gì.
+      const missingAnswer = questions.filter((question) => !String(question.correctAnswer || '').trim()).length;
+      const missingOptions = questions.filter(
+        (question) => !(question.options || []).some((option) => String(option.text || '').trim())
+      ).length;
+      const warnings = [
+        missingOptions ? `${missingOptions} câu chưa có nội dung lựa chọn (kiểm tra cột A/B/C/D hoặc "Lựa chọn A"...)` : '',
+        missingAnswer ? `${missingAnswer} câu chưa có đáp án đúng (kiểm tra cột "Đáp án")` : ''
+      ].filter(Boolean);
+
+      setImportMessage({
+        type: warnings.length ? 'error' : 'success',
+        text: `Đã thêm ${questions.length} câu hỏi từ ${file.name} vào tab bài tập.${
+          warnings.length ? ` ⚠️ ${warnings.join(' · ')}.` : ''
+        }`
+      });
     } catch {
       setImportMessage({ type: 'error', text: 'Không thể đọc file Excel bài tập. Hãy kiểm tra lại cấu trúc file.' });
     }
@@ -1606,10 +1734,31 @@ export function TeacherDashboardPage() {
       return;
     }
 
-    const fileUrl = URL.createObjectURL(file);
+    const audioError = validateAudioFile(file);
+    if (audioError) {
+      setImportMessage({ type: 'error', text: audioError });
+      return;
+    }
+
+    // Phải upload lên Storage. URL.createObjectURL() chỉ sống trong đúng tab
+    // đang mở, nên link blob: được đăng lên Supabase là link chết với mọi học
+    // viên — và chết với cả giáo viên ngay sau khi tải lại trang.
+    setImportMessage({ type: 'info', text: `Đang tải "${file.name}" lên...` });
+
+    const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
+    const uploaded = await uploadLessonAudio(file, lesson?.databaseId || lesson?.id || '');
+
+    if (!uploaded?.url) {
+      setImportMessage({
+        type: 'error',
+        text: 'Không thể tải file nghe lên. Kiểm tra bucket "exam-audio" trong Supabase Storage rồi thử lại.'
+      });
+      return;
+    }
+
     updateDraftLesson(sectionIndex, lessonIndex, {
-      [`${type}Name`]: file.name,
-      [`${type}Url`]: fileUrl
+      audioName: file.name,
+      audioUrl: uploaded.url
     });
     setImportMessage({ type: 'success', text: 'Đã thêm file nghe cho bài học.' });
   }
@@ -2736,30 +2885,78 @@ export function TeacherDashboardPage() {
                         </div>
                       </div>
 
-                      {activeDraftTabQuestions.map(
-                        (question, questionIndex) => (
+                      {activeDraftTabQuestions.map((question, questionIndex) => {
+                        const questionType = getDraftQuestionType(question);
+                        const patchQuestion = (patch) =>
+                          updateDraftQuestion(
+                            selectedDraftLesson.sectionIndex,
+                            selectedDraftLesson.lessonIndex,
+                            activeDraftTab?.id,
+                            questionIndex,
+                            patch
+                          );
+
+                        return (
                           <article key={question.id || `${selectedDraftLesson.id}-q-${questionIndex}`} className="lesson-question-editor__item">
                             <div className="lesson-question-editor__head">
                               <strong>Câu {question.number || questionIndex + 1}</strong>
+
                               <label>
-                                <span>Đáp án đúng</span>
+                                <span>Dạng câu hỏi</span>
                                 <select
-                                  value={question.correctAnswer || question.answer || ''}
+                                  value={questionType}
                                   onChange={(event) =>
-                                    updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
-                                      answer: event.target.value,
-                                      correctAnswer: event.target.value
-                                    })
+                                    patchQuestion(buildDraftQuestionTypePatch(question, event.target.value))
                                   }
                                 >
-                                  <option value="">Chọn đáp án</option>
-                                  {(question.options || []).map((option) => (
-                                    <option key={option.label} value={option.label}>
-                                      {option.label}
+                                  {LESSON_QUESTION_TYPES.map((type) => (
+                                    <option key={type.value} value={type.value}>
+                                      {type.label}
                                     </option>
                                   ))}
                                 </select>
                               </label>
+
+                              {questionType === 'multiple_choice' ? (
+                                <label>
+                                  <span>Đáp án đúng</span>
+                                  <select
+                                    value={question.correctAnswer || question.answer || ''}
+                                    onChange={(event) =>
+                                      patchQuestion({
+                                        answer: event.target.value,
+                                        correctAnswer: event.target.value
+                                      })
+                                    }
+                                  >
+                                    <option value="">Chọn đáp án</option>
+                                    {(question.options || []).map((option) => (
+                                      <option key={option.label} value={option.label}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : null}
+
+                              {questionType === 'true_false' ? (
+                                <label>
+                                  <span>Đáp án đúng</span>
+                                  <select
+                                    value={question.correctAnswer === 'false' ? 'false' : 'true'}
+                                    onChange={(event) =>
+                                      patchQuestion({
+                                        answer: event.target.value,
+                                        correctAnswer: event.target.value
+                                      })
+                                    }
+                                  >
+                                    <option value="true">Đúng</option>
+                                    <option value="false">Sai</option>
+                                  </select>
+                                </label>
+                              ) : null}
+
                               <button
                                 type="button"
                                 className="button-ghost video-question-card__delete"
@@ -2780,64 +2977,115 @@ export function TeacherDashboardPage() {
                               <span>Nội dung câu</span>
                               <input
                                 value={question.prompt || ''}
-                                onChange={(event) =>
-                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
-                                    prompt: event.target.value
-                                  })
-                                }
+                                onChange={(event) => patchQuestion({ prompt: event.target.value })}
                               />
                             </label>
 
-                            <div className="question-option-editor">
-                              {(question.options || []).map((option, optionIndex) => (
-                                <label key={`${question.id}-${option.label}`} className="auth-field">
-                                  <span>Lựa chọn {option.label}</span>
-                                  <input
-                                    value={option.text || ''}
-                                    onChange={(event) =>
-                                      updateDraftQuestionOption(
-                                        selectedDraftLesson.sectionIndex,
-                                        selectedDraftLesson.lessonIndex,
-                                        activeDraftTab?.id,
-                                        questionIndex,
-                                        optionIndex,
-                                        event.target.value
-                                      )
-                                    }
-                                  />
-                                </label>
-                              ))}
-                            </div>
+                            {questionType === 'multiple_choice' ? (
+                              <>
+                                <div className="question-option-editor">
+                                  {(question.options || []).map((option, optionIndex) => (
+                                    <label key={`${question.id}-${option.label}`} className="auth-field">
+                                      <span>Lựa chọn {option.label}</span>
+                                      <input
+                                        value={option.text || ''}
+                                        onChange={(event) =>
+                                          updateDraftQuestionOption(
+                                            selectedDraftLesson.sectionIndex,
+                                            selectedDraftLesson.lessonIndex,
+                                            activeDraftTab?.id,
+                                            questionIndex,
+                                            optionIndex,
+                                            event.target.value
+                                          )
+                                        }
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
 
-                            {(question.options || []).length < 4 ? (
-                              <button
-                                type="button"
-                                className="button-ghost"
-                                onClick={() => {
-                                  const nextLabel = ['A', 'B', 'C', 'D'][(question.options || []).length];
-                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
-                                    options: [...(question.options || []), { label: nextLabel, text: '' }]
-                                  });
-                                }}
-                              >
-                                Thêm lựa chọn
-                              </button>
+                                {(question.options || []).length < 4 ? (
+                                  <button
+                                    type="button"
+                                    className="button-ghost"
+                                    onClick={() => {
+                                      const nextLabel = DRAFT_OPTION_LABELS[(question.options || []).length];
+                                      patchQuestion({
+                                        options: [...(question.options || []), { label: nextLabel, text: '' }]
+                                      });
+                                    }}
+                                  >
+                                    Thêm lựa chọn
+                                  </button>
+                                ) : null}
+                              </>
+                            ) : null}
+
+                            {questionType === 'fill_blank' || questionType === 'listening' ? (
+                              <label className="auth-field auth-field--full">
+                                <span>
+                                  {questionType === 'listening'
+                                    ? 'Đáp án đúng — nội dung học viên nghe rồi gõ lại (nhiều cách viết thì phân cách bằng dấu phẩy)'
+                                    : 'Đáp án chấp nhận (phân cách bằng dấu phẩy)'}
+                                </span>
+                                <input
+                                  value={getAcceptedAnswersText(question)}
+                                  placeholder={questionType === 'listening' ? 'I go to school every day' : 'hello world, hello-world'}
+                                  onChange={(event) =>
+                                    patchQuestion({
+                                      acceptedAnswersText: event.target.value,
+                                      acceptedAnswers: parseAcceptedAnswers(event.target.value)
+                                    })
+                                  }
+                                />
+                                <small className="field-hint">
+                                  {questionType === 'fill_blank'
+                                    ? 'Dùng ____ trong nội dung câu để đánh dấu chỗ trống. Chấm bỏ qua hoa/thường và dấu câu.'
+                                    : 'Gắn file nghe cho từng câu ở bảng giảng viên trong Phòng học.'}
+                                </small>
+                              </label>
+                            ) : null}
+
+                            {questionType === 'matching' ? (
+                              <label className="auth-field auth-field--full">
+                                <span>Các cặp nối (mỗi dòng: Vế trái = Vế phải)</span>
+                                <textarea
+                                  rows="4"
+                                  value={getPairsText(question)}
+                                  placeholder={'dog = con chó\ncat = con mèo'}
+                                  onChange={(event) =>
+                                    patchQuestion({
+                                      pairsText: event.target.value,
+                                      pairs: parsePairs(event.target.value)
+                                    })
+                                  }
+                                />
+                                <small className="field-hint">Mỗi cặp đúng được 1 điểm.</small>
+                              </label>
+                            ) : null}
+
+                            {questionType === 'writing' ? (
+                              <label className="auth-field auth-field--full">
+                                <span>Đáp án mẫu (hiện cho học viên sau khi nộp để tự đối chiếu)</span>
+                                <textarea
+                                  rows="3"
+                                  value={question.sampleAnswer || ''}
+                                  onChange={(event) => patchQuestion({ sampleAnswer: event.target.value })}
+                                />
+                                <small className="field-hint">Dạng viết không chấm tự động nên không tính vào điểm.</small>
+                              </label>
                             ) : null}
 
                             <label className="auth-field auth-field--full">
                               <span>Ghi chú</span>
                               <input
                                 value={question.note || ''}
-                                onChange={(event) =>
-                                  updateDraftQuestion(selectedDraftLesson.sectionIndex, selectedDraftLesson.lessonIndex, activeDraftTab?.id, questionIndex, {
-                                    note: event.target.value
-                                  })
-                                }
+                                onChange={(event) => patchQuestion({ note: event.target.value })}
                               />
                             </label>
                           </article>
-                        )
-                      )}
+                        );
+                      })}
 
                       {!(Array.isArray(selectedDraftLesson.exercises) ? selectedDraftLesson.exercises : selectedDraftLesson.questions || []).length ? (
                         <p className="empty-state">Bài này chưa có câu hỏi. Bạn có thể đăng bài dạng tài liệu hoặc nhập lại Excel có câu hỏi.</p>
