@@ -5,7 +5,7 @@ vi.mock('./supabase', () => ({
   supabase: null
 }));
 
-import { buildCourseRecordPayload } from './courseService';
+import { buildCourseRecordPayload, reconcileManagedCourses } from './courseService';
 import { getCourseOptions } from './assignmentService';
 
 describe('buildCourseRecordPayload', () => {
@@ -52,5 +52,29 @@ describe('getCourseOptions', () => {
 
     expect(keys).toContain('course-a');
     expect(keys).toContain('course-b');
+  });
+});
+
+// Cache localStorage của dashboard giảng viên từng chỉ được cộng thêm, không
+// bao giờ bớt đi, nên khóa đã xóa khỏi Supabase (ở máy khác, hoặc do admin)
+// vẫn nằm mãi trong "Khóa đang vận hành".
+describe('reconcileManagedCourses', () => {
+  const daDongBo = { id: 'khoa-a', databaseId: '123e4567-e89b-12d3-a456-426614174000', title: 'Khóa A' };
+  const biXoa = { id: 'khoa-b', databaseId: '223e4567-e89b-12d3-a456-426614174000', title: 'Khóa B' };
+  const chuaDongBo = { id: 'khoa-nhap-1700000000000', databaseId: 'khoa-nhap-1700000000000', title: 'Nháp' };
+
+  it('bỏ khóa đã biến mất khỏi server', () => {
+    const ketQua = reconcileManagedCourses([daDongBo, biXoa], [daDongBo]);
+    expect(ketQua.map((c) => c.title)).toEqual(['Khóa A']);
+  });
+
+  it('giữ khóa chưa từng đồng bộ (id không phải uuid)', () => {
+    const ketQua = reconcileManagedCourses([chuaDongBo, biXoa], []);
+    expect(ketQua.map((c) => c.title)).toEqual(['Nháp']);
+  });
+
+  it('so khớp được cả khi server trả id thay vì databaseId', () => {
+    const ketQua = reconcileManagedCourses([daDongBo], [{ id: daDongBo.databaseId }]);
+    expect(ketQua).toHaveLength(1);
   });
 });

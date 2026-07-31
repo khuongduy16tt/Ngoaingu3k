@@ -429,9 +429,15 @@ export async function saveCourseToSupabase(course, options = {}) {
 // đăng thành công lên Supabase vẫn "biến mất" nếu xem từ trình duyệt/thiết bị
 // khác hoặc sau khi xóa dữ liệu trình duyệt. Hàm này lấy đúng khóa học của
 // giáo viên (mọi trạng thái, kể cả draft) từ server.
+/**
+ * @returns {Promise<Array|null>} Mảng khóa học khi hỏi được server (mảng rỗng
+ *   nghĩa là giáo viên thật sự chưa có khóa nào), `null` khi KHÔNG hỏi được
+ *   (chưa cấu hình Supabase, hết phiên, lỗi mạng). Phía gọi cần phân biệt hai
+ *   trường hợp này: chỉ khi có danh sách thật mới được phép dọn cache local.
+ */
 export async function getMyCourses({ accessToken } = {}) {
   if (!isSupabaseReady() || !accessToken) {
-    return [];
+    return null;
   }
 
   try {
@@ -459,8 +465,73 @@ export async function getMyCourses({ accessToken } = {}) {
     });
   } catch (error) {
     console.warn('[getMyCourses]', error.message);
-    return [];
+    return null;
   }
+}
+
+/**
+ * Xóa khóa học của chính giảng viên. RLS ("teachers manage own courses") chỉ
+ * cho xóa khóa có teacher_id trùng người đang đăng nhập, nên không cần kiểm
+ * tra quyền ở client.
+ */
+export async function deleteCourseFromSupabase(course) {
+  const courseId = course?.databaseId || course?.id;
+
+  // Khóa chưa từng đồng bộ (id không phải uuid) chỉ tồn tại trong cache local.
+  if (!isSupabaseReady() || !isUuid(courseId)) {
+    return { removedRemotely: false };
+  }
+
+  const { error } = await supabase.from('courses').delete().eq('id', courseId);
+  if (error) {
+    throw error;
+  }
+
+  return { removedRemotely: true };
+}
+
+/** Bật/tắt hiển thị khóa học cho học viên (published ↔ hidden). */
+export async function setCourseStatusInSupabase(course, status) {
+  const courseId = course?.databaseId || course?.id;
+
+  if (!isSupabaseReady() || !isUuid(courseId)) {
+    return { updatedRemotely: false };
+  }
+
+  const { error } = await supabase
+    .from('courses')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', courseId);
+
+  if (error) {
+    throw error;
+  }
+
+  return { updatedRemotely: true };
+}
+
+/**
+ * Bỏ khỏi cache local những khóa đã biến mất khỏi server.
+ *
+ * Khóa từng đồng bộ thì có `databaseId` là uuid; nếu server không còn trả về
+ * nó nữa thì nó đã bị xóa (ở máy khác, hoặc bởi admin) và phải biến mất khỏi
+ * danh sách, thay vì sống mãi trong localStorage. Khóa chưa từng đồng bộ
+ * (không có uuid) được giữ lại — đó là bản nháp local, không phải khóa ma.
+ */
+export function reconcileManagedCourses(localCourses = [], remoteCourses = []) {
+  const remoteIds = new Set(
+    (Array.isArray(remoteCourses) ? remoteCourses : [])
+      .map((course) => String(course?.databaseId || course?.id || '').toLowerCase())
+      .filter(Boolean)
+  );
+
+  return (Array.isArray(localCourses) ? localCourses : []).filter((course) => {
+    const databaseId = String(course?.databaseId || '').toLowerCase();
+    if (!isUuid(databaseId)) {
+      return true;
+    }
+    return remoteIds.has(databaseId);
+  });
 }
 
 export async function saveLessonQuestionsToSupabase({ lessonId, questions = [], accessToken } = {}) {

@@ -311,7 +311,9 @@ export default function FlashcardsPage() {
           // Chỉ khóa giảng viên thực sự phụ trách. Trước đây rơi về cả danh mục
           // khi danh sách rỗng, khiến giảng viên chọn được khóa của người khác
           // rồi ăn nguyên lỗi RLS thô lúc bấm lưu.
-          ownCourses = await getMyCourses({ accessToken: auth.session?.access_token });
+          // null = không hỏi được server; coi như chưa phụ trách khóa nào để
+          // không rơi về cả danh mục và cho chọn nhầm khóa của người khác.
+          ownCourses = (await getMyCourses({ accessToken: auth.session?.access_token })) || [];
         }
 
         const visibleCourseIds = canImport

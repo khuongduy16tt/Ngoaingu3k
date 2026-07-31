@@ -309,6 +309,24 @@ async function withTimeout(promise, timeoutMs, timeoutMessage) {
   }
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Bỏ khỏi cache local những đề đã biến mất khỏi server — cùng lý do với
+ * reconcileManagedCourses bên courseService: cache chỉ được cộng thêm nên đề
+ * bị xóa ở máy khác (hoặc bởi admin) sẽ nằm mãi trong danh sách.
+ * Chỉ gọi khi truy vấn server THÀNH CÔNG; đề chưa từng đồng bộ (id không phải
+ * uuid) được giữ lại vì đó là bản local, không phải đề ma.
+ */
+function dropDeletedExams(localExams = [], remoteExams = []) {
+  const remoteIds = new Set(remoteExams.map((exam) => String(exam?.id || '').toLowerCase()));
+
+  return localExams.filter((exam) => {
+    const id = String(exam?.id || '').toLowerCase();
+    return UUID_PATTERN.test(id) ? remoteIds.has(id) : true;
+  });
+}
+
 function mergeExamLists(primary = [], secondary = []) {
   const examMap = new Map();
 
@@ -382,7 +400,9 @@ export async function getExamsForTeacher(teacherId) {
     return localExams;
   }
 
-  return mergeExamLists((data || []).map(normalizeExam), localExams).filter(
+  const remoteExams = (data || []).map(normalizeExam);
+
+  return mergeExamLists(remoteExams, dropDeletedExams(localExams, remoteExams)).filter(
     (exam) => exam.teacherId === teacherId
   );
 }
@@ -407,7 +427,8 @@ export async function getAllExams() {
     return localExams;
   }
 
-  return mergeExamLists((data || []).map(normalizeExam), localExams);
+  const remoteExams = (data || []).map(normalizeExam);
+  return mergeExamLists(remoteExams, dropDeletedExams(localExams, remoteExams));
 }
 
 export async function getExamsForStudent(studentEmail, ownedCourseIds = getStoredPurchasedCourseIds()) {
@@ -437,7 +458,10 @@ export async function getExamsForStudent(studentEmail, ownedCourseIds = getStore
     return localExams;
   }
 
-  return mergeExamLists((data || []).map(normalizeExam), localExams).filter((exam) =>
+  const remoteExams = (data || []).map(normalizeExam);
+
+  // Học viên cũng phải hết thấy đề đã bị gỡ, không thì bấm vào là lỗi.
+  return mergeExamLists(remoteExams, dropDeletedExams(localExams, remoteExams)).filter((exam) =>
     isExamVisibleToStudent(exam, normalizedEmail, ownedCourseIdSet)
   );
 }

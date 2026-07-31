@@ -18,10 +18,13 @@ import {
 } from '../lib/adminService';
 import {
   dedupeCourseList,
+  deleteCourseFromSupabase,
   getCourseCatalog,
   getMyCourses,
   getOwnedCourseIds,
   readTeacherManagedCourses,
+  reconcileManagedCourses,
+  setCourseStatusInSupabase,
   saveCourseToSupabase,
   writeTeacherManagedCourses
 } from '../lib/courseService';
@@ -811,13 +814,19 @@ export function TeacherDashboardPage() {
       try {
         const storedCourses = readTeacherManagedCourses(teacherId);
         const remoteCourses = await getMyCourses({ accessToken: auth.session?.access_token });
-        // Supabase là nguồn thật; cache local chỉ để bù các khóa chưa kịp
-        // đồng bộ (hiếm khi xảy ra vì đăng bài luôn cần gọi server thành
-        // công) — remoteCourses đứng trước để dedupeCourseList ưu tiên nó.
-        const mergedCourses = dedupeCourseList([
-          ...remoteCourses,
-          ...(Array.isArray(storedCourses) ? storedCourses : [])
-        ]);
+
+        // Hỏi được server → server là nguồn thật, dọn khỏi cache những khóa đã
+        // bị xóa nơi khác. Không hỏi được (mất mạng, hết phiên) → giữ nguyên
+        // cache, thà hiện thừa còn hơn xóa trắng danh sách của giáo viên.
+        const reachedServer = Array.isArray(remoteCourses);
+        const keptLocalCourses = reachedServer
+          ? reconcileManagedCourses(storedCourses, remoteCourses)
+          : Array.isArray(storedCourses)
+            ? storedCourses
+            : [];
+
+        // remoteCourses đứng trước để dedupeCourseList ưu tiên bản của server.
+        const mergedCourses = dedupeCourseList([...(remoteCourses || []), ...keptLocalCourses]);
 
         if (active) {
           setTeacherCourses(mergedCourses);
@@ -2031,21 +2040,56 @@ export function TeacherDashboardPage() {
     }
   }
 
-  function toggleCourseStatus(courseId) {
-    const nextCourses = teacherCourses.map((course) =>
-      course.id === courseId
-        ? { ...course, status: course.status === 'published' ? 'hidden' : 'published' }
-        : course
-    );
-    persistCourses(nextCourses);
-  }
-
-  function deleteTeacherCourse(courseId) {
+  // Ẩn/công khai phải ghi lên Supabase: trước đây chỉ đổi trong localStorage nên
+  // nhãn ở dashboard đổi mà học viên vẫn thấy khóa y như cũ.
+  async function toggleCourseStatus(courseId) {
     const course = teacherCourses.find((item) => item.id === courseId);
     if (!course) return;
 
-    const confirmed = window.confirm(`Xóa khóa học "${course.title}"? Hành động này sẽ gỡ khóa khỏi danh sách giảng viên.`);
+    const nextStatus = course.status === 'published' ? 'hidden' : 'published';
+
+    try {
+      await setCourseStatusInSupabase(course, nextStatus);
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error?.message || `Không thể đổi trạng thái khóa "${course.title}".`
+      });
+      return;
+    }
+
+    persistCourses(
+      teacherCourses.map((item) => (item.id === courseId ? { ...item, status: nextStatus } : item))
+    );
+    setMessage({
+      type: 'success',
+      text:
+        nextStatus === 'published'
+          ? `Đã công khai khóa "${course.title}".`
+          : `Đã ẩn khóa "${course.title}" khỏi học viên.`
+    });
+  }
+
+  // Xóa cũng vậy: chỉ gỡ khỏi cache local thì khóa vẫn nằm trên Supabase, học
+  // viên vẫn mua và học được, và lần tải lại sau nó hiện về như cũ.
+  async function deleteTeacherCourse(courseId) {
+    const course = teacherCourses.find((item) => item.id === courseId);
+    if (!course) return;
+
+    const confirmed = window.confirm(
+      `Xóa khóa học "${course.title}"? Khóa sẽ bị gỡ khỏi hệ thống, kể cả với học viên đang học. Không hoàn tác được.`
+    );
     if (!confirmed) return;
+
+    try {
+      await deleteCourseFromSupabase(course);
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error?.message || `Không thể xóa khóa "${course.title}" khỏi hệ thống.`
+      });
+      return;
+    }
 
     const nextCourses = teacherCourses.filter((item) => item.id !== courseId);
     persistCourses(nextCourses);
