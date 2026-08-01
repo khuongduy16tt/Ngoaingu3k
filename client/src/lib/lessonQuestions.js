@@ -9,12 +9,19 @@ export const LESSON_QUESTION_TYPES = [
   { value: 'fill_blank', label: 'Điền khuyết' },
   { value: 'matching', label: 'Nối cặp' },
   { value: 'listening', label: 'Nghe & gõ lại' },
-  { value: 'writing', label: 'Viết (tự luận)' }
+  { value: 'writing', label: 'Viết (tự luận)' },
+  // Dãy ô chữ Hán bấm vào để nghe phát âm — không chấm điểm, chỉ để luyện đọc.
+  { value: 'reading', label: 'Luyện đọc' }
 ];
 
 import { findStrokeByVietnameseName } from './strokes';
 
 const OPTION_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+// Câu không có đề bài bị loại khi lưu (cả ở client lẫn server). Ô luyện đọc thì
+// đề bài gần như luôn là một câu, nên điền sẵn để giáo viên bỏ trống cũng không
+// mất câu.
+export const DEFAULT_READING_PROMPT = 'Đọc theo các từ sau';
 
 export function getLessonQuestionTypeLabel(type) {
   return LESSON_QUESTION_TYPES.find((item) => item.value === type)?.label || 'Trắc nghiệm';
@@ -77,7 +84,23 @@ export function normalizeLessonQuestion(question, index = 0) {
     ? question.acceptedAnswers.map((answer) => String(answer).trim()).filter(Boolean)
     : [];
 
-  const prompt = String(question?.prompt || question?.question || '').trim();
+  // Từ luyện đọc: chữ Hán bắt buộc, phiên âm và nghĩa để trống được.
+  const readingWords = Array.isArray(question?.readingWords)
+    ? question.readingWords
+        .map((word) =>
+          typeof word === 'object' && word
+            ? {
+                text: String(word.text ?? '').trim(),
+                pinyin: String(word.pinyin ?? '').trim(),
+                meaning: String(word.meaning ?? '').trim()
+              }
+            : { text: String(word ?? '').trim(), pinyin: '', meaning: '' }
+        )
+        .filter((word) => word.text)
+    : [];
+
+  const rawPrompt = String(question?.prompt || question?.question || '').trim();
+  const prompt = rawPrompt || (type === 'reading' ? DEFAULT_READING_PROMPT : '');
   const correctAnswer = String(question?.correctAnswer ?? question?.answer ?? '').trim();
 
   return {
@@ -88,6 +111,7 @@ export function normalizeLessonQuestion(question, index = 0) {
     correctAnswer,
     acceptedAnswers,
     pairs,
+    readingWords,
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),
     sampleAnswer: String(question?.sampleAnswer || '').trim(),
@@ -105,6 +129,29 @@ export function normalizeLessonQuestion(question, index = 0) {
     audioPending: Boolean(question?.audioPending),
     explanation: String(question?.explanation || question?.note || '').trim()
   };
+}
+
+// Trình soạn nhập từ luyện đọc bằng một textarea: mỗi dòng một từ, ngăn bằng dấu
+// "|" theo thứ tự chữ Hán | phiên âm | nghĩa. Phiên âm và nghĩa bỏ trống được.
+export function parseReadingWordsText(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => {
+      const [word, pinyin, ...rest] = line.split('|');
+      return {
+        text: String(word || '').trim(),
+        pinyin: String(pinyin || '').trim(),
+        // Nghĩa tiếng Việt có thể chứa "|" nên gộp lại phần còn lại của dòng.
+        meaning: rest.join('|').trim()
+      };
+    })
+    .filter((word) => word.text);
+}
+
+export function formatReadingWordsText(words = []) {
+  return (Array.isArray(words) ? words : [])
+    .map((word) => [word.text, word.pinyin, word.meaning].filter(Boolean).join(' | '))
+    .join('\n');
 }
 
 // Nhãn đáp án đúng của câu trắc nghiệm: chấp nhận cả nhãn ("A") lẫn nội dung
@@ -151,7 +198,9 @@ export function getLessonQuestionMaxScore(question) {
   switch (question.type) {
     case 'matching':
       return question.pairs.length;
+    // Tự luận và luyện đọc không chấm tự động được nên bị loại khỏi tổng điểm.
     case 'writing':
+    case 'reading':
       return 0;
     case 'fill_blank':
     case 'listening':
@@ -164,6 +213,12 @@ export function getLessonQuestionMaxScore(question) {
 }
 
 export function isLessonQuestionAnswered(question, answer) {
+  // Ô luyện đọc không có gì để nhập. Không coi là đã trả lời thì nút nộp bài của
+  // cả tab bị khóa cứng vì `answeredCount` không bao giờ đủ.
+  if (question.type === 'reading') {
+    return true;
+  }
+
   if (question.type === 'matching') {
     return question.pairs.every((_, index) => Boolean(answer?.[index] ?? answer?.[String(index)]));
   }
@@ -234,6 +289,8 @@ export function formatLessonCorrectAnswer(question) {
       return getAcceptedAnswers(question).join(' / ');
     case 'writing':
       return question.sampleAnswer;
+    case 'reading':
+      return '';
     default: {
       const label = getCorrectOptionLabel(question);
       const option = question.options.find((item) => item.label === label);

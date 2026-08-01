@@ -239,7 +239,15 @@ function normalizeCorrectAnswer(answer, options) {
 }
 
 // Giữ đồng bộ với LESSON_QUESTION_TYPES ở client/src/lib/lessonQuestions.js.
-const LESSON_QUESTION_TYPES = ['multiple_choice', 'true_false', 'fill_blank', 'matching', 'listening', 'writing'];
+const LESSON_QUESTION_TYPES = [
+  'multiple_choice',
+  'true_false',
+  'fill_blank',
+  'matching',
+  'listening',
+  'writing',
+  'reading'
+];
 
 function normalizeLessonQuestion(question, index) {
   const type = LESSON_QUESTION_TYPES.includes(question?.type) ? question.type : 'multiple_choice';
@@ -262,6 +270,16 @@ function normalizeLessonQuestion(question, index) {
   const acceptedAnswers = Array.isArray(question?.acceptedAnswers)
     ? question.acceptedAnswers.map((answer) => String(answer).trim()).filter(Boolean)
     : [];
+  // Từ luyện đọc — giữ đồng bộ với client/src/lib/lessonQuestions.js.
+  const readingWords = Array.isArray(question?.readingWords)
+    ? question.readingWords
+        .map((word) => ({
+          text: String(word?.text ?? word ?? '').trim(),
+          pinyin: String(word?.pinyin ?? '').trim(),
+          meaning: String(word?.meaning ?? '').trim()
+        }))
+        .filter((word) => word.text)
+    : [];
 
   return {
     id: String(question?.id || `video-question-${index + 1}`).trim(),
@@ -271,6 +289,7 @@ function normalizeLessonQuestion(question, index) {
     correctAnswer: type === 'multiple_choice' || type === 'true_false' ? correctAnswer : '',
     acceptedAnswers: type === 'fill_blank' || type === 'listening' ? acceptedAnswers : [],
     pairs: type === 'matching' ? pairs : [],
+    readingWords: type === 'reading' ? readingWords : [],
     sampleAnswer: type === 'writing' ? String(question?.sampleAnswer || '').trim() : '',
     audioUrl: String(question?.audioUrl || '').trim(),
     audioName: String(question?.audioName || '').trim(),

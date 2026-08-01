@@ -1000,7 +1000,8 @@
 /* ── Bài luyện đọc / bảng phiên âm (HSK vỡ lòng) ── */
 .reading-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  /* Rộng hơn ô chỉ có chữ Hán vì ô luyện đọc của giáo viên còn kèm nghĩa tiếng Việt. */
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 0.6rem;
   margin-top: 1rem;
 }
@@ -1025,6 +1026,20 @@
 .reading-card__text {
   font-size: 1.6rem;
   line-height: 1.15;
+  text-align: center;
+}
+/* Phiên âm và nghĩa của ô luyện đọc do giáo viên nhập — chữ nhỏ để chữ Hán vẫn
+   là phần nổi bật nhất của ô. */
+.reading-card__pinyin {
+  font-size: 0.82rem;
+  line-height: 1.2;
+  color: var(--muted);
+  text-align: center;
+}
+.reading-card__meaning {
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--muted);
   text-align: center;
 }
 .reading-card__play {

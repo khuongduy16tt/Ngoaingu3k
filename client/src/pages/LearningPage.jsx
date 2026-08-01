@@ -21,12 +21,15 @@ import {
 } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
 import {
+  DEFAULT_READING_PROMPT,
   formatLessonCorrectAnswer,
+  formatReadingWordsText,
   getCorrectOptionLabel,
   getLessonQuestionTypeLabel,
   isLessonQuestionAnswered,
   LESSON_QUESTION_TYPES,
   normalizeLessonQuestion,
+  parseReadingWordsText,
   scoreLessonQuestion,
   scoreLessonQuestions
 } from '../lib/lessonQuestions';
@@ -43,6 +46,7 @@ import { CHINESE_STROKES, getStrokeById } from '../lib/strokes';
 import { isLessonComplete } from '../lib/lessonStars';
 import { CourseLessonList } from '../components/CourseLessonList';
 import { ListeningAudio } from '../components/ListeningAudio';
+import { ReadingWordCards, speakChinese } from '../components/ReadingWordCards';
 import { StrokeGlyph } from '../components/StrokeGlyph';
 import { StrokePractice } from './learning/StrokePractice';
 import { uploadLessonAudio, uploadLessonImage } from '../lib/storageService';
@@ -479,6 +483,7 @@ function createVideoQuestion(index = 0) {
     correctAnswer: 'A',
     acceptedAnswersText: '',
     pairsText: '',
+    readingWordsText: '',
     sampleAnswer: '',
     audioUrl: '',
     audioName: '',
@@ -515,6 +520,7 @@ function normalizeVideoQuestionDraft(question, index = 0) {
     correctAnswer,
     acceptedAnswersText: normalized.acceptedAnswers.join(', '),
     pairsText: normalized.pairs.map((pair) => `${pair.left} = ${pair.right}`).join('\n'),
+    readingWordsText: formatReadingWordsText(normalized.readingWords),
     sampleAnswer: normalized.sampleAnswer,
     audioUrl: normalized.audioUrl,
     audioName: normalized.audioName,
@@ -536,14 +542,18 @@ function prepareVideoQuestionsForSave(questions) {
         ? question.type
         : 'multiple_choice';
 
+      const prompt = String(question.prompt || '').trim();
       const base = {
         id: question.id || `video-question-${index + 1}`,
         type,
-        prompt: String(question.prompt || '').trim(),
+        // Câu không có đề bài bị lọc bỏ ở cuối hàm — điền sẵn đề cho ô luyện đọc
+        // để giáo viên bỏ trống cũng không mất câu.
+        prompt: prompt || (type === 'reading' ? DEFAULT_READING_PROMPT : ''),
         options: [],
         correctAnswer: '',
         acceptedAnswers: [],
         pairs: [],
+        readingWords: [],
         sampleAnswer: '',
         audioUrl: String(question.audioUrl || '').trim(),
         audioName: String(question.audioName || '').trim(),
@@ -585,6 +595,8 @@ function prepareVideoQuestionsForSave(questions) {
           .filter((pair) => pair.left && pair.right);
       } else if (type === 'writing') {
         base.sampleAnswer = String(question.sampleAnswer || '').trim();
+      } else if (type === 'reading') {
+        base.readingWords = parseReadingWordsText(question.readingWordsText);
       }
 
       return base;
@@ -849,6 +861,11 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
     );
   }
 
+  // Luyện đọc: không có ô nhập, chỉ bấm từng từ để nghe phát âm.
+  if (question.type === 'reading') {
+    return <ReadingWordCards words={question.readingWords} />;
+  }
+
   if (question.type === 'writing') {
     return (
       <textarea
@@ -927,22 +944,6 @@ function isHskCourse(course) {
   return /hsk|trung|hoa|chinese/i.test(
     [course?.slug, course?.id, course?.title].filter(Boolean).join(' ')
   );
-}
-
-function speakChinese(text) {
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth || !text) return;
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(String(text));
-    utterance.lang = 'zh-CN';
-    utterance.rate = 0.8;
-    const zhVoice = synth.getVoices().find((voice) => /zh|chinese/i.test(`${voice.lang} ${voice.name}`));
-    if (zhVoice) utterance.voice = zhVoice;
-    synth.speak(utterance);
-  } catch {
-    // Trình duyệt không hỗ trợ TTS — bỏ qua, học viên vẫn đọc được chữ.
-  }
 }
 
 const PINYIN_INITIALS = [
@@ -1783,6 +1784,23 @@ Giải thích: Hello nghĩa là xin chào.`}
                     onChange={(event) => updateQuestion(question.id, { pairsText: event.target.value })}
                     placeholder={'dog = con chó\ncat = con mèo'}
                   />
+                </label>
+              ) : null}
+
+              {question.type === 'reading' ? (
+                <label className="auth-field">
+                  <span>Các từ luyện đọc (mỗi dòng một từ)</span>
+                  <textarea
+                    rows={5}
+                    className="lesson-input"
+                    value={question.readingWordsText}
+                    onChange={(event) => updateQuestion(question.id, { readingWordsText: event.target.value })}
+                    placeholder={'你好 | nǐ hǎo | xin chào\n很好 | hěn hǎo | rất tốt\n不忙'}
+                  />
+                  <small className="field-hint">
+                    Thứ tự: chữ Hán | phiên âm | nghĩa. Phiên âm và nghĩa bỏ trống được. Học viên bấm vào từng
+                    ô để nghe phát âm — dạng này không tính điểm.
+                  </small>
                 </label>
               ) : null}
 

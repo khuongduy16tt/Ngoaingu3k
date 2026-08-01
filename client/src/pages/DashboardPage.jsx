@@ -32,11 +32,15 @@ import { ListeningAudio } from '../components/ListeningAudio';
 import { AudioUploadField } from '../components/AudioUploadField';
 import { ImageUploadField } from '../components/ImageUploadField';
 import {
+  DEFAULT_READING_PROMPT,
   LESSON_QUESTION_TYPES,
   formatLessonCorrectAnswer,
+  formatReadingWordsText,
   getLessonQuestionTypeLabel,
-  normalizeLessonQuestion
+  normalizeLessonQuestion,
+  parseReadingWordsText
 } from '../lib/lessonQuestions';
+import { ReadingWordCards } from '../components/ReadingWordCards';
 import {
   buildLessonTabs,
   countLessonTabQuestions,
@@ -562,6 +566,13 @@ function getPairsText(question) {
   return (question?.pairs || []).map((pair) => `${pair.left} = ${pair.right}`).join('\n');
 }
 
+function getReadingWordsText(question) {
+  if (typeof question?.readingWordsText === 'string') {
+    return question.readingWordsText;
+  }
+  return formatReadingWordsText(question?.readingWords || []);
+}
+
 function parseAcceptedAnswers(text) {
   return String(text || '')
     .split(',')
@@ -589,7 +600,14 @@ function buildDraftQuestionTypePatch(question, type) {
     acceptedAnswersText: '',
     pairs: [],
     pairsText: '',
-    sampleAnswer: ''
+    readingWords: [],
+    readingWordsText: '',
+    sampleAnswer: '',
+    // Câu không có đề bài bị server loại khi lưu; ô luyện đọc gần như luôn dùng
+    // đúng một câu đề nên điền sẵn thay vì để giáo viên mất câu vì bỏ trống.
+    ...(type === 'reading' && !String(question?.prompt || '').trim()
+      ? { prompt: DEFAULT_READING_PROMPT }
+      : {})
   };
 
   if (type !== 'multiple_choice') {
@@ -769,11 +787,17 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
                       </div>
                     ) : null}
 
+                    {exercise.type === 'reading' ? (
+                      <ReadingWordCards words={exercise.readingWords} />
+                    ) : null}
+
                     {showAnswers && correctAnswerText ? (
                       <div className="exercise-feedback success">Đáp án: {correctAnswerText}</div>
                     ) : null}
 
-                    {!correctAnswerText && exercise.type !== 'writing' ? (
+                    {/* Dạng tự luận và luyện đọc vốn không có đáp án đúng — cảnh
+                        báo ở đây sẽ là báo động giả. */}
+                    {!correctAnswerText && !['writing', 'reading'].includes(exercise.type) ? (
                       <div className="exercise-feedback">
                         ⚠️ Câu này chưa có đáp án đúng nên sẽ bị loại khỏi tổng điểm.
                       </div>
@@ -3149,6 +3173,27 @@ export function TeacherDashboardPage() {
                                   }
                                 />
                                 <small className="field-hint">Mỗi cặp đúng được 1 điểm.</small>
+                              </label>
+                            ) : null}
+
+                            {questionType === 'reading' ? (
+                              <label className="auth-field auth-field--full">
+                                <span>Các từ luyện đọc (mỗi dòng một từ)</span>
+                                <textarea
+                                  rows="5"
+                                  value={getReadingWordsText(question)}
+                                  placeholder={'你好 | nǐ hǎo | xin chào\n很好 | hěn hǎo | rất tốt\n不忙'}
+                                  onChange={(event) =>
+                                    patchQuestion({
+                                      readingWordsText: event.target.value,
+                                      readingWords: parseReadingWordsText(event.target.value)
+                                    })
+                                  }
+                                />
+                                <small className="field-hint">
+                                  Thứ tự: chữ Hán | phiên âm | nghĩa. Phiên âm và nghĩa bỏ trống được. Học viên
+                                  bấm vào ô để nghe phát âm; dạng này không tính điểm.
+                                </small>
                               </label>
                             ) : null}
 

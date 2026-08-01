@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_READING_PROMPT,
   formatLessonCorrectAnswer,
+  formatReadingWordsText,
   getCorrectOptionLabel,
   getLessonQuestionMaxScore,
   isLessonQuestionAnswered,
   normalizeLessonQuestion,
+  parseReadingWordsText,
   scoreLessonQuestion,
   scoreLessonQuestions
 } from './lessonQuestions';
@@ -161,6 +164,54 @@ describe('writing', () => {
   it('vẫn tính là đã trả lời để không chặn nộp bài', () => {
     expect(isLessonQuestionAnswered(question, 'Hello, I am Linh.')).toBe(true);
     expect(isLessonQuestionAnswered(question, '')).toBe(false);
+  });
+});
+
+describe('reading (luyện đọc)', () => {
+  const question = normalizeLessonQuestion({
+    type: 'reading',
+    prompt: 'Đọc theo các từ sau',
+    readingWords: [
+      { text: '你好', pinyin: 'nǐ hǎo', meaning: 'xin chào' },
+      { text: '不忙' },
+      { text: '  ', pinyin: 'bỏ đi' }
+    ]
+  });
+
+  it('giữ đủ chữ Hán, phiên âm, nghĩa và bỏ mục thiếu chữ Hán', () => {
+    expect(question.readingWords).toEqual([
+      { text: '你好', pinyin: 'nǐ hǎo', meaning: 'xin chào' },
+      { text: '不忙', pinyin: '', meaning: '' }
+    ]);
+  });
+
+  it('không tính điểm và không có đáp án đúng', () => {
+    expect(getLessonQuestionMaxScore(question)).toBe(0);
+    expect(scoreLessonQuestion(question, undefined)).toEqual({ score: 0, maxScore: 0 });
+    expect(formatLessonCorrectAnswer(question)).toBe('');
+  });
+
+  // Ô luyện đọc không có gì để nhập; coi là chưa trả lời thì nút nộp bài của cả
+  // tab bị khóa cứng.
+  it('luôn tính là đã trả lời để không chặn nộp bài', () => {
+    expect(isLessonQuestionAnswered(question, undefined)).toBe(true);
+    expect(isLessonQuestionAnswered(question, '')).toBe(true);
+  });
+
+  it('điền sẵn đề bài khi giáo viên bỏ trống, để câu không bị lọc mất lúc lưu', () => {
+    expect(normalizeLessonQuestion({ type: 'reading' }).prompt).toBe(DEFAULT_READING_PROMPT);
+  });
+
+  it('đọc và ghi lại được ô nhập dạng "chữ | phiên âm | nghĩa"', () => {
+    const text = '你好 | nǐ hǎo | xin chào\n不忙\n\n很好 | hěn hǎo';
+    expect(parseReadingWordsText(text)).toEqual([
+      { text: '你好', pinyin: 'nǐ hǎo', meaning: 'xin chào' },
+      { text: '不忙', pinyin: '', meaning: '' },
+      { text: '很好', pinyin: 'hěn hǎo', meaning: '' }
+    ]);
+    expect(formatReadingWordsText(parseReadingWordsText(text))).toBe(
+      '你好 | nǐ hǎo | xin chào\n不忙\n很好 | hěn hǎo'
+    );
   });
 });
 
