@@ -370,6 +370,15 @@ export default function AuthPage() {
             </button>
           </div>
 
+          {/* Giải thích vì sao đang học thì bị đẩy về đây: mỗi tài khoản học
+              viên chỉ dùng được trên một thiết bị. */}
+          {auth.deviceKickedOut ? (
+            <div className="auth-message auth-message--error">
+              Tài khoản của bạn vừa đăng nhập trên một thiết bị khác nên thiết bị này đã đăng xuất. Mỗi tài
+              khoản chỉ học được trên một thiết bị — đăng nhập lại để tiếp tục.
+            </div>
+          ) : null}
+
           {message ? <div className="auth-message">{message}</div> : null}
 
           <div className="auth-fields">

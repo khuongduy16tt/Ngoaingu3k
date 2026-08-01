@@ -2,11 +2,46 @@ import React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { logActivity } from '../lib/activityService';
+import { checkDeviceSlot, claimDeviceSlot, releaseDeviceSlot } from '../lib/deviceSessionService';
 
 const AuthContext = createContext(null);
 const MOCK_AUTH_STORAGE_KEY = 'ngoaingu3k-mock-auth';
 const MOCK_DEFAULT_ROLE = 'student';
 const validRoles = ['student', 'teacher', 'admin'];
+
+// ─── Giới hạn 1 thiết bị cho mỗi tài khoản học viên ──────────────────────────
+// Chỉ siết với học viên: giáo viên và admin vẫn cần mở nhiều máy cùng lúc.
+// Vai trò lấy từ `profiles.role` dưới DB (nguồn thật), không lấy từ state `role`
+// vốn có thể bị đổi tại chỗ. Đọc không ra hồ sơ thì KHÔNG siết — thà một học
+// viên lọt qua còn hơn đá nhầm giáo viên khi mạng chập chờn.
+const DEVICE_LIMITED_ROLE = 'student';
+const DEVICE_CHECK_INTERVAL_MS = 20000;
+const PENDING_LOGIN_STORAGE_KEY = 'ngoaingu3k-pending-login';
+
+// Đánh dấu "người dùng vừa chủ động bấm đăng nhập" để phân biệt với "mở lại app
+// khi đã có phiên sẵn". Chỉ trường hợp đầu mới được giành chỗ thiết bị; nếu mở
+// lại app cũng giành chỗ thì máy cũ chỉ cần F5 là cướp lại chỗ của máy mới.
+// Dùng sessionStorage vì đăng nhập Google chuyển hẳn sang trang khác rồi quay
+// lại — biến trong bộ nhớ không sống sót qua vòng chuyển trang đó.
+function markPendingLogin() {
+  try {
+    sessionStorage.setItem(PENDING_LOGIN_STORAGE_KEY, '1');
+  } catch {
+    // Ignore storage errors in restricted browser contexts.
+  }
+}
+
+function consumePendingLogin() {
+  try {
+    const pending = sessionStorage.getItem(PENDING_LOGIN_STORAGE_KEY) === '1';
+    if (pending) {
+      sessionStorage.removeItem(PENDING_LOGIN_STORAGE_KEY);
+    }
+    return pending;
+  } catch {
+    return false;
+  }
+}
 
 function normalizeRole(role) {
   return validRoles.includes(role) ? role : 'student';
@@ -103,7 +138,11 @@ export function AuthProvider({ children }) {
   );
   const [ready, setReady] = useState(!supabase);
   const [loading, setLoading] = useState(Boolean(supabase));
+  // Bật khi tài khoản này vừa được đăng nhập ở máy khác nên máy này bị đăng
+  // xuất — trang đăng nhập đọc cờ này để giải thích cho người dùng.
+  const [deviceKickedOut, setDeviceKickedOut] = useState(false);
   const skipNextLoginLogRef = useRef(false);
+  const deviceGuardQueueRef = useRef(Promise.resolve());
   // Id của user đang thực sự đăng nhập — dùng để phân biệt "đổi user thật"
   // (login / logout / đổi tài khoản) với các sự kiện Supabase phát lại cho
   // CÙNG một user (SIGNED_IN khi focus lại tab, TOKEN_REFRESHED định kỳ).
@@ -139,6 +178,43 @@ export function AuthProvider({ children }) {
       setRoleState('student');
       return null;
     }
+  }
+
+  // Máy này mất quyền dùng tài khoản. `scope: 'local'` là bắt buộc: mặc định
+  // của supabase-js là 'global', sẽ thu hồi refresh token của MỌI phiên và đá
+  // luôn cả máy vừa đăng nhập.
+  async function signOutKickedDevice() {
+    setDeviceKickedOut(true);
+    await supabase.auth.signOut({ scope: 'local' });
+  }
+
+  // Vừa đăng nhập thì giành chỗ thiết bị; mọi lần khác chỉ kiểm tra xem chỗ có
+  // còn là máy này không.
+  async function applyDeviceGuard(userId, nextProfile) {
+    if (!supabase || !userId || nextProfile?.role !== DEVICE_LIMITED_ROLE) {
+      return;
+    }
+
+    if (consumePendingLogin()) {
+      setDeviceKickedOut(false);
+      await claimDeviceSlot(userId);
+      return;
+    }
+
+    if ((await checkDeviceSlot(userId)) === 'kick') {
+      await signOutKickedDevice();
+    }
+  }
+
+  // Mỗi lần mở app, cả nhánh getSession lẫn nhánh onAuthStateChange đều chạy
+  // guard. Xếp chúng nối đuôi nhau để một lượt kiểm tra không bao giờ chen được
+  // vào giữa lượt giành chỗ — nếu chen vào, người vừa đăng nhập sẽ đọc trúng
+  // thiết bị cũ và tự đá chính mình ra.
+  function queueDeviceGuard(userId, nextProfile) {
+    deviceGuardQueueRef.current = deviceGuardQueueRef.current
+      .then(() => applyDeviceGuard(userId, nextProfile))
+      .catch(() => {});
+    return deviceGuardQueueRef.current;
   }
 
   function setRole(nextRole) {
@@ -215,6 +291,11 @@ export function AuthProvider({ children }) {
     const userId = session?.user?.id;
     if (userId) {
       void logActivity(userId, 'logout');
+      // Nhả chỗ để lần sau đăng nhập ở máy nào cũng vào thẳng, không phải chờ
+      // một vòng kiểm tra.
+      if (supabase && profile?.role === DEVICE_LIMITED_ROLE) {
+        await releaseDeviceSlot(userId);
+      }
     }
 
     if (!supabase) {
@@ -232,7 +313,14 @@ export function AuthProvider({ children }) {
       return signInMock(email);
     }
 
-    return supabase.auth.signInWithPassword({ email, password });
+    markPendingLogin();
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    if (result?.error) {
+      // Sai mật khẩu mà vẫn để cờ lại thì lần mở app sau bị hiểu nhầm là vừa
+      // đăng nhập, và máy này cướp mất chỗ của máy đang dùng thật.
+      consumePendingLogin();
+    }
+    return result;
   }
 
   async function signUpWithEmail(email, password, options = {}) {
@@ -245,6 +333,7 @@ export function AuthProvider({ children }) {
     }
 
     skipNextLoginLogRef.current = true;
+    markPendingLogin();
     const result = await supabase.auth.signUp({
       email,
       password,
@@ -252,6 +341,9 @@ export function AuthProvider({ children }) {
         data: options
       }
     });
+    if (result?.error) {
+      consumePendingLogin();
+    }
     if (result?.data?.user?.id) {
       void logActivity(result.data.user.id, 'signup');
       await loadProfile(result.data.user.id);
@@ -267,6 +359,7 @@ export function AuthProvider({ children }) {
       });
     }
 
+    markPendingLogin();
     return supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -304,7 +397,8 @@ export function AuthProvider({ children }) {
         setSession(nextSession);
         loadedProfileUserIdRef.current = nextSession?.user?.id ?? null;
         if (nextSession?.user?.id) {
-          await loadProfile(nextSession.user.id);
+          const nextProfile = await loadProfile(nextSession.user.id);
+          await queueDeviceGuard(nextSession.user.id, nextProfile);
         } else {
           setProfile(null);
           setRoleState('student');
@@ -361,7 +455,8 @@ export function AuthProvider({ children }) {
       setSession(nextSession);
       loadedProfileUserIdRef.current = nextUserId;
       if (nextUserId) {
-        await loadProfile(nextUserId);
+        const nextProfile = await loadProfile(nextUserId);
+        await queueDeviceGuard(nextUserId, nextProfile);
       } else {
         setProfile(null);
         setRoleState('student');
@@ -379,6 +474,47 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // Kiểm tra định kỳ chỗ thiết bị khi tab đang hiển thị, và ngay lúc người dùng
+  // quay lại tab — máy cũ vì thế văng ra trong khoảng 20s, hoặc lập tức khi họ
+  // bấm vào lại cửa sổ. Cùng khuôn với StudentProgressPage (dự án chưa dùng
+  // Supabase Realtime).
+  const guardedUserId = supabase && profile?.role === DEVICE_LIMITED_ROLE ? session?.user?.id ?? null : null;
+
+  useEffect(() => {
+    if (!guardedUserId) {
+      return undefined;
+    }
+
+    let active = true;
+
+    function verifyDeviceSlot() {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      deviceGuardQueueRef.current = deviceGuardQueueRef.current
+        .then(async () => {
+          if (!active) {
+            return;
+          }
+          if ((await checkDeviceSlot(guardedUserId)) === 'kick') {
+            await signOutKickedDevice();
+          }
+        })
+        .catch(() => {});
+    }
+
+    const intervalId = setInterval(verifyDeviceSlot, DEVICE_CHECK_INTERVAL_MS);
+    document.addEventListener('visibilitychange', verifyDeviceSlot);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', verifyDeviceSlot);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guardedUserId]);
+
   const value = useMemo(
     () => ({
       ready,
@@ -391,6 +527,7 @@ export function AuthProvider({ children }) {
       isMockMode: !supabase,
       user: session?.user ?? null,
       isAuthenticated: Boolean(session),
+      deviceKickedOut,
       signOut,
       signInWithEmail,
       signUpWithEmail,
@@ -398,7 +535,7 @@ export function AuthProvider({ children }) {
       sendPasswordReset,
       updateProfile
     }),
-    [loading, profile, ready, role, session]
+    [deviceKickedOut, loading, profile, ready, role, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
