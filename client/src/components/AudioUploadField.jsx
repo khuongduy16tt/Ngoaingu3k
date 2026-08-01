@@ -19,6 +19,8 @@ function formatDuration(totalSeconds) {
  * @param {(file: File, onProgress: (percent: number) => void) => Promise<{ url: string } | null>} upload
  * @param {(seconds: number) => void} [onUseDuration] - nếu truyền vào, hiện nút
  *   "Dùng Xm Ys làm thời gian" sau khi phát hiện được thời lượng audio.
+ * @param {string} [label] - tiêu đề của ô; bỏ trống thì không hiện (phần Nghe của
+ *   đề thi đã có tiêu đề riêng ở ngoài).
  * @param {string} [fileHint]
  */
 export function AudioUploadField({
@@ -28,6 +30,7 @@ export function AudioUploadField({
   onClear,
   upload,
   onUseDuration,
+  label = '',
   fileHint = 'MP3, M4A, WAV, OGG — tối đa 100MB'
 }) {
   const [uploading, setUploading] = useState(false);
@@ -85,6 +88,8 @@ export function AudioUploadField({
 
   return (
     <div className="audio-upload-field">
+      {label ? <span className="audio-upload-field__label">{label}</span> : null}
+
       {audioUrl ? (
         <div className="audio-upload-field__preview">
           <audio controls src={audioUrl} preload="metadata" onLoadedMetadata={handleLoadedMetadata} />

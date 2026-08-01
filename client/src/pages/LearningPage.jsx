@@ -1422,6 +1422,11 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
 function QuestionAudioField({ question, lessonId, onChange }) {
   return (
     <AudioUploadField
+      label={
+        question.type === 'listening'
+          ? 'File nghe của câu hỏi (học viên nghe rồi gõ lại)'
+          : 'File nghe của câu hỏi (tùy chọn)'
+      }
       audioUrl={question.audioUrl}
       audioName={question.audioName}
       onUploaded={({ audioUrl, audioName }) => onChange({ audioUrl, audioName })}
@@ -1445,7 +1450,7 @@ function QuestionImageField({ question, lessonId, onChange }) {
   );
 }
 
-function VideoQuestionEditor({ lesson, saving, status, onSave }) {
+export function VideoQuestionEditor({ lesson, saving, status, onSave }) {
   const lessonQuestionsKey = useMemo(() => JSON.stringify(lesson?.exercises || []), [lesson?.exercises]);
   const [draftQuestions, setDraftQuestions] = useState(() =>
     (lesson?.exercises || []).map(normalizeVideoQuestionDraft)
@@ -1675,13 +1680,13 @@ Giải thích: Hello nghĩa là xin chào.`}
                 />
               </label>
 
-              {question.type === 'listening' || question.audioUrl ? (
-                <QuestionAudioField
-                  question={question}
-                  lessonId={lesson?.databaseId || lesson?.id}
-                  onChange={(patch) => updateQuestion(question.id, patch)}
-                />
-              ) : null}
+              {/* Mọi dạng câu đều gắn được file nghe: câu trắc nghiệm "nghe rồi
+                  chọn đáp án" cũng cần audio, không riêng dạng Nghe & gõ lại. */}
+              <QuestionAudioField
+                question={question}
+                lessonId={lesson?.databaseId || lesson?.id}
+                onChange={(patch) => updateQuestion(question.id, patch)}
+              />
 
               <QuestionImageField
                 question={question}

@@ -29,6 +29,7 @@ import {
   writeTeacherManagedCourses
 } from '../lib/courseService';
 import { ListeningAudio } from '../components/ListeningAudio';
+import { AudioUploadField } from '../components/AudioUploadField';
 import { ImageUploadField } from '../components/ImageUploadField';
 import {
   LESSON_QUESTION_TYPES,
@@ -724,6 +725,16 @@ function LessonStudentViewPreview({ lesson, showAnswers = false }) {
                         src={exercise.imageUrl}
                         alt={exercise.imageName || `Ảnh câu ${index + 1}`}
                         loading="lazy"
+                      />
+                    ) : null}
+
+                    {/* File nghe riêng của câu — nghe thử ngay trong bản xem trước
+                        để biết học viên có nghe được không trước khi đăng. */}
+                    {exercise.audioUrl ? (
+                      <ListeningAudio
+                        src={exercise.audioUrl}
+                        label={exercise.audioName || `File nghe câu ${index + 1}`}
+                        className="lesson-audio"
                       />
                     ) : null}
 
@@ -3118,7 +3129,7 @@ export function TeacherDashboardPage() {
                                 <small className="field-hint">
                                   {questionType === 'fill_blank'
                                     ? 'Dùng ____ trong nội dung câu để đánh dấu chỗ trống. Chấm bỏ qua hoa/thường và dấu câu.'
-                                    : 'Gắn file nghe cho từng câu ở bảng giảng viên trong Phòng học.'}
+                                    : 'Gắn file nghe cho câu này ở ô "File nghe của câu hỏi" bên dưới.'}
                                 </small>
                               </label>
                             ) : null}
@@ -3152,6 +3163,29 @@ export function TeacherDashboardPage() {
                                 <small className="field-hint">Dạng viết không chấm tự động nên không tính vào điểm.</small>
                               </label>
                             ) : null}
+
+                            {/* File nghe riêng của câu — mọi dạng câu đều gắn được
+                                (trắc nghiệm "nghe rồi chọn đáp án", không riêng dạng
+                                Nghe & gõ lại). Khác ô "File nghe" của bài học ở trên,
+                                vốn là một file dùng chung cả bài. */}
+                            <AudioUploadField
+                              label={
+                                questionType === 'listening'
+                                  ? 'File nghe của câu hỏi (học viên nghe rồi gõ lại)'
+                                  : 'File nghe của câu hỏi (tùy chọn)'
+                              }
+                              audioUrl={question.audioUrl || ''}
+                              audioName={question.audioName || ''}
+                              upload={(file, onProgress) =>
+                                uploadLessonAudio(
+                                  file,
+                                  selectedDraftLesson.databaseId || selectedDraftLesson.id || '',
+                                  onProgress
+                                )
+                              }
+                              onUploaded={({ audioUrl, audioName }) => patchQuestion({ audioUrl, audioName })}
+                              onClear={() => patchQuestion({ audioUrl: '', audioName: '' })}
+                            />
 
                             {/* Ảnh riêng của câu — dùng cho dạng "nhìn hình chọn từ".
                                 Khác ô "Ảnh nếu có" ở trên, vốn là một ảnh dùng chung cả bài. */}

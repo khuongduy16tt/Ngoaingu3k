@@ -6242,6 +6242,12 @@ button:disabled {
   gap: 0.7rem;
 }
 
+.audio-upload-field__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .audio-upload-field__preview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
