@@ -46,6 +46,9 @@ import {
   serializeLessonTabs
 } from '../lib/lessonTabs';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { getAllLessonProgress } from '../lib/progressService';
+import { getExamAttemptsForStudent } from '../lib/examService';
+import { buildStudentStats } from '../lib/studentStats';
 import { getActivityLogs } from '../lib/activityService';
 import {
   exportAdminRegistrationsToExcel,
@@ -292,6 +295,7 @@ export function StudentDashboardPage() {
   const email = auth.user?.email || '';
   const [assignments, setAssignments] = useState([]);
   const [ownedCount, setOwnedCount] = useState(0);
+  const [stats, setStats] = useState({ averageScore: null, streakDays: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -302,10 +306,15 @@ export function StudentDashboardPage() {
       const courses = await getCourseCatalog();
       const nextOwnedIds = await getOwnedCourseIds(auth.user?.id, courses);
       const nextAssignments = await getAssignmentsForStudent(email, nextOwnedIds);
+      const [lessonProgress, examAttempts] = await Promise.all([
+        getAllLessonProgress({ studentId: auth.user?.id, studentEmail: email }),
+        getExamAttemptsForStudent(auth.user?.id, email)
+      ]);
 
       if (active) {
         setAssignments(nextAssignments);
         setOwnedCount(nextOwnedIds.length);
+        setStats(buildStudentStats({ lessonProgress, examAttempts }));
         setLoading(false);
       }
     }
@@ -321,10 +330,12 @@ export function StudentDashboardPage() {
     () => [
       { label: 'Khóa đã sở hữu', value: String(ownedCount) },
       { label: 'Nhiệm vụ khả dụng', value: String(assignments.length) },
-      { label: 'Điểm trung bình', value: '89' },
-      { label: 'Chuỗi học tập', value: '12 ngày' }
+      // Chưa nộp bài nào chấm điểm thì để gạch ngang, không hiện 0% vì hai
+      // trạng thái đó khác hẳn nhau với học viên.
+      { label: 'Điểm trung bình', value: stats.averageScore === null ? '—' : `${stats.averageScore}%` },
+      { label: 'Chuỗi học tập', value: stats.streakDays > 0 ? `${stats.streakDays} ngày` : '—' }
     ],
-    [assignments.length, ownedCount]
+    [assignments.length, ownedCount, stats.averageScore, stats.streakDays]
   );
   const assignmentPagination = usePagination(assignments, {
     pageSize: 4,

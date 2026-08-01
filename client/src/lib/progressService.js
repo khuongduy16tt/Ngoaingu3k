@@ -113,6 +113,65 @@ export async function getLessonProgress({ studentId, studentEmail, courseKey, le
   );
 }
 
+// Bảng điều khiển học viên cần toàn bộ tiến độ của một người, không giới hạn
+// theo một khóa như getLessonProgress. RLS "users manage own progress" đã chặn
+// sẵn nên truy vấn này chỉ trả về dòng của chính người đang đăng nhập.
+export async function getAllLessonProgress({ studentId, studentEmail } = {}) {
+  if (!isSupabaseReady() || !studentId || String(studentId).startsWith('local-')) {
+    return readAllStoredProgress(studentId || studentEmail);
+  }
+
+  function runQuery(columns) {
+    return supabase.from('progress').select(columns).eq('user_id', studentId);
+  }
+
+  const withScore = await runQuery(PROGRESS_COLUMNS_WITH_SCORE);
+  if (!withScore.error) {
+    return (withScore.data || []).map(normalizeProgressRow);
+  }
+
+  if (!isMissingScoreColumn(withScore.error)) {
+    console.warn('[getAllLessonProgress]', withScore.error.message);
+    return readAllStoredProgress(studentId || studentEmail);
+  }
+
+  const withoutScore = await runQuery(PROGRESS_COLUMNS);
+  if (withoutScore.error) {
+    return readAllStoredProgress(studentId || studentEmail);
+  }
+
+  return (withoutScore.data || []).map(normalizeProgressRow);
+}
+
+// Chế độ chạy không có Supabase: gom tiến độ đã lưu ở máy của mọi khóa lại.
+function readAllStoredProgress(studentKey) {
+  const prefix = `learning-lesson-progress:${studentKey || 'local'}:`;
+  const rows = [];
+
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith(prefix)) continue;
+
+      const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+      for (const record of Object.values(parsed)) {
+        rows.push({
+          lessonId: '',
+          completed: Boolean(record?.completed),
+          lastPositionSeconds: Number(record?.lastPositionSeconds || 0),
+          score: normalizeScore(record?.score),
+          maxScore: normalizeScore(record?.maxScore),
+          updatedAt: record?.updatedAt || ''
+        });
+      }
+    }
+  } catch {
+    return rows;
+  }
+
+  return rows;
+}
+
 export async function saveLessonProgress({
   studentId,
   studentEmail,
