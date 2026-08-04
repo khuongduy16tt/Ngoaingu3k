@@ -40,7 +40,7 @@
 .fc-import__separator > span,
 .fc-test__kinds > span {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -54,7 +54,7 @@
 
 .fc-import__separator .button-ghost {
   padding: 7px 14px;
-  font-size: 13.5px;
+  font-size: 15px;
 }
 
 .fc-import__separator .button-ghost.is-active,
@@ -93,7 +93,7 @@
   padding: 7px 10px;
   border-radius: calc(var(--radius) - 8px);
   background: var(--surface);
-  font-size: 13.5px;
+  font-size: 15px;
 }
 
 /* Dòng thiếu định nghĩa: viền đứt để giảng viên thấy mà sửa trước khi lưu. */
@@ -136,17 +136,17 @@
 }
 
 .fc-set-card__open strong {
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .fc-set-card__course {
   color: var(--accent, #2563eb);
-  font-size: 12.5px;
+  font-size: 14px;
 }
 
 .fc-set-card__open small {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -176,7 +176,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -255,7 +255,7 @@
 
 .fc-card__hint {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -305,7 +305,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
 }
 
 .fc-progress__chip.is-mastered {
@@ -347,7 +347,7 @@
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   text-align: left;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -435,7 +435,7 @@
   border-radius: 999px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: 14.5px;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
@@ -483,13 +483,13 @@
 
 .fc-test__head span:first-child {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   text-transform: uppercase;
 }
 
 .fc-test__prompt {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   overflow-wrap: anywhere;
 }
 
@@ -500,7 +500,7 @@
 }
 
 .fc-match__timer {
-  font-size: 20px;
+  font-size: 22.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -525,7 +525,7 @@
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   text-align: center;
   line-height: 1.45;
   overflow-wrap: anywhere;

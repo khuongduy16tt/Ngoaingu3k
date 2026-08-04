@@ -23,7 +23,7 @@ export const ui = {
   support: 'Hỗ trợ',
   accountLogin: 'Đăng nhập tài khoản',
   onlinePayment: 'Thanh toán trực tuyến',
-  digitalMaterials: 'Học liệu số',
+  digitalMaterials: 'Tài liệu số',
   progressTracking: 'Theo dõi tiến độ',
   exercisesAndQuizzes: 'Bài tập và kiểm tra',
   dashboardWorkspace: 'Không gian làm việc',

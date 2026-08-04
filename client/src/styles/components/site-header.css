@@ -108,7 +108,7 @@
   align-items: center;
   padding: 12px 0;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.8;
   text-transform: uppercase;
@@ -186,7 +186,7 @@
   display: block;
   padding: 12px 0;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   line-height: 1.4;
   text-transform: capitalize;
@@ -202,7 +202,7 @@
 .site-menu__sub-link span {
   display: block;
   margin-top: 2px;
-  font-size: 13px;
+  font-size: 14.5px;
   text-transform: none;
   color: rgba(255, 255, 255, 0.82);
 }
@@ -216,7 +216,7 @@
   background: rgba(255, 255, 255, 0.14);
   color: #ffffff;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .site-menu__search::placeholder {
@@ -231,7 +231,7 @@
 .site-menu__empty {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 /* ── Cụm bên phải ───────────────────────────────────────────────────────── */
@@ -242,17 +242,20 @@
   gap: 14px;
 }
 
+/* Nút đăng nhập cố tình to hơn spec gốc của trang thật (16px/12px 24px) —
+   đây là hành động chính của khách chưa có tài khoản nên được ưu tiên nổi
+   hơn cả nút đăng ký bên cạnh. */
 .site-header__login {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px;
+  padding: 15px 32px;
   border: 0;
   border-radius: 30px;
   background: var(--header-orange);
   color: #ffffff;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 2px;
@@ -270,13 +273,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px;
+  padding: 14px 28px;
   border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 30px;
   background: transparent;
   color: #ffffff;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 2px;
@@ -351,9 +354,15 @@
 
 /* App có 6–7 mục menu nhãn tiếng Việt dài (trang thật chỉ 5 mục ngắn), nên
    thay vì nhảy thẳng sang drawer khi hẹp, menu ngang được thu nhỏ dần qua 3
-   nấc. Bề rộng menu đo thật ở từng nấc: 16px→898px · 15px→804px · 14px→735px
-   · 13px→678px. Mỗi nấc chốt ở bề rộng vừa đủ chứa logo + menu + cụm nút,
-   còn dư ~35px thở. Trên 1400px giữ nguyên spec gốc 16px / padding 11px. */
+   nấc. Bề rộng CẢ HÀNG (logo + menu + cụm nút + gap + padding) đo lại sau khi
+   nâng cỡ chữ, ở trạng thái tốn chỗ nhất là khách chưa đăng nhập — 6 mục menu
+   cộng hai nút Đăng nhập/Đăng ký:
+
+     >1400 → 1183px · ≤1400 → 1073px · ≤1240 → 942px · ≤1080 → 840px
+     ≤900  → 706px (drawer tiếp quản từ 767px trở xuống)
+
+   Người đã đăng nhập thêm 1 mục menu nhưng cụm nút rút còn avatar nên luôn
+   hẹp hơn khách. Mỗi nấc còn dư ≥60px thở, nên breakpoint giữ nguyên. */
 /* Các nấc chỉ dùng max-width và đè lên nhau theo thứ tự khai báo, KHÔNG dùng
    cặp (min-width … and max-width …): màn hình có DPI scaling cho viewport lẻ
    (1200,8px), rơi đúng vào kẽ giữa max-width:1200 và min-width:1201 nên không
@@ -364,12 +373,12 @@
   }
 
   .site-menu__link {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .site-header__login {
-    padding: 11px 18px;
-    font-size: 15px;
+    padding: 13px 24px;
+    font-size: 18.5px;
     letter-spacing: 1px;
   }
 
@@ -393,12 +402,12 @@
   }
 
   .site-menu__link {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .site-header__login {
-    padding: 10px 16px;
-    font-size: 14px;
+    padding: 12px 22px;
+    font-size: 17.5px;
     letter-spacing: 0.5px;
   }
 
@@ -422,12 +431,12 @@
   }
 
   .site-menu__link {
-    font-size: 13px;
+    font-size: 14.5px;
   }
 
   .site-header__login {
-    padding: 9px 14px;
-    font-size: 13px;
+    padding: 11px 18px;
+    font-size: 16px;
     letter-spacing: 0.5px;
   }
 
@@ -461,12 +470,12 @@
   }
 
   .site-menu__link {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .site-header__login {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 9px 13px;
+    font-size: 14px;
     letter-spacing: 0;
   }
 
@@ -595,7 +604,7 @@
   .site-menu__link {
     padding: 14px 20px;
     color: var(--header-ink);
-    font-size: 15px;
+    font-size: 17px;
     transition: background-color 0.15s ease, color 0.15s ease;
   }
 
@@ -639,7 +648,7 @@
   .site-menu__sub-link {
     padding: 10px 0;
     color: var(--header-ink);
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .site-menu__sub-link:hover,

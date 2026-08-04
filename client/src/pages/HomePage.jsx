@@ -184,7 +184,7 @@ const trainingPrograms = [
 const exclusiveProducts = [
   {
     src: '/images/imported/4_Trang-chu_GT-sp.webp',
-    alt: 'Học liệu độc quyền của Ngoaingu3k',
+    alt: 'Tài liệu độc quyền của Ngoaingu3k',
   },
   {
     src: '/images/imported/5_Trang-chu_GT-sp.webp',
@@ -397,7 +397,7 @@ export default function HomePage() {
             <div className="products-section">
               <div className="products-section__body">
                 <span className="section-eyebrow">Sản phẩm độc quyền</span>
-                <h2>Học liệu và khoá học chỉ có tại Ngoaingu3k</h2>
+                <h2>Tài liệu và khoá học chỉ có tại Ngoaingu3k</h2>
                 <p>
                   Bộ giáo trình và khoá học được đội ngũ chuyên môn biên soạn riêng, bám sát nhu cầu học viên Việt
                   Nam — không sao chép, cập nhật liên tục theo phản hồi thực tế.

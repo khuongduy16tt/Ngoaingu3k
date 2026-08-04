@@ -78,17 +78,29 @@
   letter-spacing: 0 !important;
 }
 
+/* Mốc quy đổi rem của cả app. Trang thật ngoaingu3k.com để body 16px/1.8 và
+   gần như không dùng cỡ nào nhỏ hơn, còn app này lại đầy chữ 0.78–0.9rem nên
+   đọc thấy bé hơn hẳn; nâng gốc 16px → 18px kéo mọi cỡ rem lên 12.5% một lần,
+   khỏi phải sửa lẻ từng khai báo. Màn hẹp hạ lại 17px để chữ to không đẩy
+   ngang các bảng/thẻ vốn đo bằng px. */
 html {
+  font-size: 18px;
   background: var(--bg);
   scroll-behavior: smooth;
   overflow-x: hidden;
 }
 
+@media (max-width: 640px) {
+  html {
+    font-size: 17px;
+  }
+}
+
 body {
   color: var(--text);
   background: var(--bg) !important;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
   overflow-x: hidden;
@@ -146,7 +158,7 @@ h2,
 .lesson-sidebar .sidebar-head h2,
 .auth-card__head h2 {
   color: var(--text);
-  font-size: 28px !important;
+  font-size: 31.5px !important;
   line-height: 1.18 !important;
   font-weight: 800;
   letter-spacing: 0 !important;
@@ -158,7 +170,7 @@ h3,
 .assignment-card__head h3,
 .marketplace-card__headline h3 {
   color: var(--text);
-  font-size: 18px;
+  font-size: 20.5px;
   line-height: 1.25;
   font-weight: 750;
 }
@@ -297,7 +309,7 @@ small,
   border: 0 !important;
   background: transparent !important;
   color: var(--text);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 850;
 }
 
@@ -390,7 +402,7 @@ small,
   color: var(--button-text) !important;
   background: var(--button-bg) !important;
   border: 1px solid var(--button-border) !important;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -420,7 +432,7 @@ small,
   color: var(--ghost-text) !important;
   background: var(--ghost-bg) !important;
   border: 1px solid var(--ghost-border) !important;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -549,7 +561,7 @@ textarea:focus-visible {
 .learning-empty-screen__panel span,
 .auth-stat span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 650;
 }
 
@@ -560,7 +572,7 @@ textarea:focus-visible {
 .auth-stat strong,
 .home-stat strong {
   color: var(--text);
-  font-size: 30px;
+  font-size: 34px;
   line-height: 1.1;
   font-weight: 850;
 }
@@ -582,7 +594,7 @@ textarea:focus-visible {
   color: color-mix(in srgb, var(--accent) 88%, var(--text)) !important;
   background: color-mix(in srgb, var(--accent) 9%, var(--surface)) !important;
   border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border)) !important;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -700,7 +712,7 @@ textarea:focus-visible {
   color: var(--text);
   background: color-mix(in srgb, var(--success) 7%, var(--surface)) !important;
   border: 1px solid color-mix(in srgb, var(--success) 22%, var(--border)) !important;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -782,7 +794,7 @@ textarea:focus-visible {
   display: grid;
   place-items: center;
   color: var(--accent);
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .hero__search input {
@@ -903,7 +915,7 @@ textarea:focus-visible {
 .home-section--title h2 {
   margin: 0;
   color: var(--text);
-  font-size: 30px;
+  font-size: 34px;
 }
 
 .success-grid {
@@ -1066,7 +1078,7 @@ textarea:focus-visible {
 
 .marketplace-hero--compact .marketplace-hero__copy h1 {
   margin: 4px 0 0;
-  font-size: 30px !important;
+  font-size: 34px !important;
   line-height: 1.1 !important;
 }
 
@@ -1074,7 +1086,7 @@ textarea:focus-visible {
   margin: 0;
   max-width: none;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.45;
 }
 
@@ -1116,18 +1128,18 @@ textarea:focus-visible {
 
 .marketplace-hero--compact .marketplace-stat span {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.2;
 }
 
 .marketplace-hero--compact .marketplace-stat strong {
-  font-size: 22px;
+  font-size: 25px;
   line-height: 1;
 }
 
 .marketplace-hero--compact .marketplace-stat small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   line-height: 1.25;
 }
 
@@ -1188,7 +1200,7 @@ textarea:focus-visible {
   color: #ffffff;
   background: var(--accent);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 900;
 }
 
@@ -1224,7 +1236,7 @@ textarea:focus-visible {
   color: var(--muted);
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 750;
 }
 
@@ -1306,7 +1318,7 @@ textarea:focus-visible {
 .marketplace-card__price strong,
 .price-box strong {
   color: var(--text);
-  font-size: 30px;
+  font-size: 34px;
 }
 
 .marketplace-owned-tile {
@@ -1400,7 +1412,7 @@ textarea:focus-visible {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface)) !important;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border)) !important;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 850;
 }
 
@@ -1442,7 +1454,7 @@ textarea:focus-visible {
 .learning-empty-screen__copy p {
   margin: 0;
   color: var(--muted);
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.7;
 }
 
@@ -1529,12 +1541,12 @@ textarea:focus-visible {
 
 .teacher-console-identity strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .teacher-console-identity span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
@@ -1561,7 +1573,7 @@ textarea:focus-visible {
   background: transparent !important;
   border: 1px solid transparent !important;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 800;
   text-align: left;
   box-shadow: none !important;
@@ -1597,7 +1609,7 @@ textarea:focus-visible {
 
 .teacher-course-launcher__label strong {
   color: var(--text);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.3;
 }
 
@@ -1638,7 +1650,7 @@ textarea:focus-visible {
 
 .teacher-course-publisher .section-head h2 {
   margin: 4px 0 0;
-  font-size: 26px !important;
+  font-size: 29.5px !important;
   line-height: 1.15 !important;
 }
 
@@ -1749,7 +1761,7 @@ textarea:focus-visible {
   border: 1px dashed color-mix(in srgb, var(--border-strong) 68%, transparent);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 750;
   transition: min-height 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
@@ -1825,7 +1837,7 @@ textarea:focus-visible {
 
 .teacher-course-overview__head h2 {
   margin: 4px 0 0;
-  font-size: 24px !important;
+  font-size: 27px !important;
   line-height: 1.2 !important;
 }
 
@@ -1858,12 +1870,12 @@ textarea:focus-visible {
 .teacher-course-chip span,
 .teacher-course-chip small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 750;
 }
 
 .teacher-course-chip strong {
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.3;
 }
 
@@ -1889,7 +1901,7 @@ textarea:focus-visible {
 
 .teacher-course-detail-row__main h3 {
   margin: 4px 0;
-  font-size: 20px;
+  font-size: 22.5px;
   line-height: 1.25;
 }
 
@@ -1916,7 +1928,7 @@ textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 750;
 }
 
@@ -1953,7 +1965,7 @@ textarea:focus-visible {
 
 .teacher-course-detail-placeholder strong {
   color: var(--text);
-  font-size: 18px;
+  font-size: 20.5px;
 }
 
 .teacher-course-detail-placeholder p {
@@ -2016,7 +2028,7 @@ textarea:focus-visible {
 
 .assignment-card__meta span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .auth-shell {
@@ -2086,7 +2098,7 @@ textarea:focus-visible {
 .marketplace-filter-group > span,
 .marketplace-sort span {
   color: var(--text);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 800;
 }
 
@@ -2229,7 +2241,7 @@ textarea:focus-visible {
 .pagination-controls__summary,
 .pagination-controls__page {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 750;
 }
 
@@ -2284,7 +2296,7 @@ textarea:focus-visible {
 .learning-page .lesson-sidebar .sidebar-head h2 {
   margin: 0;
   color: var(--text);
-  font-size: 22px !important;
+  font-size: 25px !important;
   line-height: 1.22 !important;
   font-weight: 750;
 }
@@ -2292,7 +2304,7 @@ textarea:focus-visible {
 .learning-page .lesson-sidebar .sidebar-head p {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -2305,7 +2317,7 @@ textarea:focus-visible {
 .learning-page .lesson-sidebar__progress strong,
 .learning-page .lesson-sidebar__progress span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14.5px;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -2327,13 +2339,13 @@ textarea:focus-visible {
 
 .lesson-sidebar__module span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .lesson-sidebar__module strong {
   color: var(--text);
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.35;
 }
 
@@ -2367,7 +2379,7 @@ textarea:focus-visible {
   background: var(--success) !important;
   border: 0 !important;
   border-radius: 999px !important;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .learning-page .lesson-item:not(.done) .lesson-item__icon {
@@ -2378,13 +2390,13 @@ textarea:focus-visible {
 
 .learning-page .lesson-item__copy strong {
   color: var(--text);
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.32;
 }
 
 .learning-page .lesson-item__copy span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .learning-page .lesson-sidebar .pagination-controls {
@@ -2453,7 +2465,7 @@ textarea:focus-visible {
 .learning-lesson-title-row h1 {
   margin: 0;
   color: var(--text);
-  font-size: 30px;
+  font-size: 34px;
   line-height: 1.2;
   font-weight: 750;
   letter-spacing: 0;
@@ -2485,7 +2497,7 @@ textarea:focus-visible {
 .video-question-empty h2 {
   margin: 4px 0 6px;
   color: var(--text);
-  font-size: 24px;
+  font-size: 27px;
   line-height: 1.25;
   letter-spacing: 0;
 }
@@ -2555,7 +2567,7 @@ textarea:focus-visible {
 
 .lesson-question-editor__toolbar strong {
   color: var(--text);
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .lesson-question-editor__actions {
@@ -2582,7 +2594,7 @@ textarea:focus-visible {
 .video-question-card__head span,
 .video-question-options__head span {
   color: var(--text);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
 }
 
@@ -2645,7 +2657,7 @@ textarea:focus-visible {
 
 .learning-page .lesson-action-strip strong {
   color: var(--text);
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .learning-page .lesson-action-strip p {
@@ -2952,7 +2964,7 @@ textarea:focus-visible {
   .marketplace-filters__head h2,
   .lesson-sidebar .sidebar-head h2,
   .auth-card__head h2 {
-    font-size: 24px !important;
+    font-size: 27px !important;
   }
 
   .page {
@@ -3200,13 +3212,13 @@ textarea:focus-visible {
 }
 
 .lesson-tabs__part-label {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .lesson-tabs__part-meta {
-  font-size: 12.5px;
+  font-size: 14px;
   line-height: 1.4;
   color: var(--muted);
 }
@@ -3234,7 +3246,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 15px;
   line-height: 1.3;
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
@@ -3259,7 +3271,7 @@ textarea:focus-visible {
   height: 20px;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 16%, transparent);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -3269,7 +3281,7 @@ textarea:focus-visible {
 
 .lesson-tabs__subtab-count {
   opacity: 0.75;
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 /* Bảng quản lý tab của giảng viên */
@@ -3327,7 +3339,7 @@ textarea:focus-visible {
 
 .lesson-tab-manager__actions .button-ghost {
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .lesson-tab-manager__editor {
@@ -3340,7 +3352,7 @@ textarea:focus-visible {
 .lesson-tab-manager__editor h3 {
   margin: 0;
   color: var(--text);
-  font-size: 16px;
+  font-size: 18px;
 }
 
 @media (max-width: 720px) {
@@ -3427,12 +3439,12 @@ textarea:focus-visible {
   border-radius: calc(var(--radius) - 8px);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .draft-tab-chip .button-ghost {
   padding: 5px 10px;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .generated-question-preview__tab-head {
@@ -3447,7 +3459,7 @@ textarea:focus-visible {
 
 .generated-question-preview__tab-head strong {
   color: var(--text);
-  font-size: 15px;
+  font-size: 17px;
 }
 
 /* ==========================================================================
@@ -3517,7 +3529,7 @@ textarea:focus-visible {
   height: 34px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text) 10%, transparent);
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .stroke-pinned-entry__copy {
@@ -3527,13 +3539,13 @@ textarea:focus-visible {
 }
 
 .stroke-pinned-entry__copy strong {
-  font-size: 14.5px;
+  font-size: 16.5px;
   line-height: 1.3;
 }
 
 .stroke-pinned-entry__copy span {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -3568,7 +3580,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -3614,18 +3626,18 @@ textarea:focus-visible {
 
 .stroke-card__body strong {
   color: var(--text);
-  font-size: 14.5px;
+  font-size: 16.5px;
 }
 
 .stroke-card__zh {
   color: var(--text);
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .stroke-card__example,
 .stroke-card__body small {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -3653,14 +3665,14 @@ textarea:focus-visible {
 
 .stroke-quiz__head span {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .stroke-quiz__head strong {
   color: var(--text);
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .stroke-quiz__prompt {
@@ -3686,7 +3698,7 @@ textarea:focus-visible {
   border-radius: calc(var(--radius) - 4px);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -3757,7 +3769,7 @@ textarea:focus-visible {
 
 .listening-audio__speed-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -3779,7 +3791,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
   cursor: pointer;
