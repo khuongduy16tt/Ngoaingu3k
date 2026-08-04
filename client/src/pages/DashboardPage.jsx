@@ -14,7 +14,8 @@ import {
   saveAdminCourse,
   saveAdminLesson,
   saveAdminProfile,
-  saveRolePermissions
+  saveRolePermissions,
+  transferCourseOwnership
 } from '../lib/adminService';
 import {
   dedupeCourseList,
@@ -54,7 +55,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { getAllLessonProgress } from '../lib/progressService';
 import { getExamAttemptsForStudent } from '../lib/examService';
 import { buildStudentStats } from '../lib/studentStats';
-import { getActivityLogs } from '../lib/activityService';
+import { getActivityLogs, logActivity } from '../lib/activityService';
 import {
   exportAdminRegistrationsToExcel,
   exportActivityToExcel
@@ -3318,6 +3319,10 @@ const emptyCourseDraft = {
   source: ''
 };
 
+// Ô "giảng viên bàn giao" phải phân biệt "chưa chọn ai" ('') với "khóa đang
+// không gắn giảng viên nào", nên nhóm khóa mồ côi mang giá trị riêng.
+const UNASSIGNED_TEACHER_VALUE = '__unassigned__';
+
 const emptyLessonDraft = {
   id: '',
   databaseId: '',
@@ -3421,6 +3426,14 @@ export function AdminDashboardPage() {
   const [permissionDraft, setPermissionDraft] = useState(defaultRolePermissions);
   const [uploadingCourseBanner, setUploadingCourseBanner] = useState(false);
   const [courseBannerError, setCourseBannerError] = useState('');
+
+  // ── Bàn giao khóa học giữa các giảng viên ──────────────
+  const [transferFromTeacherId, setTransferFromTeacherId] = useState('');
+  const [transferToTeacherId, setTransferToTeacherId] = useState('');
+  const [transferCourseKeys, setTransferCourseKeys] = useState([]);
+  const [transferIncludeExams, setTransferIncludeExams] = useState(true);
+  const [transferIncludeAssignments, setTransferIncludeAssignments] = useState(true);
+  const [transferring, setTransferring] = useState(false);
 
   // ── New feature state ──────────────────────────────────
   const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'activity'
@@ -3563,6 +3576,21 @@ export function AdminDashboardPage() {
         };
       }),
     [adminData.assignments, adminData.courses, teachers]
+  );
+
+  // Danh sách khóa của giảng viên đang được chọn để bàn giao.
+  const transferSourceCourses = useMemo(() => {
+    if (!transferFromTeacherId) {
+      return [];
+    }
+
+    const ownerId = transferFromTeacherId === UNASSIGNED_TEACHER_VALUE ? '' : transferFromTeacherId;
+    return adminData.courses.filter((course) => (course.teacherId || '') === ownerId);
+  }, [adminData.courses, transferFromTeacherId]);
+
+  const selectedTransferCourses = useMemo(
+    () => transferSourceCourses.filter((course) => transferCourseKeys.includes(getCourseKey(course))),
+    [transferCourseKeys, transferSourceCourses]
   );
 
   const studentSummary = useMemo(
@@ -3862,6 +3890,88 @@ export function AdminDashboardPage() {
       setMessage({ type: 'error', text: error.message || 'Chưa thể xóa khóa học.' });
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleTransferFromChange(nextTeacherId) {
+    setTransferFromTeacherId(nextTeacherId);
+    setTransferCourseKeys([]);
+
+    if (nextTeacherId && nextTeacherId === transferToTeacherId) {
+      setTransferToTeacherId('');
+    }
+  }
+
+  function toggleTransferCourse(course) {
+    const courseKey = getCourseKey(course);
+
+    setTransferCourseKeys((current) =>
+      current.includes(courseKey)
+        ? current.filter((key) => key !== courseKey)
+        : [...current, courseKey]
+    );
+  }
+
+  function toggleAllTransferCourses() {
+    setTransferCourseKeys((current) =>
+      current.length === transferSourceCourses.length ? [] : transferSourceCourses.map(getCourseKey)
+    );
+  }
+
+  async function handleTransferCourses(event) {
+    event.preventDefault();
+
+    if (!selectedTransferCourses.length || !transferToTeacherId) {
+      return;
+    }
+
+    const receiverName = profileLookup.get(transferToTeacherId)?.fullName || 'giảng viên được chọn';
+    const confirmed = window.confirm(
+      `Bàn giao ${selectedTransferCourses.length} khóa học sang ${receiverName}?\n` +
+        'Giảng viên đang phụ trách sẽ mất quyền sửa các khóa này ngay sau khi bàn giao.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setTransferring(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const summary = await transferCourseOwnership({
+        courses: selectedTransferCourses,
+        fromTeacherId: transferFromTeacherId === UNASSIGNED_TEACHER_VALUE ? '' : transferFromTeacherId,
+        toTeacherId: transferToTeacherId,
+        includeExams: transferIncludeExams,
+        includeAssignments: transferIncludeAssignments
+      });
+
+      void logActivity(auth.user?.id, 'transfer_course', transferToTeacherId, receiverName, {
+        fromTeacherId: transferFromTeacherId === UNASSIGNED_TEACHER_VALUE ? null : transferFromTeacherId,
+        courseTitles: selectedTransferCourses.map((course) => course.title),
+        movedExams: summary.exams,
+        movedAssignments: summary.assignments
+      });
+
+      await reloadAdminData();
+      setTransferCourseKeys([]);
+
+      const extras = [
+        summary.exams ? `${summary.exams} đề thi` : '',
+        summary.assignments ? `${summary.assignments} bài tập giao` : ''
+      ].filter(Boolean);
+
+      setMessage({
+        type: 'success',
+        text:
+          `Đã bàn giao ${summary.courses} khóa học sang ${receiverName}` +
+          (extras.length ? ` (kèm ${extras.join(' và ')}).` : '.')
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Chưa thể bàn giao khóa học.' });
+    } finally {
+      setTransferring(false);
     }
   }
 
@@ -4402,6 +4512,7 @@ export function AdminDashboardPage() {
                 <option value="complete_lesson">Hoàn thành bài</option>
                 <option value="complete_exercise">Làm bài tập</option>
                 <option value="purchase">Mua khóa học</option>
+                <option value="transfer_course">Bàn giao khóa học</option>
               </select>
               <button
                 type="button"
@@ -4442,7 +4553,7 @@ export function AdminDashboardPage() {
                       login: 'Đăng nhập', logout: 'Đăng xuất', signup: 'Đăng ký',
                       view_lesson: 'Xem bài học', complete_lesson: 'Hoàn thành bài',
                       complete_exercise: 'Làm bài tập', purchase: 'Mua khóa học',
-                      view_course: 'Xem khóa học',
+                      view_course: 'Xem khóa học', transfer_course: 'Bàn giao khóa học',
                     }[log.action] || log.action;
                     return (
                       <tr key={log.id}>
@@ -4602,6 +4713,125 @@ export function AdminDashboardPage() {
             )}
           />
         </div>
+      </section>
+
+      <section className="section">
+        <form className="content-card content-card--enterprise dashboard-form admin-panel" onSubmit={handleTransferCourses}>
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Bàn giao</span>
+              <h2>Chuyển khóa học sang giảng viên khác</h2>
+            </div>
+            <span className="pill">{selectedTransferCourses.length} khóa đã chọn</span>
+          </div>
+
+          <p className="admin-note">
+            Dùng khi giảng viên nghỉ việc hoặc đổi người phụ trách: chọn giảng viên cũ, tick những khóa cần chuyển rồi
+            chọn người nhận. Người nhận quản lý toàn bộ chương, bài học, câu hỏi và bộ thẻ của khóa; người cũ mất quyền
+            sửa ngay. Học viên đã mua và tiến độ học không bị ảnh hưởng.
+          </p>
+
+          <div className="dashboard-form__grid">
+            <label className="auth-field">
+              <span>Giảng viên đang phụ trách</span>
+              <select
+                value={transferFromTeacherId}
+                onChange={(event) => handleTransferFromChange(event.target.value)}
+              >
+                <option value="">-- Chọn giảng viên --</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.fullName}
+                  </option>
+                ))}
+                <option value={UNASSIGNED_TEACHER_VALUE}>Khóa chưa gắn giảng viên</option>
+              </select>
+            </label>
+            <label className="auth-field">
+              <span>Giảng viên nhận bàn giao</span>
+              <select value={transferToTeacherId} onChange={(event) => setTransferToTeacherId(event.target.value)}>
+                <option value="">-- Chọn giảng viên --</option>
+                {teachers
+                  .filter((teacher) => teacher.id !== transferFromTeacherId)
+                  .map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.fullName}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
+
+          {transferFromTeacherId ? (
+            <div className="admin-transfer-picker">
+              <div className="admin-transfer-picker__head">
+                <strong>Khóa học của giảng viên này ({transferSourceCourses.length})</strong>
+                {transferSourceCourses.length ? (
+                  <button type="button" className="button-ghost" onClick={toggleAllTransferCourses}>
+                    {transferCourseKeys.length === transferSourceCourses.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                ) : null}
+              </div>
+
+              {transferSourceCourses.length ? (
+                <div className="admin-transfer-list">
+                  {transferSourceCourses.map((course) => (
+                    <label key={getCourseKey(course)} className="admin-transfer-item">
+                      <input
+                        type="checkbox"
+                        checked={transferCourseKeys.includes(getCourseKey(course))}
+                        onChange={() => toggleTransferCourse(course)}
+                      />
+                      <span>
+                        <strong>{course.title}</strong>
+                        <small>
+                          {course.slug} · {course.status} · {lessonsByCourse.get(getCourseKey(course))?.length || 0} bài
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="admin-note">Giảng viên này chưa phụ trách khóa học nào.</p>
+              )}
+            </div>
+          ) : (
+            <p className="admin-note">Chọn giảng viên đang phụ trách để xem danh sách khóa có thể bàn giao.</p>
+          )}
+
+          <div className="admin-transfer-options">
+            <label className="admin-checkbox">
+              <input
+                type="checkbox"
+                checked={transferIncludeExams}
+                disabled={transferFromTeacherId === UNASSIGNED_TEACHER_VALUE}
+                onChange={(event) => setTransferIncludeExams(event.target.checked)}
+              />
+              <span>Chuyển cả đề thi gắn với khóa</span>
+            </label>
+            <label className="admin-checkbox">
+              <input
+                type="checkbox"
+                checked={transferIncludeAssignments}
+                disabled={transferFromTeacherId === UNASSIGNED_TEACHER_VALUE}
+                onChange={(event) => setTransferIncludeAssignments(event.target.checked)}
+              />
+              <span>Chuyển cả bài tập đã giao của khóa</span>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="button dashboard-submit"
+            disabled={transferring || !selectedTransferCourses.length || !transferToTeacherId}
+          >
+            {transferring
+              ? 'Đang bàn giao...'
+              : selectedTransferCourses.length
+                ? `Bàn giao ${selectedTransferCourses.length} khóa học`
+                : 'Bàn giao khóa học'}
+          </button>
+        </form>
       </section>
 
       <section className="section admin-management-grid">

@@ -2541,6 +2541,64 @@
   accent-color: var(--accent);
 }
 
+.admin-transfer-picker {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.admin-transfer-picker__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-transfer-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 17rem;
+  overflow-y: auto;
+}
+
+.admin-transfer-item {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 0.2rem);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.admin-transfer-item input {
+  margin-top: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.admin-transfer-item strong,
+.admin-transfer-item small {
+  display: block;
+}
+
+.admin-transfer-item small {
+  margin-top: 0.15rem;
+  color: var(--muted);
+}
+
+.admin-transfer-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .admin-permission-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

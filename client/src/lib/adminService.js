@@ -598,6 +598,130 @@ export async function deleteAdminCourse(course) {
   });
 }
 
+/**
+ * Bàn giao khóa học từ giảng viên này sang giảng viên khác (giảng viên cũ nghỉ
+ * việc, admin giao khóa lại cho người kế nhiệm).
+ *
+ * Quyền sửa khóa/chương/bài/bộ thẻ đều bám vào courses.teacher_id (policy
+ * "teachers manage own courses" và các policy lồng theo nó), nên đổi đúng cột
+ * đó là người nhận quản được trọn nội dung khóa và người cũ mất quyền ngay.
+ * Đề thi và bài tập giao nằm ở bảng riêng, chỉ nối với khóa bằng course_key
+ * dạng text nên phải chuyển tay theo.
+ */
+export async function transferCourseOwnership({
+  courses = [],
+  fromTeacherId = '',
+  toTeacherId = '',
+  includeExams = false,
+  includeAssignments = false
+} = {}) {
+  const targetCourses = Array.isArray(courses) ? courses : [];
+
+  if (!toTeacherId) {
+    throw new Error('Hãy chọn giảng viên nhận bàn giao.');
+  }
+
+  if (!targetCourses.length) {
+    throw new Error('Hãy chọn ít nhất một khóa học để bàn giao.');
+  }
+
+  if (fromTeacherId && fromTeacherId === toTeacherId) {
+    throw new Error('Giảng viên nhận phải khác giảng viên đang phụ trách.');
+  }
+
+  const state = readStoredState();
+  const remoteIds = targetCourses
+    .map((course) => course.databaseId || course.id)
+    .filter((courseId) => /^[0-9a-f-]{36}$/i.test(courseId || ''));
+
+  // course_key của đề thi / bài tập có thể là uuid, slug hoặc id local tùy lúc
+  // giáo viên tạo, nên gom mọi biến thể của khóa để dò cho đủ.
+  const courseKeys = [
+    ...new Set(
+      targetCourses
+        .flatMap((course) => [course.databaseId, course.id, course.slug])
+        .map((key) => String(key || '').trim())
+        .filter(Boolean)
+    )
+  ];
+
+  const result = { courses: 0, exams: 0, assignments: 0 };
+
+  if (isSupabaseReady() && remoteIds.length) {
+    const { data: movedCourses, error } = await supabase
+      .from('courses')
+      .update({ teacher_id: toTeacherId, updated_at: new Date().toISOString() })
+      .in('id', remoteIds)
+      .select('id');
+
+    if (error) {
+      throw error;
+    }
+
+    result.courses = movedCourses?.length || 0;
+
+    // RLS trả về mảng rỗng thay vì lỗi khi chặn, nên không đổi được dòng nào
+    // tức là tài khoản đang dùng không có quyền admin trên Supabase.
+    if (!result.courses) {
+      throw new Error(
+        'Supabase không cho phép đổi giảng viên phụ trách. Kiểm tra tài khoản đang đăng nhập có role admin.'
+      );
+    }
+
+    // Không biết chủ cũ (khóa chưa gắn giảng viên) thì bỏ qua đề thi/bài tập,
+    // vì chỉ dựa vào course_key có thể vơ nhầm dữ liệu của giảng viên khác.
+    if (includeExams && fromTeacherId && courseKeys.length) {
+      const { data: movedExams, error: examError } = await supabase
+        .from('exams')
+        .update({ teacher_id: toTeacherId, updated_at: new Date().toISOString() })
+        .eq('teacher_id', fromTeacherId)
+        .in('course_key', courseKeys)
+        .select('id');
+
+      if (examError) {
+        throw examError;
+      }
+
+      result.exams = movedExams?.length || 0;
+    }
+
+    if (includeAssignments && fromTeacherId && courseKeys.length) {
+      const { data: movedAssignments, error: assignmentError } = await supabase
+        .from('lesson_assignments')
+        .update({ teacher_id: toTeacherId, updated_at: new Date().toISOString() })
+        .eq('teacher_id', fromTeacherId)
+        .in('course_key', courseKeys)
+        .select('id');
+
+      if (assignmentError) {
+        throw assignmentError;
+      }
+
+      result.assignments = movedAssignments?.length || 0;
+    }
+
+    // Khóa chưa từng đồng bộ Supabase chỉ đổi chủ trong cache local, nhưng vẫn
+    // là khóa đã bàn giao nên phải nằm trong con số báo lại cho admin.
+    result.courses += targetCourses.length - remoteIds.length;
+  } else {
+    result.courses = targetCourses.length;
+  }
+
+  const transferredIds = new Set(targetCourses.map((course) => course.id).filter(Boolean));
+  const transferredDatabaseIds = new Set(targetCourses.map((course) => course.databaseId).filter(Boolean));
+
+  writeStoredState({
+    ...state,
+    courses: state.courses.map((course) =>
+      transferredIds.has(course.id) || transferredDatabaseIds.has(course.databaseId)
+        ? { ...course, teacherId: toTeacherId }
+        : course
+    )
+  });
+
+  return result;
+}
+
 async function ensureChapter(courseId) {
   const { data: existingChapters, error: existingError } = await supabase
     .from('chapters')
