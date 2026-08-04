@@ -141,7 +141,7 @@ h1,
   color: var(--text);
   font-size: 44px !important;
   line-height: 1.08 !important;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0 !important;
 }
 
@@ -160,7 +160,7 @@ h2,
   color: var(--text);
   font-size: 31.5px !important;
   line-height: 1.18 !important;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0 !important;
 }
 
@@ -172,7 +172,7 @@ h3,
   color: var(--text);
   font-size: 20.5px;
   line-height: 1.25;
-  font-weight: 750;
+  font-weight: 800;
 }
 
 p,
