@@ -822,69 +822,191 @@ function TopBar({ theme, setTheme, themeLabel }) {
 }
 
 // ─── Footer ───────────────────────────────────────────────────────────────────
+/* Icon dựng lại bằng SVG nét (trang thật dùng font icon Flaticon/Font Awesome
+   có bản quyền riêng nên không bê nguyên đường path về). Cùng cỡ, cùng màu, đặt
+   đúng vị trí như bản gốc. */
+const footerIcons = {
+  phone: (
+    <path d="M6.5 4h3l1.6 4-2 1.4a12 12 0 0 0 5.5 5.5l1.4-2 4 1.6v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4Z" />
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+      <path d="m4 7 8 5.5L20 7" />
+    </>
+  ),
+  location: (
+    <>
+      <path d="M12 21s6.5-5.7 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 15.3 12 21 12 21Z" />
+      <circle cx="12" cy="10.5" r="2.4" />
+    </>
+  )
+};
+
+const footerSocials = [
+  {
+    label: 'Facebook',
+    href: contact.facebookUrl,
+    icon: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="3.5" />
+        <path d="M14.6 21v-6.6h2.1l.4-2.7h-2.5v-1.7c0-.8.2-1.3 1.3-1.3H17V6.3a17 17 0 0 0-2-.1c-2 0-3.4 1.2-3.4 3.5v2H9.4v2.7h2.2V21" />
+      </>
+    )
+  },
+  {
+    label: 'Twitter',
+    href: contact.siteUrl,
+    icon: <path d="M4 4h3.6l4.3 5.8L17.1 4H20l-6.5 7.6L20.4 20h-3.6l-4.6-6.2L6.3 20H3.4l6.8-7.9L4 4Z" />
+  },
+  {
+    label: 'Pinterest',
+    href: contact.siteUrl,
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M10.2 18.6c-.4-1.5-.1-3 .2-4.4l.7-3M9.4 10.4c0-1.9 1.4-3.3 3.3-3.3 1.8 0 3.1 1.2 3.1 3 0 2.3-1.2 4-2.9 4-.9 0-1.6-.7-1.4-1.6" />
+      </>
+    )
+  },
+  {
+    label: 'Instagram',
+    href: contact.siteUrl,
+    icon: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.2" cy="6.8" r="1.1" />
+      </>
+    )
+  }
+];
+
+function FooterIcon({ children, className, size = 24 }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function FooterContactItem({ icon, label, value, href }) {
+  return (
+    <div className="site-footer__contact-item">
+      <FooterIcon className="site-footer__contact-icon" size={32}>
+        {icon}
+      </FooterIcon>
+      <div>
+        <span className="site-footer__contact-label">{label}</span>
+        {href ? (
+          <a className="site-footer__contact-value" href={href}>
+            {value}
+          </a>
+        ) : (
+          <span className="site-footer__contact-value">{value}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FooterColumn({ title, items }) {
+  return (
+    <div>
+      <h3 className="site-footer__heading">{title}</h3>
+      <ul className="site-footer__list">
+        {items.map((item) => (
+          <li key={item.label}>
+            {!item.to && !item.href ? (
+              <span className="site-footer__plain">{item.label}</span>
+            ) : item.to ? (
+              <Link className="site-footer__link" to={item.to}>
+                {item.label}
+              </Link>
+            ) : (
+              <a className="site-footer__link" href={item.href} target="_blank" rel="noreferrer">
+                {item.label}
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Footer() {
-  const quickLinks = [
-    { label: ui.home, to: '/home' },
-    { label: ui.courses, to: '/courses' },
-    { label: ui.learningRoom, to: '/learn' },
-    { label: ui.signIn, to: '/auth' }
+  // Cùng nhãn với trang thật. Mục nào app có trang riêng thì đi nội bộ, còn
+  // giới thiệu/tin tức/chính sách chỉ tồn tại trên ngoaingu3k.com nên trỏ ra
+  // ngoài. "Hướng dẫn" bên trang thật cũng là chữ thường, không phải link.
+  const quickAccess = [
+    { label: 'Giới thiệu', href: `${contact.siteUrl}/gioi-thieu/` },
+    { label: 'Liên hệ', href: `${contact.siteUrl}/lien-he/` },
+    { label: 'Tin tức', href: `${contact.siteUrl}/category/tin-tuc/` },
+    { label: 'Hướng dẫn' }
+  ];
+
+  const courseLinks = [
+    { label: 'HSK 1-2-3-4-5', to: '/courses#khoa-hoc-hsk' },
+    { label: 'IELTS 3.5', to: '/courses#khoa-hoc-ielts' },
+    { label: 'IELTS 4.0-4.5', to: '/courses#khoa-hoc-ielts' },
+    { label: 'IELTS 5.0-5.5', to: '/courses#khoa-hoc-ielts' },
+    { label: 'IELTS 6.0-6.5', to: '/courses#khoa-hoc-ielts' }
+  ];
+
+  const policyLinks = [
+    { label: 'Chính sách đổi trả', href: `${contact.siteUrl}/chinh-sach-doi-tra-va-hoan-tien/` },
+    { label: 'Chính sách gia hạn', href: `${contact.siteUrl}/chinh-sach-gia-han-khoa-hoc-online/` },
+    { label: 'Điều khoản sử dụng', href: `${contact.siteUrl}/dieu-khoan-su-dung/` },
+    { label: 'Chính sách bảo mật', href: `${contact.siteUrl}/chinh-sach-bao-mat-thong-tin/` }
   ];
 
   return (
-    <footer id="contact" className="footer footer--enterprise">
-      <div className="footer-banner" aria-hidden="true">
-        <img src="/images/imported/10_Trang-chu_footer.webp" alt="" loading="lazy" />
-      </div>
-      <div className="footer-inner">
-        <div className="footer-main">
-          <div className="footer-brand">
-            <Link className="brand-block footer-brand-block" to="/home">
-              <div className="brand-mark brand-mark--enterprise brand-mark--image">
-                <img src="/images/imported/logo-ngoaingu3k-clean.png" alt="Ngoaingu3k logo" />
-              </div>
-              <div className="brand-copy">
-                <div className="footer-title">{contact.companyName}</div>
-                <p className="footer-text">
-                  {contact.companyDescription}
-                </p>
-              </div>
-            </Link>
-
-            <div className="footer-contact">
-              <a href={`mailto:${contact.email}`}>{contact.email}</a>
-              <a href={`tel:${contact.phone}`}>{contact.phoneDisplay}</a>
-            </div>
-          </div>
-
-          <div className="footer-links">
-            <div>
-              <h3>{ui.quickLinks}</h3>
-              {quickLinks.map((link) => (
-                <Link key={link.to} to={link.to}>
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-            <div>
-              <h3>{ui.platform}</h3>
-              <span>{ui.accountLogin}</span>
-              <span>{ui.onlinePayment}</span>
-              <span>{ui.digitalMaterials}</span>
-              <span>{ui.progressTracking}</span>
-            </div>
-            <div>
-              <h3>{ui.support}</h3>
-              <span>{ui.exercisesAndQuizzes}</span>
-              <span>{ui.dashboardWorkspace}</span>
-              <span>{ui.courseManagement}</span>
-              <span>{ui.progressTracking}</span>
-            </div>
-          </div>
+    <footer id="contact" className="site-footer">
+      <div className="site-footer__inner site-footer__columns">
+        <div>
+          <h3 className="site-footer__heading">Liên hệ</h3>
+          <FooterContactItem
+            icon={footerIcons.phone}
+            label="Hotline"
+            value={contact.phoneDisplay}
+            href={`tel:${contact.phone}`}
+          />
+          <FooterContactItem
+            icon={footerIcons.mail}
+            label="Gửi Email"
+            value={contact.email}
+            href={`mailto:${contact.email}`}
+          />
+          <FooterContactItem icon={footerIcons.location} label="Địa chỉ" value={contact.address} />
         </div>
 
-        <div className="footer-bottom">
-          <span>{contact.copyright}</span>
-          <span>{ui.onlinePlatform}</span>
+        <FooterColumn title="Truy cập nhanh" items={quickAccess} />
+        <FooterColumn title="Khóa học" items={courseLinks} />
+        <FooterColumn title="Chính sách" items={policyLinks} />
+      </div>
+
+      <div className="site-footer__bar">
+        <div className="site-footer__inner site-footer__bar-inner">
+          <p className="site-footer__copyright">{contact.copyright}</p>
+          <div className="site-footer__social">
+            {footerSocials.map((social) => (
+              <a key={social.label} href={social.href} aria-label={social.label} target="_blank" rel="noreferrer">
+                <FooterIcon size={22}>{social.icon}</FooterIcon>
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </footer>

@@ -1,0 +1,214 @@
+/* Footer dựng lại theo đúng footer đang chạy trên ngoaingu3k.com (WordPress +
+   Elementor). Mọi con số dưới đây là giá trị computed đo trực tiếp trên trang
+   thật ở viewport 1905px, không phải ước lượng:
+
+     nền      #1c1e27, container 1140px, khối cột padding 60px 0
+     cột      363 · 216 · 187 · 374 px trong 1140 (≈ 31.85 / 18.95 / 16.4 / 32.8%)
+     tiêu đề  18px/700 trắng, cách dòng đầu 33px
+     link     16px/500 #aeb2c2, cao 29px, bước dòng 41px
+     liên hệ  icon 32px xanh #6acf48 · cách chữ 20px · nhãn 14px #aeb2c2 ·
+              giá trị 16px trắng · gạch chân 1px rgba(255,255,255,.1), cách 20px
+     đáy      cao 91px, viền trên 1px rgba(255,255,255,.1), copyright 16px/500
+              trắng, 4 icon mạng xã hội 22px #aeb2c2 cách nhau 35px
+
+   Footer luôn tối ở cả 2 theme (trang thật không có dark mode) nên màu ở đây
+   cố ý viết cứng, không dùng biến theme. Toàn bộ cỡ chữ để bằng px để không bị
+   kéo theo gốc rem 18px của app — có vậy mới khớp 1:1 với trang thật. */
+
+.site-footer {
+  --footer-bg: #1c1e27;
+  --footer-muted: #aeb2c2;
+  --footer-line: rgba(255, 255, 255, 0.1);
+  --footer-green: #6acf48;
+
+  background: var(--footer-bg);
+  color: var(--footer-muted);
+  font-family: Nunito, ui-sans-serif, system-ui, sans-serif;
+}
+
+.site-footer__inner {
+  width: min(1140px, 100%);
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* ── Khối 4 cột ─────────────────────────────────────────────────────────── */
+/* padding dọc viết bằng longhand để không xoá mất 15px hai bên của
+   .site-footer__inner — hai class này nằm chung một thẻ. */
+.site-footer__columns {
+  display: grid;
+  /* Cột đo trên trang thật: mốc chữ ở x = 398 · 760 · 976 · 1163, tức bề rộng
+     362 · 216 · 187 · 345 trong vùng nội dung 1110px (1140 trừ 15px hai bên). */
+  grid-template-columns: 32.61% 19.46% 16.85% 31.08%;
+  padding-top: 60px;
+  padding-bottom: 60px;
+}
+
+.site-footer__heading {
+  margin: 0 0 33px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.site-footer__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Bước dòng 41px = cao link 29px + 12px cách nhau. */
+.site-footer__list li + li {
+  margin-top: 12px;
+}
+
+.site-footer__link,
+.site-footer__plain {
+  display: inline-block;
+  color: var(--footer-muted);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 29px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.site-footer__link:hover,
+.site-footer__link:focus-visible {
+  color: var(--footer-green);
+}
+
+/* ── Cột liên hệ ────────────────────────────────────────────────────────── */
+.site-footer__contact-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--footer-line);
+}
+
+.site-footer__contact-item + .site-footer__contact-item {
+  margin-top: 20px;
+}
+
+/* Dòng cuối (địa chỉ) trên trang thật không có gạch chân. */
+.site-footer__contact-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.site-footer__contact-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  color: var(--footer-green);
+}
+
+.site-footer__contact-label {
+  display: block;
+  color: var(--footer-muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+.site-footer__contact-value {
+  display: block;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a.site-footer__contact-value:hover,
+a.site-footer__contact-value:focus-visible {
+  color: var(--footer-green);
+}
+
+/* ── Thanh đáy ──────────────────────────────────────────────────────────── */
+.site-footer__bar {
+  border-top: 1px solid var(--footer-line);
+}
+
+.site-footer__bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 91px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.site-footer__copyright {
+  margin: 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.8;
+}
+
+.site-footer__social {
+  display: flex;
+  align-items: center;
+  gap: 35px;
+  flex: 0 0 auto;
+}
+
+.site-footer__social a {
+  display: inline-flex;
+  color: var(--footer-muted);
+  transition: color 0.2s ease;
+}
+
+.site-footer__social a:hover,
+.site-footer__social a:focus-visible {
+  color: var(--footer-green);
+}
+
+.site-footer__social svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ── Thu hẹp ────────────────────────────────────────────────────────────── */
+/* Trang thật gộp 4 cột thành 2 rồi 1; giữ đúng thứ tự cột nên chỉ cần đổi
+   grid-template-columns, không phải sắp lại markup. */
+@media (max-width: 1024px) {
+  .site-footer__columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 40px 24px;
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+}
+
+@media (max-width: 640px) {
+  .site-footer__columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+    padding-top: 40px;
+    padding-bottom: 40px;
+  }
+
+  .site-footer__heading {
+    margin-bottom: 20px;
+  }
+
+  .site-footer__bar-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 0;
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .site-footer__social {
+    gap: 28px;
+  }
+}
