@@ -20,6 +20,7 @@ import {
 import { createEmptyProgress } from '../lib/flashcardStudy';
 import { FlashcardStudy } from './flashcards/FlashcardStudy';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 
 const SAMPLE = `你好\txin chào\n谢谢\tcảm ơn\n再见\ttạm biệt`;
 
@@ -70,7 +71,7 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
   // Vào từ menu "Tạo flashcard" thì cuộn thẳng tới panel này.
   useEffect(() => {
     if (autoFocus && panelRef.current) {
-      panelRef.current.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      scrollIntoViewRespectingMotion(panelRef.current, { block: 'start' });
     }
   }, [autoFocus]);
 
@@ -289,6 +290,7 @@ export default function FlashcardsPage() {
   const [activeSet, setActiveSet] = useState(null);
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
+  const [deleteError, setDeleteError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -368,9 +370,19 @@ export default function FlashcardsPage() {
     if (!window.confirm(`Xóa bộ thẻ "${title}"? Thao tác này không hoàn tác được.`)) {
       return;
     }
-    await deleteFlashcardSet(setId);
-    setActiveSet(null);
-    setReloadKey((value) => value + 1);
+
+    setDeleteError('');
+
+    try {
+      await deleteFlashcardSet(setId);
+      setActiveSet(null);
+      setReloadKey((value) => value + 1);
+    } catch (error) {
+      // Không bắt lỗi thì xóa hỏng cũng im lặng: bộ thẻ vẫn nằm đó và giảng
+      // viên tưởng mình bấm hụt, bấm lại nhiều lần.
+      console.warn('[handleDelete flashcard set]', error?.message || error);
+      setDeleteError(error?.message || `Chưa xóa được bộ thẻ "${title}". Vui lòng thử lại.`);
+    }
   }
 
   if (activeSet) {
@@ -401,6 +413,12 @@ export default function FlashcardsPage() {
           autoFocus={wantsCreate && !loading}
           onSaved={() => setReloadKey((v) => v + 1)}
         />
+      ) : null}
+
+      {deleteError ? (
+        <div className="auth-message auth-message--error" role="alert">
+          {deleteError}
+        </div>
       ) : null}
 
       {loading ? (

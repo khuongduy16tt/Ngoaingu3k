@@ -7,7 +7,8 @@ import {
   filterStudentRoster,
   getPackageStatus,
   getPackageStatusLabel,
-  getStudentRoster
+  getStudentRoster,
+  isDemoRoster
 } from '../lib/studentProgressService';
 import { exportStudentRosterToExcel } from '../lib/reportService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -123,6 +124,7 @@ export default function StudentProgressPage() {
 
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const [search, setSearch] = useState('');
@@ -137,11 +139,26 @@ export default function StudentProgressPage() {
   }, [searchParams]);
 
   async function loadRoster({ silent = false } = {}) {
-    if (!silent) setLoading(true);
-    const rows = await getStudentRoster({ accessToken });
-    setRoster(rows);
-    setLastUpdated(new Date());
-    if (!silent) setLoading(false);
+    if (!silent) {
+      setLoading(true);
+      setLoadError('');
+    }
+
+    try {
+      const rows = await getStudentRoster({ accessToken });
+      setRoster(rows);
+      setLastUpdated(new Date());
+      setLoadError('');
+    } catch (error) {
+      // Thiếu catch thì lần tải đầu kẹt ở "Đang tải..." vĩnh viễn. Lần làm mới
+      // định kỳ hỏng thì giữ nguyên bảng đang hiển thị, không xóa trắng.
+      console.warn('[loadRoster]', error?.message || error);
+      if (!silent) {
+        setLoadError(error?.message || 'Chưa tải được danh sách học viên.');
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -160,6 +177,8 @@ export default function StudentProgressPage() {
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
+
+  const showingDemoRoster = useMemo(() => isDemoRoster(roster), [roster]);
 
   const courseOptions = useMemo(() => {
     const map = new Map();
@@ -327,15 +346,33 @@ export default function StudentProgressPage() {
           ) : null}
         </div>
 
+        {!loading && !loadError && showingDemoRoster ? (
+          <div className="auth-message auth-message--info" role="status">
+            Đây là dữ liệu minh họa, không phải học viên thật — máy chủ chưa trả được danh sách. Số liệu bên
+            dưới chỉ để xem giao diện.
+            <button type="button" className="button-ghost" onClick={() => void loadRoster()}>
+              Tải lại dữ liệu thật
+            </button>
+          </div>
+        ) : null}
+
         {loading ? <p>Đang tải danh sách học sinh...</p> : null}
-        {!loading && roster.length === 0 ? (
+        {!loading && loadError ? (
+          <div className="empty-state">
+            <p role="alert">{loadError}</p>
+            <button type="button" className="button" onClick={() => void loadRoster()}>
+              Thử lại
+            </button>
+          </div>
+        ) : null}
+        {!loading && !loadError && roster.length === 0 ? (
           <p className="empty-state">Chưa có học sinh nào mua khóa học.</p>
         ) : null}
-        {!loading && roster.length > 0 && rosterWithStatus.length === 0 ? (
+        {!loading && !loadError && roster.length > 0 && rosterWithStatus.length === 0 ? (
           <p className="empty-state">Không tìm thấy học sinh phù hợp với bộ lọc hiện tại.</p>
         ) : null}
 
-        {!loading && rosterWithStatus.length > 0 ? (
+        {!loading && !loadError && rosterWithStatus.length > 0 ? (
           <>
             <div className="teacher-student-table-wrap">
               <table className="teacher-student-table">

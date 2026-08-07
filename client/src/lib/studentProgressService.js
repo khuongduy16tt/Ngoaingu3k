@@ -149,6 +149,18 @@ export async function getStudentRoster({ accessToken } = {}) {
   }
 }
 
+// Roster demo trông y hệt dữ liệu thật (tên, email, ngày học đều hợp lý), nên
+// giáo viên không có cách nào biết mình đang xem số liệu bịa. Suy ra từ chính dữ
+// liệu thay vì đổi kiểu trả về của getStudentRoster — học viên thật không bao giờ
+// có studentId bắt đầu bằng "demo-".
+export function isDemoRoster(rows) {
+  return (
+    Array.isArray(rows) &&
+    rows.length > 0 &&
+    rows.every((row) => String(row?.studentId || '').startsWith('demo-'))
+  );
+}
+
 // ─── Thời gian ────────────────────────────────────────────────────────────────
 
 function startOfDay(date) {

@@ -303,25 +303,40 @@ export function StudentDashboardPage() {
   const [ownedCount, setOwnedCount] = useState(0);
   const [stats, setStats] = useState({ averageScore: null, streakDays: 0 });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function load() {
       setLoading(true);
-      const courses = await getCourseCatalog();
-      const nextOwnedIds = await getOwnedCourseIds(auth.user?.id, courses);
-      const nextAssignments = await getAssignmentsForStudent(email, nextOwnedIds);
-      const [lessonProgress, examAttempts] = await Promise.all([
-        getAllLessonProgress({ studentId: auth.user?.id, studentEmail: email }),
-        getExamAttemptsForStudent(auth.user?.id, email)
-      ]);
+      setLoadError('');
 
-      if (active) {
-        setAssignments(nextAssignments);
-        setOwnedCount(nextOwnedIds.length);
-        setStats(buildStudentStats({ lessonProgress, examAttempts }));
-        setLoading(false);
+      try {
+        const courses = await getCourseCatalog();
+        const nextOwnedIds = await getOwnedCourseIds(auth.user?.id, courses);
+        const nextAssignments = await getAssignmentsForStudent(email, nextOwnedIds);
+        const [lessonProgress, examAttempts] = await Promise.all([
+          getAllLessonProgress({ studentId: auth.user?.id, studentEmail: email }),
+          getExamAttemptsForStudent(auth.user?.id, email)
+        ]);
+
+        if (active) {
+          setAssignments(nextAssignments);
+          setOwnedCount(nextOwnedIds.length);
+          setStats(buildStudentStats({ lessonProgress, examAttempts }));
+        }
+      } catch (error) {
+        // Thiếu catch thì bảng điều khiển kẹt ở "Đang tải nhiệm vụ học tập...".
+        console.warn('[StudentDashboardPage load]', error?.message || error);
+        if (active) {
+          setLoadError(error?.message || 'Chưa tải được dữ liệu học tập.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
@@ -330,7 +345,7 @@ export function StudentDashboardPage() {
     return () => {
       active = false;
     };
-  }, [auth.user?.id, email]);
+  }, [auth.user?.id, email, reloadKey]);
 
   const metrics = useMemo(
     () => [
@@ -358,7 +373,15 @@ export function StudentDashboardPage() {
         <div className="content-card content-card--enterprise">
           <h2>Bài học được giao</h2>
           {loading ? <p>Đang tải nhiệm vụ học tập...</p> : null}
-          {!loading && assignments.length === 0 ? (
+          {!loading && loadError ? (
+            <div className="empty-state">
+              <p role="alert">{loadError}</p>
+              <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>
+                Thử lại
+              </button>
+            </div>
+          ) : null}
+          {!loading && !loadError && assignments.length === 0 ? (
             <p className="empty-state">Chưa có nhiệm vụ học tập. Vui lòng liên hệ giảng viên để được cấp quyền.</p>
           ) : null}
           <div className="assignment-list">
@@ -2174,7 +2197,10 @@ export function TeacherDashboardPage() {
             ) : null}
 
             {message.text && !coursePublisherOpen ? (
-              <div className={`auth-message teacher-action-feedback ${message.type === 'success' ? 'auth-message--success' : ''}`}>
+              <div
+                role={message.type === 'success' ? 'status' : 'alert'}
+                className={`auth-message teacher-action-feedback ${message.type === 'success' ? 'auth-message--success' : ''}`}
+              >
                 {message.text}
               </div>
             ) : null}
@@ -2508,7 +2534,10 @@ export function TeacherDashboardPage() {
           </div>
 
           {importMessage.text ? (
-            <div className={`auth-message ${importMessage.type === 'success' ? 'auth-message--success' : importMessage.type === 'error' ? 'auth-message--error' : 'auth-message--info'}`}>
+            <div
+              role={importMessage.type === 'error' ? 'alert' : 'status'}
+              className={`auth-message ${importMessage.type === 'success' ? 'auth-message--success' : importMessage.type === 'error' ? 'auth-message--error' : 'auth-message--info'}`}
+            >
               {importMessage.text}
             </div>
           ) : null}
@@ -3280,7 +3309,10 @@ export function TeacherDashboardPage() {
           </button>
 
           {message.text ? (
-            <div className={`auth-message teacher-submit-feedback ${message.type === 'success' ? 'auth-message--success' : ''}`}>
+            <div
+              role={message.type === 'success' ? 'status' : 'alert'}
+              className={`auth-message teacher-submit-feedback ${message.type === 'success' ? 'auth-message--success' : ''}`}
+            >
               {message.text}
             </div>
           ) : null}
@@ -3418,6 +3450,7 @@ export function AdminDashboardPage() {
     mode: 'local'
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [profileDraft, setProfileDraft] = useState(emptyProfileDraft);
@@ -3458,23 +3491,39 @@ export function AdminDashboardPage() {
 
   async function reloadAdminData() {
     setLoading(true);
-    const [nextData, nextUsers, nextRoster] = await Promise.all([
-      getAdminDashboardData(),
-      getUsersWithPurchaseInfo(),
-      getStudentRoster({ accessToken: auth.session?.access_token }),
-    ]);
-    setAdminData(nextData);
-    setPermissionDraft(nextData.rolePermissions);
-    setUsersWithOrders(nextUsers);
-    setStudentRoster(nextRoster);
-    setLoading(false);
+    setLoadError('');
+
+    try {
+      const [nextData, nextUsers, nextRoster] = await Promise.all([
+        getAdminDashboardData(),
+        getUsersWithPurchaseInfo(),
+        getStudentRoster({ accessToken: auth.session?.access_token }),
+      ]);
+      setAdminData(nextData);
+      setPermissionDraft(nextData.rolePermissions);
+      setUsersWithOrders(nextUsers);
+      setStudentRoster(nextRoster);
+    } catch (error) {
+      // Thiếu catch thì bảng quản trị kẹt ở màn "Đang tải..." vĩnh viễn.
+      console.warn('[reloadAdminData]', error?.message || error);
+      setLoadError(error?.message || 'Chưa tải được dữ liệu quản trị.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadActivityLogs() {
     setActivityLoading(true);
-    const logs = await getActivityLogs(null, { limit: 200 });
-    setActivityLogs(logs);
-    setActivityLoading(false);
+
+    try {
+      const logs = await getActivityLogs(null, { limit: 200 });
+      setActivityLogs(logs);
+    } catch (error) {
+      console.warn('[loadActivityLogs]', error?.message || error);
+      setActivityLogs([]);
+    } finally {
+      setActivityLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -4144,6 +4193,20 @@ export function AdminDashboardPage() {
       description="Tổng hợp dữ liệu giảng viên, học viên, khóa học, bài học và quyền hệ thống trong một nơi."
       metrics={metrics}
     >
+      {/* Tải hỏng thì các bảng bên dưới rỗng trông y hệt "chưa có dữ liệu" —
+          phải nói rõ là lỗi và cho đường tải lại. */}
+      {!loading && loadError ? (
+        <section className="content-card content-card--enterprise">
+          <span className="eyebrow">Lỗi tải dữ liệu</span>
+          <h2>Chưa tải được dữ liệu quản trị</h2>
+          <p role="alert">{loadError}</p>
+          <p>Các bảng bên dưới đang trống vì chưa lấy được dữ liệu, không phải vì hệ thống không có dữ liệu.</p>
+          <button type="button" className="button" onClick={() => void reloadAdminData()}>
+            Thử lại
+          </button>
+        </section>
+      ) : null}
+
       {/* ── Tab Navigation ── */}
       <section className="section">
         <div className="admin-tabs-nav" role="tablist" aria-label="Điều hướng quản trị">
@@ -4181,7 +4244,10 @@ export function AdminDashboardPage() {
           </div>
 
           {message.text ? (
-            <div className={`auth-message ${message.type === 'success' ? 'auth-message--success' : message.type === 'error' ? 'auth-message--error' : ''}`}>
+            <div
+              role={message.type === 'error' ? 'alert' : 'status'}
+              className={`auth-message ${message.type === 'success' ? 'auth-message--success' : message.type === 'error' ? 'auth-message--error' : ''}`}
+            >
               {message.text}
             </div>
           ) : null}
@@ -4595,7 +4661,10 @@ export function AdminDashboardPage() {
         </div>
 
         {message.text ? (
-          <div className={`auth-message ${message.type === 'success' ? 'auth-message--success' : ''}`}>
+          <div
+            role={message.type === 'success' ? 'status' : 'alert'}
+            className={`auth-message ${message.type === 'success' ? 'auth-message--success' : ''}`}
+          >
             {message.text}
           </div>
         ) : null}

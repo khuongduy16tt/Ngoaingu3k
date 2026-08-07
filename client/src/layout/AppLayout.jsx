@@ -34,7 +34,9 @@ export function AppLayout({ children }) {
   if (immersive) {
     return (
       <div className="app-shell app-shell--immersive">
-        <main className="site-frame site-main">{children}</main>
+        <main id="main-content" tabIndex={-1} className="site-frame site-main">
+          {children}
+        </main>
         <div className="background-accent background-accent--blue" aria-hidden="true" />
         <div className="background-accent background-accent--violet" aria-hidden="true" />
       </div>
@@ -43,8 +45,15 @@ export function AppLayout({ children }) {
 
   return (
     <div className="app-shell">
+      {/* Nav có nhiều tầng dropdown; không có lối tắt này thì mỗi lần đổi trang
+          người dùng bàn phím phải tab qua toàn bộ menu mới tới nội dung. */}
+      <a className="skip-link" href="#main-content">
+        Bỏ qua điều hướng, tới nội dung chính
+      </a>
       <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} />
-      <main className="site-frame site-main">{children}</main>
+      <main id="main-content" tabIndex={-1} className="site-frame site-main">
+        {children}
+      </main>
       <Footer />
       <FloatingTestButton />
       <ConsultationFab />

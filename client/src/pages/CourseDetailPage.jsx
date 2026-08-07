@@ -25,6 +25,8 @@ export default function CourseDetailPage() {
   const [course, setCourse] = useState(null);
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [purchasing, setPurchasing] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
@@ -41,16 +43,29 @@ export default function CourseDetailPage() {
 
     async function loadCourse() {
       setLoading(true);
-      // Trang này chỉ liệt kê chương và bài, không làm bài — xin bản không kèm
-      // ngân hàng câu hỏi để khỏi tải cả bộ đề của toàn khóa.
-      const nextCourse = await getCourseBySlug(courseId, { summaryOnly: true });
-      const nextOwnedIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
+      setLoadError('');
 
-      if (alive) {
-        setCourse(nextCourse);
-        setOwnedCourseIds(nextOwnedIds);
-        setPaymentOrder(nextCourse ? getPendingCoursePaymentOrder(auth.user?.id, nextCourse.id) || null : null);
-        setLoading(false);
+      try {
+        // Trang này chỉ liệt kê chương và bài, không làm bài — xin bản không kèm
+        // ngân hàng câu hỏi để khỏi tải cả bộ đề của toàn khóa.
+        const nextCourse = await getCourseBySlug(courseId, { summaryOnly: true });
+        const nextOwnedIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
+
+        if (alive) {
+          setCourse(nextCourse);
+          setOwnedCourseIds(nextOwnedIds);
+          setPaymentOrder(nextCourse ? getPendingCoursePaymentOrder(auth.user?.id, nextCourse.id) || null : null);
+        }
+      } catch (error) {
+        // Thiếu catch thì trang kẹt ở màn "Đang tải thông tin khóa học...".
+        console.warn('[loadCourse]', error?.message || error);
+        if (alive) {
+          setLoadError(error?.message || 'Chưa tải được thông tin khóa học.');
+        }
+      } finally {
+        if (alive) {
+          setLoading(false);
+        }
       }
     }
 
@@ -59,7 +74,7 @@ export default function CourseDetailPage() {
     return () => {
       alive = false;
     };
-  }, [auth.ready, auth.user?.id, courseId]);
+  }, [auth.ready, auth.user?.id, courseId, reloadKey]);
 
   const isOwned = course ? ownedCourseIds.includes(course.id) : false;
   const courseSections = useMemo(() => course?.sections || [], [course?.sections]);
@@ -172,6 +187,28 @@ export default function CourseDetailPage() {
     );
   }
 
+  // Đặt trước nhánh !course: tải hỏng thì course cũng null, mà báo "không tồn
+  // tại" cho một khóa vẫn còn là sai và làm người dùng bỏ đi.
+  if (loadError) {
+    return (
+      <div className="page">
+        <section className="content-card content-card--enterprise marketplace-empty">
+          <span className="eyebrow">Lỗi tải dữ liệu</span>
+          <h3>Chưa tải được thông tin khóa học</h3>
+          <p role="alert">{loadError}</p>
+          <div className="marketplace-hero__actions">
+            <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>
+              Thử lại
+            </button>
+            <Link className="button-ghost" to="/courses">
+              Quay lại danh mục
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   if (!course) {
     return (
       <div className="page">
@@ -242,7 +279,7 @@ export default function CourseDetailPage() {
           </Link>
 
           {feedback ? (
-            <div className="inline-feedback course-detail__feedback">
+            <div className="inline-feedback course-detail__feedback" role="status">
               {feedback}
             </div>
           ) : null}

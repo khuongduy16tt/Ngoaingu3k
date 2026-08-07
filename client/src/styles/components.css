@@ -2066,6 +2066,22 @@
   font-size: 0.76rem !important;
 }
 
+/* Cụm nút import của giáo viên cố tình nhỏ để danh sách bài dài vẫn nhìn được
+   trên màn desktop. Nhưng 30px (và nút ✕ 24px) là quá nhỏ cho ngón tay, nên chỉ
+   nới ra khi thiết bị dùng con trỏ thô — giữ nguyên bố cục dày trên chuột. */
+@media (pointer: coarse) {
+  .import-lesson-section__action {
+    min-height: 44px !important;
+  }
+
+  .import-lesson-pill__remove {
+    width: 44px;
+    height: 44px;
+    top: 0;
+    right: 0;
+  }
+}
+
 .import-lesson-section__action--danger:hover {
   color: var(--error) !important;
   border-color: color-mix(in srgb, var(--error) 45%, transparent) !important;
@@ -2971,6 +2987,20 @@
 .lesson-lock__chips {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.lesson-lock__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.not-found__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.6rem;
 }
 

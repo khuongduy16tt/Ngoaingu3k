@@ -10,6 +10,7 @@ import {
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 import { PaymentInstructions } from '../components/PaymentInstructions';
 
 const roleLabels = {
@@ -137,7 +138,9 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
         </div>
 
         {feedback.text && feedback.courseId === course.id ? (
-          <div className="inline-feedback marketplace-card__feedback">{feedback.text}</div>
+          <div className="inline-feedback marketplace-card__feedback" role="status">
+            {feedback.text}
+          </div>
         ) : null}
       </div>
     </article>
@@ -205,6 +208,8 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState([]);
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [purchasingCourseId, setPurchasingCourseId] = useState('');
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
@@ -220,13 +225,27 @@ export default function CoursesPage() {
 
     async function loadMarketplace() {
       setLoading(true);
-      const nextCourses = await getCourseCatalog();
-      const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, nextCourses);
+      setLoadError('');
 
-      if (alive) {
-        setCourses(nextCourses);
-        setOwnedCourseIds(nextOwnedCourseIds);
-        setLoading(false);
+      try {
+        const nextCourses = await getCourseCatalog();
+        const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, nextCourses);
+
+        if (alive) {
+          setCourses(nextCourses);
+          setOwnedCourseIds(nextOwnedCourseIds);
+        }
+      } catch (error) {
+        // Thiếu catch thì setLoading(false) không chạy, trang kẹt ở "Đang tải..."
+        // vĩnh viễn mà không báo gì.
+        console.warn('[loadMarketplace]', error?.message || error);
+        if (alive) {
+          setLoadError(error?.message || 'Chưa tải được danh mục khóa học.');
+        }
+      } finally {
+        if (alive) {
+          setLoading(false);
+        }
       }
     }
 
@@ -235,7 +254,7 @@ export default function CoursesPage() {
     return () => {
       alive = false;
     };
-  }, [auth.ready, auth.user?.id]);
+  }, [auth.ready, auth.user?.id, reloadKey]);
 
   useEffect(() => {
     if (loading || !location.hash) {
@@ -243,7 +262,7 @@ export default function CoursesPage() {
     }
 
     const target = document.getElementById(location.hash.slice(1));
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollIntoViewRespectingMotion(target, { block: 'start' });
   }, [loading, location.hash]);
 
   const ownedCourseIdSet = useMemo(() => new Set(ownedCourseIds), [ownedCourseIds]);
@@ -384,6 +403,15 @@ export default function CoursesPage() {
 
         {loading ? (
           <p className="empty-state">Đang tải danh mục khóa học...</p>
+        ) : loadError ? (
+          <section className="content-card content-card--enterprise marketplace-empty">
+            <span className="eyebrow">Lỗi tải dữ liệu</span>
+            <h3>Chưa tải được danh mục khóa học</h3>
+            <p role="alert">{loadError}</p>
+            <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>
+              Thử lại
+            </button>
+          </section>
         ) : (
           <div className="marketplace-program-groups">
             <CourseGroupSection

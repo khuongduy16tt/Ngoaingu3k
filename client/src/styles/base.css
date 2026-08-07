@@ -111,3 +111,35 @@ input,
 select {
   font: inherit;
 }
+
+/* Lối tắt cho người dùng bàn phím: ẩn cho tới khi được focus, lúc đó trượt vào
+   góc trên bên trái. z-index phải cao hơn header dán trên cùng (9999). */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  padding: 0.75rem 1.25rem;
+  color: var(--button-text);
+  background: var(--button-bg);
+  border: 1px solid var(--button-border);
+  border-radius: 0 0 0.75rem 0;
+  font-weight: 700;
+  transform: translateY(-120%);
+  transition: transform 0.16s ease;
+}
+
+/* Dùng :focus chứ không phải :focus-visible: link này nằm ngoài màn hình nên chỉ
+   tới được bằng bàn phím, mà :focus-visible còn tuỳ heuristic của trình duyệt —
+   đoán trượt một lần là link không bao giờ hiện ra. */
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Đích của skip link nhận focus bằng mã, không phải do người dùng tab tới —
+   viền focus quanh cả vùng nội dung ở đây chỉ gây nhiễu. */
+.site-main:focus {
+  outline: none;
+}

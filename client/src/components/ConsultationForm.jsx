@@ -104,6 +104,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
 
       {message ? (
         <div
+          role={status === 'error' ? 'alert' : 'status'}
           className={`auth-message hero__consult-message ${
             status === 'success' ? 'auth-message--success' : status === 'error' ? 'auth-message--error' : ''
           }`}

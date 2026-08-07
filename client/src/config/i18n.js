@@ -33,6 +33,7 @@ export const ui = {
   // Misc
   pageNotFound: 'Không tìm thấy trang',
   goHome: 'Về trang chủ',
+  goBack: 'Quay lại trang trước',
   testPageTitle: 'Bài test',
   testPageMessage: 'Trang bài test đang được chuẩn bị.',
 

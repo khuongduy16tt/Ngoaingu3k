@@ -487,6 +487,7 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
   const [exams, setExams] = useState([]);
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [view, setView] = useState('list'); // list | edit
   const [draft, setDraft] = useState(() => createEmptyDraft());
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -501,11 +502,20 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
 
   async function reload() {
     setLoading(true);
-    const nextExams = await getExamsForTeacher(teacherId);
-    const nextAttempts = await getExamAttemptsForExams(nextExams.map((exam) => exam.id));
-    setExams(nextExams);
-    setAttempts(nextAttempts);
-    setLoading(false);
+    setLoadError('');
+
+    try {
+      const nextExams = await getExamsForTeacher(teacherId);
+      const nextAttempts = await getExamAttemptsForExams(nextExams.map((exam) => exam.id));
+      setExams(nextExams);
+      setAttempts(nextAttempts);
+    } catch (error) {
+      // Thiếu catch thì panel kẹt ở "Đang tải đề thi..." vĩnh viễn.
+      console.warn('[TeacherExamPanel reload]', error?.message || error);
+      setLoadError(error?.message || 'Chưa tải được danh sách đề thi.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -724,6 +734,7 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
 
       {message.text ? (
         <div
+          role={message.type === 'error' ? 'alert' : 'status'}
           className={`auth-message ${
             message.type === 'success' ? 'auth-message--success' : message.type === 'error' ? 'auth-message--error' : ''
           }`}
@@ -876,6 +887,13 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
         <>
           {loading ? (
             <p className="empty-state">Đang tải đề thi...</p>
+          ) : loadError ? (
+            <div className="empty-state">
+              <p role="alert">{loadError}</p>
+              <button type="button" className="button" onClick={() => void reload()}>
+                Thử lại
+              </button>
+            </div>
           ) : exams.length ? (
             <div className="exam-manager__list">
               {exams.map((exam) => {

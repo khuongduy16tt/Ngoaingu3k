@@ -47,6 +47,35 @@ function isValidPhone(value) {
   return digitCount >= 9 && digitCount <= 15;
 }
 
+// Supabase trả lỗi bằng tiếng Anh ("Invalid login credentials"), trước đây hiện
+// thẳng ra cho học viên. Dịch sang tiếng Việt kèm cách xử lý; chuỗi lạ chưa có
+// trong bảng thì rơi về câu mặc định thay vì lộ nguyên văn tiếng Anh.
+const authErrorMessages = [
+  [/invalid login credentials/i, 'Email hoặc mật khẩu không đúng. Kiểm tra lại, hoặc bấm "Quên?" để đặt lại mật khẩu.'],
+  [/email not confirmed/i, 'Email chưa được xác nhận. Mở hộp thư và bấm liên kết xác nhận rồi đăng nhập lại.'],
+  [/user already registered|already been registered/i, 'Email này đã có tài khoản. Hãy đăng nhập, hoặc dùng "Quên?" nếu bạn không nhớ mật khẩu.'],
+  [/password should be at least (\d+)/i, 'Mật khẩu quá ngắn — cần ít nhất $1 ký tự.'],
+  [/unable to validate email address|invalid format/i, 'Địa chỉ email không hợp lệ. Kiểm tra lại phần trước và sau dấu @.'],
+  [/only request this after (\d+) seconds/i, 'Bạn vừa gửi một yêu cầu. Vui lòng đợi $1 giây rồi thử lại.'],
+  [/rate limit|too many requests/i, 'Bạn đã thử quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.'],
+  [/signups? (is |are )?disabled/i, 'Hệ thống đang tạm ngưng đăng ký tài khoản mới. Vui lòng liên hệ trung tâm để được hỗ trợ.'],
+  [/token has expired|invalid token/i, 'Liên kết đã hết hạn. Hãy yêu cầu gửi lại email đặt lại mật khẩu.'],
+  [/failed to fetch|network ?request ?failed|networkerror/i, 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.']
+];
+
+function toVietnameseAuthError(error, fallback) {
+  const raw = typeof error === 'string' ? error : error?.message || '';
+
+  for (const [pattern, translated] of authErrorMessages) {
+    const match = raw.match(pattern);
+    if (match) {
+      return translated.replace(/\$(\d)/g, (_, group) => match[Number(group)] ?? '');
+    }
+  }
+
+  return fallback;
+}
+
 export default function AuthPage() {
   usePageTitle('Đăng nhập');
   const auth = useAuth();
@@ -59,6 +88,7 @@ export default function AuthPage() {
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState(() => getAuthModeFromSearch(location.search));
   const [message, setMessage] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const redirectTo = location.state?.from || '/dashboard';
 
@@ -153,7 +183,12 @@ export default function AuthPage() {
         }
       }
     } catch (error) {
-      setMessage(error.message || 'Đăng nhập chưa thành công.');
+      setMessage(
+        toVietnameseAuthError(
+          error,
+          isSignUp ? 'Chưa tạo được tài khoản. Vui lòng thử lại.' : 'Đăng nhập chưa thành công. Vui lòng thử lại.'
+        )
+      );
     } finally {
       setBusy(false);
     }
@@ -170,7 +205,7 @@ export default function AuthPage() {
 
     const result = await auth.signInWithGoogle();
     if (result?.error) {
-      setMessage(result.error.message);
+      setMessage(toVietnameseAuthError(result.error, 'Chưa kết nối được với Google. Vui lòng thử lại.'));
       setBusy(false);
       return;
     }
@@ -218,7 +253,7 @@ export default function AuthPage() {
 
       navigate(redirectTo, { replace: true });
     } catch (error) {
-      setMessage(error.message || 'Chưa thể cập nhật hồ sơ. Vui lòng thử lại.');
+      setMessage(toVietnameseAuthError(error, 'Chưa thể cập nhật hồ sơ. Vui lòng thử lại.'));
     } finally {
       setBusy(false);
     }
@@ -235,7 +270,7 @@ export default function AuthPage() {
 
     const result = await auth.sendPasswordReset(email);
     if (result?.error) {
-      setMessage(result.error.message);
+      setMessage(toVietnameseAuthError(result.error, 'Chưa gửi được email đặt lại mật khẩu. Vui lòng thử lại.'));
     } else {
       setMessage('Email đặt lại mật khẩu đã được gửi.');
     }
@@ -254,7 +289,11 @@ export default function AuthPage() {
               <p>Tài khoản cần có họ tên, email và số điện thoại trước khi vào khu học tập.</p>
             </div>
 
-            {message ? <div className="auth-message">{message}</div> : null}
+            {message ? (
+              <div className="auth-message" role="alert">
+                {message}
+              </div>
+            ) : null}
 
             <div className="auth-fields">
               <label className="auth-field">
@@ -373,13 +412,17 @@ export default function AuthPage() {
           {/* Giải thích vì sao đang học thì bị đẩy về đây: mỗi tài khoản học
               viên chỉ dùng được trên một thiết bị. */}
           {auth.deviceKickedOut ? (
-            <div className="auth-message auth-message--error">
+            <div className="auth-message auth-message--error" role="alert">
               Tài khoản của bạn vừa đăng nhập trên một thiết bị khác nên thiết bị này đã đăng xuất. Mỗi tài
               khoản chỉ học được trên một thiết bị — đăng nhập lại để tiếp tục.
             </div>
           ) : null}
 
-          {message ? <div className="auth-message">{message}</div> : null}
+          {message ? (
+            <div className="auth-message" role="alert">
+              {message}
+            </div>
+          ) : null}
 
           <div className="auth-fields">
             {isSignUp ? (
@@ -414,6 +457,7 @@ export default function AuthPage() {
                 placeholder="student@example.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
               />
             </label>
 
@@ -424,12 +468,24 @@ export default function AuthPage() {
                   Quên?
                 </button>
               </span>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              <div className="auth-field__password">
+                <input
+                  type={passwordVisible ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                />
+                <button
+                  type="button"
+                  className="auth-field__password-toggle"
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                  aria-label={passwordVisible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-pressed={passwordVisible}
+                >
+                  {passwordVisible ? 'Ẩn' : 'Hiện'}
+                </button>
+              </div>
             </label>
           </div>
 

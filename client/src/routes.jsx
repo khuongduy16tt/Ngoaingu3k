@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './providers/AuthProvider';
 import { getDashboardPathForRole, getEffectiveRole } from './lib/permissions';
 import { ui } from './config/i18n';
@@ -70,12 +70,20 @@ function DashboardRedirect() {
 
 function NotFoundPage() {
   usePageTitle(ui.pageNotFound);
+  const navigate = useNavigate();
+
   return (
     <div className="page centered">
       <h1>{ui.pageNotFound}</h1>
-      <a className="button" href="/home">
-        {ui.goHome}
-      </a>
+      <div className="not-found__actions">
+        {/* <a href> ở đây nạp lại cả SPA và mất state; Link giữ nguyên phiên. */}
+        <Link className="button" to="/home">
+          {ui.goHome}
+        </Link>
+        <button type="button" className="button-ghost" onClick={() => navigate(-1)}>
+          {ui.goBack}
+        </button>
+      </div>
     </div>
   );
 }

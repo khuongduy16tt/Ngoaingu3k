@@ -57,6 +57,8 @@ export default function ExamsPage() {
   const [exams, setExams] = useState([]);
   const [attemptsByExam, setAttemptsByExam] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -67,34 +69,46 @@ export default function ExamsPage() {
 
     async function load() {
       setLoading(true);
+      setLoadError('');
 
       const userId = auth.user?.id || '';
       const email = auth.user?.email || '';
 
-      let nextExams = [];
-      if (role === 'admin') {
-        nextExams = await getAllExams();
-      } else if (role === 'teacher') {
-        nextExams = await getExamsForTeacher(userId);
-      } else {
-        // Cần catalog để map uuid ↔ slug: orders lưu uuid còn course_key của đề
-        // thường là slug, thiếu map thì đề "mua khóa" bị ẩn trên thiết bị mới.
-        const ownedCourseIds = await getOwnedCourseIds(userId, await getCourseCatalog());
-        nextExams = await getExamsForStudent(email, ownedCourseIds);
+      try {
+        let nextExams = [];
+        if (role === 'admin') {
+          nextExams = await getAllExams();
+        } else if (role === 'teacher') {
+          nextExams = await getExamsForTeacher(userId);
+        } else {
+          // Cần catalog để map uuid ↔ slug: orders lưu uuid còn course_key của đề
+          // thường là slug, thiếu map thì đề "mua khóa" bị ẩn trên thiết bị mới.
+          const ownedCourseIds = await getOwnedCourseIds(userId, await getCourseCatalog());
+          nextExams = await getExamsForStudent(email, ownedCourseIds);
+        }
+
+        const attempts = await getExamAttemptsForStudent(userId, email);
+
+        if (!alive) return;
+
+        const attemptMap = {};
+        attempts.forEach((attempt) => {
+          attemptMap[attempt.examId] = attempt;
+        });
+
+        setExams(nextExams);
+        setAttemptsByExam(attemptMap);
+      } catch (error) {
+        // Thiếu catch thì trang kẹt ở "Đang tải danh sách đề thi..." vĩnh viễn.
+        console.warn('[ExamsPage load]', error?.message || error);
+        if (alive) {
+          setLoadError(error?.message || 'Chưa tải được danh sách đề thi.');
+        }
+      } finally {
+        if (alive) {
+          setLoading(false);
+        }
       }
-
-      const attempts = await getExamAttemptsForStudent(userId, email);
-
-      if (!alive) return;
-
-      const attemptMap = {};
-      attempts.forEach((attempt) => {
-        attemptMap[attempt.examId] = attempt;
-      });
-
-      setExams(nextExams);
-      setAttemptsByExam(attemptMap);
-      setLoading(false);
     }
 
     void load();
@@ -102,7 +116,7 @@ export default function ExamsPage() {
     return () => {
       alive = false;
     };
-  }, [auth.ready, auth.user?.id, auth.user?.email, role]);
+  }, [auth.ready, auth.user?.id, auth.user?.email, role, reloadKey]);
 
   return (
     <div className="page exams-page">
@@ -120,6 +134,15 @@ export default function ExamsPage() {
 
       {loading ? (
         <p className="empty-state">Đang tải danh sách đề thi...</p>
+      ) : loadError ? (
+        <section className="content-card content-card--enterprise marketplace-empty">
+          <span className="eyebrow">Lỗi tải dữ liệu</span>
+          <h3>Chưa tải được danh sách đề thi</h3>
+          <p role="alert">{loadError}</p>
+          <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>
+            Thử lại
+          </button>
+        </section>
       ) : exams.length ? (
         <div className="exam-card-grid">
           {exams.map((exam) => (
@@ -132,9 +155,22 @@ export default function ExamsPage() {
           <h3>{role === 'student' ? 'Bạn chưa được giao đề thi nào.' : 'Bạn chưa tạo đề thi nào.'}</h3>
           <p>
             {role === 'student'
-              ? 'Khi giảng viên giao đề thi thử, đề sẽ xuất hiện tại đây.'
+              ? 'Khi giảng viên giao đề thi thử, đề sẽ xuất hiện tại đây. Trong lúc chờ, bạn có thể luyện tiếp trong phòng học.'
               : 'Mở bảng điều khiển giảng viên để tạo đề thi đầu tiên.'}
           </p>
+          {/* Trạng thái rỗng trước đây chỉ có chữ: bảo giáo viên "mở bảng điều
+              khiển" nhưng không có chỗ nào bấm để mở. */}
+          <div className="marketplace-hero__actions">
+            {role === 'student' ? (
+              <Link className="button" to="/learn">
+                Vào phòng học
+              </Link>
+            ) : (
+              <Link className="button" to={role === 'admin' ? '/dashboard/admin' : '/dashboard/teacher'}>
+                Mở bảng điều khiển
+              </Link>
+            )}
+          </div>
         </section>
       )}
     </div>

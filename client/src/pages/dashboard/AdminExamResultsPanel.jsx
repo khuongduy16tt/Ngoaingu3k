@@ -6,14 +6,24 @@ export function AdminExamResultsPanel() {
   const [exams, setExams] = useState([]);
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [examFilter, setExamFilter] = useState('all');
 
   async function reload() {
     setLoading(true);
-    const [nextExams, nextAttempts] = await Promise.all([getAllExams(), getAllExamAttempts()]);
-    setExams(nextExams);
-    setAttempts(nextAttempts);
-    setLoading(false);
+    setLoadError('');
+
+    try {
+      const [nextExams, nextAttempts] = await Promise.all([getAllExams(), getAllExamAttempts()]);
+      setExams(nextExams);
+      setAttempts(nextAttempts);
+    } catch (error) {
+      // Thiếu catch thì panel kẹt ở "Đang tải dữ liệu đề thi..." vĩnh viễn.
+      console.warn('[AdminExamResultsPanel reload]', error?.message || error);
+      setLoadError(error?.message || 'Chưa tải được dữ liệu đề thi.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -79,6 +89,13 @@ export function AdminExamResultsPanel() {
 
       {loading ? (
         <p className="empty-state">Đang tải dữ liệu đề thi...</p>
+      ) : loadError ? (
+        <div className="empty-state">
+          <p role="alert">{loadError}</p>
+          <button type="button" className="button" onClick={() => void reload()}>
+            Thử lại
+          </button>
+        </div>
       ) : (
         <>
           <div className="admin-table-wrap">

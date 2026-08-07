@@ -16,6 +16,7 @@ import {
   scoreExamQuestion
 } from '../lib/examService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 
 const TICK_MS = 500;
 
@@ -308,11 +309,15 @@ export default function ExamRoomPage() {
   const [deadline, setDeadline] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const autoSubmittedRef = useRef(false);
   const sectionTimesRef = useRef({});
   const sectionStartedAtRef = useRef(null);
   const startedAtRef = useRef('');
   const finishingRef = useRef(false);
+  // Bài làm của lần nộp đang chờ lưu — giữ lại để bấm "Thử lưu lại" không phải
+  // làm lại đề từ đầu khi lần lưu trước hỏng.
+  const pendingSubmissionRef = useRef(null);
 
   const studentId = auth.user?.id || '';
   const studentEmail = auth.user?.email || '';
@@ -397,9 +402,10 @@ export default function ExamRoomPage() {
     return () => clearInterval(intervalId);
   }, [phase, deadline]);
 
-  // Warn before leaving mid-exam.
+  // Warn before leaving mid-exam — và cả khi bài đã nộp nhưng lưu hỏng, vì lúc
+  // đó đóng tab là mất bài làm đang chờ lưu lại.
   useEffect(() => {
-    if (phase !== 'room') {
+    if (phase !== 'room' && !saveError) {
       return undefined;
     }
 
@@ -410,7 +416,7 @@ export default function ExamRoomPage() {
 
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [phase]);
+  }, [phase, saveError]);
 
   function startExam() {
     startedAtRef.current = new Date().toISOString();
@@ -426,29 +432,49 @@ export default function ExamRoomPage() {
   async function finishExam(finalAnswers, wasAutoSubmitted) {
     if (finishingRef.current) return;
     finishingRef.current = true;
+    pendingSubmissionRef.current = { finalAnswers, wasAutoSubmitted };
+    setSaveError('');
     setPhase('saving');
 
-    const result = scoreExamAnswers(exam.sections, finalAnswers);
-    const sectionScores = result.sectionScores.map((section) => ({
-      ...section,
-      timeSpentSeconds: sectionTimesRef.current[section.sectionId] || 0
-    }));
+    try {
+      // Chấm điểm cũng phải nằm trong try: đề hỏng cấu trúc thì scoreExamAnswers
+      // ném lỗi ngay tại đây, và bên ngoài try thì vẫn kẹt màn "đang lưu".
+      const result = scoreExamAnswers(exam.sections, finalAnswers);
+      const sectionScores = result.sectionScores.map((section) => ({
+        ...section,
+        timeSpentSeconds: sectionTimesRef.current[section.sectionId] || 0
+      }));
 
-    const savedAttempt = await saveExamAttempt({
-      examId: exam.id,
-      studentId,
-      studentEmail,
-      answers: finalAnswers,
-      sectionScores,
-      score: result.score,
-      maxScore: result.maxScore,
-      status: wasAutoSubmitted ? 'auto_submitted' : 'submitted',
-      startedAt: startedAtRef.current
-    });
+      const savedAttempt = await saveExamAttempt({
+        examId: exam.id,
+        studentId,
+        studentEmail,
+        answers: finalAnswers,
+        sectionScores,
+        score: result.score,
+        maxScore: result.maxScore,
+        status: wasAutoSubmitted ? 'auto_submitted' : 'submitted',
+        startedAt: startedAtRef.current
+      });
 
-    setAttempt(savedAttempt);
-    setPhase('result');
-    finishingRef.current = false;
+      pendingSubmissionRef.current = null;
+      setAttempt(savedAttempt);
+      setPhase('result');
+    } catch (error) {
+      // Không bắt lỗi ở đây thì màn "đang lưu" quay mãi và finishingRef kẹt ở
+      // true — thí sinh vừa thi xong mất trắng bài, không có cách nào nộp lại.
+      console.warn('[finishExam]', error?.message || error);
+      setSaveError(error?.message || 'Chưa lưu được bài thi. Vui lòng kiểm tra kết nối mạng rồi thử lại.');
+    } finally {
+      finishingRef.current = false;
+    }
+  }
+
+  function retrySaveExam() {
+    const pending = pendingSubmissionRef.current;
+    if (!pending) return;
+
+    void finishExam(pending.finalAnswers, pending.wasAutoSubmitted);
   }
 
   function endCurrentSection(wasAutoSubmitted) {
@@ -492,7 +518,7 @@ export default function ExamRoomPage() {
   }
 
   function jumpToQuestion(questionId) {
-    document.getElementById(`exam-question-${questionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollIntoViewRespectingMotion(document.getElementById(`exam-question-${questionId}`), { block: 'center' });
   }
 
   // ─── Render phases ───────────────────────────────────────────────────────────
@@ -569,7 +595,21 @@ export default function ExamRoomPage() {
   if (phase === 'saving') {
     return (
       <div className="page centered exam-room-page">
-        <p>Đang chấm và lưu bài thi...</p>
+        {saveError ? (
+          <div className="exam-lobby__card">
+            <h1>Chưa lưu được bài thi</h1>
+            <p role="alert">{saveError}</p>
+            <p>
+              Bài làm vẫn còn nguyên trong phiên thi này. Đừng đóng hoặc tải lại tab — hãy bấm thử lại khi
+              mạng đã ổn định.
+            </p>
+            <button type="button" className="button" onClick={retrySaveExam}>
+              Thử lưu lại
+            </button>
+          </div>
+        ) : (
+          <p>Đang chấm và lưu bài thi...</p>
+        )}
       </div>
     );
   }

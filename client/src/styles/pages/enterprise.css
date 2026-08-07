@@ -1228,10 +1228,13 @@ textarea:focus-visible {
   gap: 8px;
 }
 
+/* 44px là ngưỡng vùng chạm tối thiểu (Apple HIG / Material 48dp). Đáp án trong
+   .exercise-options đã được nâng riêng ở cuối file; ở đây nâng nốt tab bài tập
+   và filter pill — đây vẫn là nút bấm bằng ngón tay trên mobile. */
 .answer-pill,
 .exercise-tab,
 .marketplace-filter-pill {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 12px;
   color: var(--muted);
   background: var(--surface) !important;
@@ -2123,6 +2126,40 @@ textarea:focus-visible {
 .lesson-input[rows] {
   min-height: 110px;
   resize: vertical;
+}
+
+/* Ô mật khẩu + nút hiện/ẩn nằm chồng bên phải, chừa padding cho chữ khỏi chui
+   xuống dưới nút. Nút cao hết chiều cao ô (44px) để đủ vùng chạm. */
+/* Dời margin-top của input lên wrapper, nếu không thì wrapper cao hơn input
+   6px và nút (top:0/bottom:0) thò lên khỏi khung ô. */
+.auth-field__password {
+  position: relative;
+  margin-top: 0.35rem;
+}
+
+.auth-field__password input {
+  margin-top: 0;
+  padding-right: 68px;
+}
+
+.auth-field__password-toggle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 4px;
+  padding: 0 12px;
+  color: var(--accent);
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-field__password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .auth-link {

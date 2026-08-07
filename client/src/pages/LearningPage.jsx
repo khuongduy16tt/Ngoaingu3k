@@ -3230,7 +3230,10 @@ export default function LearningPage() {
 
                   <div style={{ paddingTop: '1.5rem' }}>
                     {teacherSaveStatus.text ? (
-                      <div className={`auth-message ${teacherSaveStatus.type === 'success' ? 'auth-message--success' : ''}`}>
+                      <div
+                        role={teacherSaveStatus.type === 'success' ? 'status' : 'alert'}
+                        className={`auth-message ${teacherSaveStatus.type === 'success' ? 'auth-message--success' : ''}`}
+                      >
                         {teacherSaveStatus.text}
                       </div>
                     ) : null}
@@ -3527,6 +3530,18 @@ export default function LearningPage() {
               <div className="lesson-lock__chips">
                 <span className="pill">Cần mua khóa học</span>
                 <span className="pill">Hoặc được giảng viên chọn</span>
+              </div>
+              {/* Trước đây màn này chỉ có chữ và chip: học viên được bảo phải mua
+                  khóa nhưng không có chỗ nào bấm để mua, coi như cụt đường. */}
+              <div className="lesson-lock__actions">
+                {currentCourseId ? (
+                  <Link className="button" to={`/courses/${currentCourseId}`}>
+                    Xem và mua khóa học này
+                  </Link>
+                ) : null}
+                <Link className={currentCourseId ? 'button-ghost' : 'button'} to="/courses">
+                  Xem danh mục khóa học
+                </Link>
               </div>
             </section>
           )}

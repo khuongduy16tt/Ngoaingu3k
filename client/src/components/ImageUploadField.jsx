@@ -107,7 +107,11 @@ export function ImageUploadField({
         <input type="url" value={imageUrl} onChange={handleUrlChange} placeholder="https://..." disabled={uploading} />
       </label>
 
-      {error ? <div className="auth-message auth-message--error">{error}</div> : null}
+      {error ? (
+        <div className="auth-message auth-message--error" role="alert">
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }
