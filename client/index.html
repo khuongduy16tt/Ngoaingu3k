@@ -2,7 +2,10 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: bắt buộc để env(safe-area-inset-*) trả về số thật
+         trên máy có tai thỏ. Phần chừa chỗ tương ứng nằm ở styles/mobile.css.
+         Không đặt maximum-scale/user-scalable: người dùng phải phóng to được. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Ngoaingu3k Academy — Học ngoại ngữ trực tuyến</title>
     <meta
       name="description"

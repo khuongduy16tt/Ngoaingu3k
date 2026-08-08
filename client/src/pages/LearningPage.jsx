@@ -341,6 +341,23 @@ function parseRecipients(recipientsText) {
     .filter(Boolean);
 }
 
+// parseRecipients chỉ tách dòng chứ không kiểm tra định dạng, nên một dòng gõ sai
+// vẫn đi thẳng vào danh sách nhận và học sinh đó âm thầm không nhận được bài.
+// Kiểm tra thô ở đây để chỉ đúng dòng hỏng cho giảng viên sửa.
+function isEmailLike(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+// Điều kiện để một câu hỏi thực sự giao được — trùng đúng bộ lọc mà
+// saveAssignmentToSupabase áp dụng ngay trước khi gửi lên server.
+function isAssignableQuestion(question) {
+  return Boolean(
+    String(question?.prompt || '').trim() &&
+      (question?.options || []).filter(Boolean).length >= 2 &&
+      question?.correctAnswer
+  );
+}
+
 // Chuyển exerciseConfig của bài tập giao (mcq/tf/match/blank) sang model câu hỏi
 // typed dùng chung với bài giảng, để học viên làm được mọi dạng chứ không chỉ MCQ.
 function getAssignmentQuestions(assignment) {
@@ -2195,6 +2212,7 @@ export default function LearningPage() {
   const [generatedExercises, setGeneratedExercises] = useState(() => buildOcrExercises(defaultOcrText, 'Mẫu OCR'));
   const [teacherSaving, setTeacherSaving] = useState(false);
   const [teacherSaveStatus, setTeacherSaveStatus] = useState({ type: '', text: '' });
+  const [assignmentStudioOpen, setAssignmentStudioOpen] = useState(false);
   const [lessonProgressMap, setLessonProgressMap] = useState({});
   const [progressSaving, setProgressSaving] = useState(false);
   const [assignmentSavingId, setAssignmentSavingId] = useState('');
@@ -2696,6 +2714,17 @@ export default function LearningPage() {
   }
 
   function regenerateExercisesFromOcr() {
+    // Sinh lại là ghi đè: mọi câu hỏi, đáp án và lựa chọn đúng mà giảng viên đã
+    // sửa tay đều mất. Hỏi trước khi có gì để mất.
+    if (
+      generatedExercises.length &&
+      !window.confirm(
+        `Sinh lại sẽ dựng ${generatedExercises.length} câu hỏi mới từ nội dung OCR và xóa mọi chỉnh sửa tay hiện có. Tiếp tục?`
+      )
+    ) {
+      return;
+    }
+
     const nextText = normalizeSourceText(ocrText) || defaultOcrText;
     setOcrText(nextText);
     setGeneratedExercises(buildOcrExercises(nextText, teacherSource.name || 'tài liệu'));
@@ -2752,10 +2781,22 @@ export default function LearningPage() {
       return;
     }
 
-    const recipients = parseRecipients(teacherDraft.recipientsText);
+    const parsed = parseRecipients(teacherDraft.recipientsText);
+    const recipients = parsed.filter(isEmailLike);
+    const rejected = parsed.filter((email) => !isEmailLike(email));
 
     if (teacherDraft.assignmentScope === 'selected_students' && !recipients.length) {
       setTeacherSaveStatus({ type: 'error', text: 'Hãy nhập ít nhất một email học sinh để giao theo danh sách chọn.' });
+      return;
+    }
+
+    // Dòng gõ sai trước đây vẫn được gửi đi như một người nhận, nên học sinh đó
+    // không bao giờ thấy bài mà giảng viên vẫn tưởng đã giao xong.
+    if (teacherDraft.assignmentScope === 'selected_students' && rejected.length) {
+      setTeacherSaveStatus({
+        type: 'error',
+        text: `Chưa giao được: ${rejected.length} dòng không phải email (${rejected.slice(0, 3).join(', ')}${rejected.length > 3 ? '…' : ''}). Hãy sửa rồi giao lại.`
+      });
       return;
     }
 
@@ -3081,6 +3122,29 @@ export default function LearningPage() {
   const lessonAudio = audioMap[lessonStorageId];
   const lessonFile = fileMap[lessonStorageId];
   const selectedGeneratedExercises = generatedExercises.filter((question) => question.enabled);
+  const assignableExercises = selectedGeneratedExercises.filter(isAssignableQuestion);
+  const isSelectedStudentsScope = teacherDraft.assignmentScope === 'selected_students';
+  const parsedRecipients = parseRecipients(teacherDraft.recipientsText);
+  const validRecipients = parsedRecipients.filter(isEmailLike);
+  const invalidRecipients = parsedRecipients.filter((email) => !isEmailLike(email));
+
+  // Giao bài là hành động gửi ra ngoài cho học sinh và không rút lại được, nên
+  // liệt kê trước những gì còn thiếu thay vì để giảng viên bấm rồi mới nhận lỗi.
+  const assignmentBlockers = [
+    !auth.user?.id ? 'Đăng nhập lại bằng tài khoản giảng viên.' : '',
+    !selectedGeneratedExercises.length ? 'Bật ít nhất 1 câu hỏi ở cột "Bài tập được tạo".' : '',
+    selectedGeneratedExercises.length && !assignableExercises.length
+      ? 'Câu đang bật còn thiếu nội dung, 2 đáp án hoặc đáp án đúng.'
+      : '',
+    isSelectedStudentsScope && !validRecipients.length ? 'Nhập ít nhất 1 email học sinh.' : '',
+    isSelectedStudentsScope && invalidRecipients.length
+      ? `Sửa ${invalidRecipients.length} dòng chưa phải email: ${invalidRecipients.slice(0, 3).join(', ')}${invalidRecipients.length > 3 ? '…' : ''}`
+      : ''
+  ].filter(Boolean);
+  const canSubmitAssignment = !assignmentBlockers.length;
+  const assignmentAudienceLabel = isSelectedStudentsScope
+    ? `${validRecipients.length} học sinh được chọn`
+    : `học viên đã mua "${teacherDraft.courseTitle}"`;
 
   return (
     <div className="page learning-page">
@@ -3216,19 +3280,26 @@ export default function LearningPage() {
               ) : null}
 
               {isTeacher ? (
-                <details id="teacher-assignment-studio" className="content-card content-card--enterprise lesson-teacher-panel assignment-studio" style={{ marginTop: '1.5rem' }}>
-                  <summary className="section-head" style={{ cursor: 'pointer', listStyle: 'none', margin: 0 }}>
+                <details
+                  id="teacher-assignment-studio"
+                  className="content-card content-card--enterprise lesson-teacher-panel assignment-studio"
+                  onToggle={(event) => setAssignmentStudioOpen(event.currentTarget.open)}
+                >
+                  <summary className="section-head assignment-studio__summary">
                     <div>
                       <span className="eyebrow">Giao bài cho học sinh</span>
                       <h2>Tạo bài tập bổ sung (từ PDF/Ảnh/Drive)</h2>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div className="assignment-studio__summary-meta">
                       <span className="pill">{ocrStatusLabels[ocrStatus]}</span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Mở rộng ▼</span>
+                      {/* Nhãn cũ luôn ghi "Mở rộng" kể cả khi panel đang mở. */}
+                      <span className="assignment-studio__summary-toggle">
+                        {assignmentStudioOpen ? 'Thu gọn ▲' : 'Mở rộng ▼'}
+                      </span>
                     </div>
                   </summary>
 
-                  <div style={{ paddingTop: '1.5rem' }}>
+                  <div className="assignment-studio__body">
                     {teacherSaveStatus.text ? (
                       <div
                         role={teacherSaveStatus.type === 'success' ? 'status' : 'alert'}
@@ -3341,7 +3412,7 @@ export default function LearningPage() {
                             </select>
                           </label>
 
-                          {teacherDraft.assignmentScope === 'selected_students' ? (
+                          {isSelectedStudentsScope ? (
                             <label className="auth-field auth-field--full">
                               <span>Email học sinh</span>
                               <textarea
@@ -3354,7 +3425,22 @@ export default function LearningPage() {
                                   }))
                                 }
                                 placeholder="Mỗi dòng một email, hoặc phân tách bằng dấu phẩy"
+                                aria-describedby="assignment-recipients-hint"
                               />
+                              {/* Đếm ngay dưới ô nhập: dán 30 dòng thì không ai
+                                  tự soi ra dòng nào gõ hỏng. */}
+                              <small
+                                id="assignment-recipients-hint"
+                                className={`field-hint ${invalidRecipients.length ? 'field-hint--error' : ''}`}
+                              >
+                                {parsedRecipients.length
+                                  ? `${validRecipients.length} email hợp lệ${
+                                      invalidRecipients.length
+                                        ? ` · ${invalidRecipients.length} dòng chưa phải email: ${invalidRecipients.slice(0, 3).join(', ')}${invalidRecipients.length > 3 ? '…' : ''}`
+                                        : ''
+                                    }`
+                                  : 'Chưa có email nào.'}
+                              </small>
                             </label>
                           ) : null}
                         </div>
@@ -3392,10 +3478,24 @@ export default function LearningPage() {
                             <span className="eyebrow">Bài tập được tạo</span>
                             <h3>Chọn đáp án đúng trước khi giao</h3>
                           </div>
-                          <span className="pill">{selectedGeneratedExercises.length}/{generatedExercises.length} câu</span>
+                          {/* Đếm theo số câu thực sự giao được, không theo số câu
+                              đang bật — câu bật mà thiếu đáp án đúng vẫn bị bỏ
+                              lúc gửi, đếm cả nó thì con số nói dối. */}
+                          <span
+                            className={`pill ${assignableExercises.length !== selectedGeneratedExercises.length ? 'pill--warning' : ''}`}
+                          >
+                            {assignableExercises.length}/{generatedExercises.length} câu giao được
+                          </span>
                         </div>
 
                         <div className="ocr-question-list">
+                          {!generatedExercises.length ? (
+                            <p className="empty-state">
+                              Chưa có câu hỏi nào. Thả tài liệu vào ô bên trái hoặc sửa nội dung OCR rồi bấm{' '}
+                              <strong>Sinh lại câu hỏi</strong>.
+                            </p>
+                          ) : null}
+
                           {generatedExercises.map((question, questionIndex) => (
                             <article
                               key={question.id}
@@ -3410,7 +3510,14 @@ export default function LearningPage() {
                                   />
                                   <span>Giao câu {questionIndex + 1}</span>
                                 </label>
-                                <span className="pill">Trắc nghiệm</span>
+                                {/* Câu đang bật nhưng còn thiếu đáp án đúng hoặc
+                                    chưa đủ 2 lựa chọn sẽ bị bỏ lúc gửi — nói ngay
+                                    ở đầu thẻ thay vì để mất im lặng. */}
+                                <span
+                                  className={`pill ${question.enabled && !isAssignableQuestion(question) ? 'pill--warning' : ''}`}
+                                >
+                                  {question.enabled && !isAssignableQuestion(question) ? 'Thiếu đáp án đúng' : 'Trắc nghiệm'}
+                                </span>
                               </div>
 
                               <label className="auth-field auth-field--full">
@@ -3433,12 +3540,14 @@ export default function LearningPage() {
                                       name={`ocr-correct-${question.id}`}
                                       checked={question.correctAnswer === option}
                                       onChange={() => updateGeneratedExercise(questionIndex, { correctAnswer: option })}
+                                      aria-label={`Đặt đáp án ${optionIndex + 1} của câu ${questionIndex + 1} làm đáp án đúng`}
                                     />
                                     <span>Đáp án {optionIndex + 1}</span>
                                     <input
                                       type="text"
                                       value={option}
                                       onChange={(event) => updateGeneratedOption(questionIndex, optionIndex, event.target.value)}
+                                      aria-label={`Nội dung đáp án ${optionIndex + 1} của câu ${questionIndex + 1}`}
                                     />
                                   </label>
                                 ))}
@@ -3473,6 +3582,33 @@ export default function LearningPage() {
                           </div>
                         ) : null}
 
+                        {/* Giao bài gửi ra ngoài cho học sinh và không rút lại
+                            được: nêu rõ sẽ giao gì cho ai, hoặc còn thiếu gì,
+                            ngay tại chỗ bấm — thay vì chỉ báo lỗi sau khi bấm. */}
+                        {/* Không dùng role="status": nội dung đổi theo từng ký tự
+                            gõ vào ô email nên sẽ đọc liên tục. Gắn vào nút bằng
+                            aria-describedby để chỉ đọc khi focus tới nút. */}
+                        <div
+                          id="assignment-ready-summary"
+                          className={`assignment-ready ${canSubmitAssignment ? 'is-ready' : 'is-blocked'}`}
+                        >
+                          {canSubmitAssignment ? (
+                            <p className="assignment-ready__summary">
+                              Sẵn sàng giao <strong>{assignableExercises.length} câu</strong> cho{' '}
+                              <strong>{assignmentAudienceLabel}</strong>.
+                            </p>
+                          ) : (
+                            <>
+                              <p className="assignment-ready__summary">Còn thiếu trước khi giao bài:</p>
+                              <ul className="assignment-ready__list">
+                                {assignmentBlockers.map((blocker) => (
+                                  <li key={blocker}>{blocker}</li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </div>
+
                         <div className="assignment-studio__actions">
                           <button
                             type="button"
@@ -3481,7 +3617,13 @@ export default function LearningPage() {
                           >
                             {showTeacherStudentView ? 'Ẩn Student view' : 'Xem Student view'}
                           </button>
-                          <button type="button" className="button" onClick={saveAssignmentToSupabase} disabled={teacherSaving}>
+                          <button
+                            type="button"
+                            className="button"
+                            onClick={saveAssignmentToSupabase}
+                            disabled={teacherSaving || !canSubmitAssignment}
+                            aria-describedby="assignment-ready-summary"
+                          >
                             {teacherSaving ? 'Đang giao bài...' : 'Giao bài cho học sinh'}
                           </button>
                         </div>

@@ -69,6 +69,7 @@ import {
   validateVideoFile
 } from '../lib/storageService';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { DashboardSectionNav, useDashboardSection } from '../components/DashboardSectionNav';
 import {
   average,
   buildStudentProgressRows,
@@ -241,7 +242,7 @@ function AssignmentExercisePreview({ assignment, showAnswer = false }) {
   );
 }
 
-function DashboardShell({ title, description, metrics, children }) {
+function DashboardShell({ title, description, metrics, loading = false, children }) {
   return (
     <div className="page">
       <section className="dashboard-head">
@@ -252,11 +253,18 @@ function DashboardShell({ title, description, metrics, children }) {
         </div>
       </section>
 
-      <section className="stat-grid">
+      {/* Trong lúc tải, các chỉ số đều là 0 hoặc "—" nên đọc y hệt "bạn chưa có
+          gì" — người dùng tin luôn con số sai đó rồi mới thấy nó nhảy. Che bằng
+          vệt xám để rõ là chưa có số, không phải bằng không. */}
+      <section className="stat-grid" aria-busy={loading}>
         {metrics.map((metric) => (
           <article key={metric.label} className="stat-card stat-card--enterprise">
             <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
+            {loading ? (
+              <strong className="stat-card__placeholder" aria-label="Đang tải số liệu" />
+            ) : (
+              <strong>{metric.value}</strong>
+            )}
           </article>
         ))}
       </section>
@@ -368,11 +376,21 @@ export function StudentDashboardPage() {
       title="Bảng điều khiển học viên"
       description="Theo dõi khóa học đã mua, bài học được giao, kết quả học tập và tiến độ chứng chỉ."
       metrics={metrics}
+      loading={loading}
     >
       <section className="section split-layout">
         <div className="content-card content-card--enterprise">
           <h2>Bài học được giao</h2>
-          {loading ? <p>Đang tải nhiệm vụ học tập...</p> : null}
+          {/* Một dòng chữ "Đang tải..." không cho biết sắp có bao nhiêu thứ và
+              làm cả khối co giật khi dữ liệu về. Dựng sẵn 3 vệt đúng kích thước
+              thẻ nhiệm vụ. */}
+          {loading ? (
+            <div className="assignment-list" aria-busy="true" aria-label="Đang tải nhiệm vụ học tập">
+              {[0, 1, 2].map((index) => (
+                <div key={index} className="assignment-card-skeleton" />
+              ))}
+            </div>
+          ) : null}
           {!loading && loadError ? (
             <div className="empty-state">
               <p role="alert">{loadError}</p>
@@ -1033,6 +1051,17 @@ export function TeacherDashboardPage() {
     pageSize: 4,
     resetKey: `${teacherId}|${courseStats.length}`
   });
+  // Rail của giảng viên trước đây có 5 nút nhưng chỉ 1 nút gắn onClick — 4 nút
+  // còn lại trông bấm được mà không dẫn đi đâu. Giờ mỗi mục là một phần thật.
+  const teacherSections = useMemo(
+    () => [
+      { id: 'tong-quan', label: 'Tổng quan' },
+      { id: 'khoa-hoc', label: 'Soạn khóa học' },
+      { id: 'de-thi', label: 'Đề thi & kết quả' }
+    ],
+    []
+  );
+  const { activeId: teacherSection, setActiveId: setTeacherSection } = useDashboardSection(teacherSections);
   const expandedCourse = useMemo(
     () => courseStats.find((course) => course.id === expandedCourseId) || null,
     [courseStats, expandedCourseId]
@@ -1180,36 +1209,17 @@ export function TeacherDashboardPage() {
     });
   }
 
-  function addDraftLessonAtEnd() {
-    if (!courseDraft.sections.length) {
-      const sectionTitle = manualLessonDraft.sectionTitle.trim() || 'Nội dung chính';
-      const firstLesson = createDraftLesson(sectionTitle, 1);
-      updateDraftSections([
-        {
-          title: sectionTitle,
-          lessons: [firstLesson]
-        }
-      ]);
-      return;
-    }
-
-    const lastSectionIndex = courseDraft.sections.length - 1;
-    const lastSection = courseDraft.sections[lastSectionIndex];
-    const lastLessonIndex = Array.isArray(lastSection?.lessons) ? lastSection.lessons.length - 1 : -1;
-    addDraftLessonAfter(lastSectionIndex, lastLessonIndex);
-  }
-
+  // Chương luôn sinh ra kèm sẵn 1 bài: quy ước của trình soạn là "có chương mới
+  // có bài" và không được để chương rỗng, nên không bao giờ tạo ra chương trắng
+  // để giảng viên phải nhớ quay lại điền.
   function addDraftSectionAtEnd() {
-    setCourseDraft((previous) => {
-      const nextSectionNumber = previous.sections.length + 1;
-      const nextSections = [
-        ...previous.sections,
-        {
-          title: `Chương ${nextSectionNumber}`,
-          lessons: []
-        }
-      ];
-      return { ...previous, sections: nextSections };
+    const nextSectionNumber = courseDraft.sections.length + 1;
+    const sectionTitle = `Chương ${nextSectionNumber}`;
+    const firstLesson = createDraftLesson(sectionTitle, 1);
+
+    updateDraftSectionsInPlace([...courseDraft.sections, { title: sectionTitle, lessons: [firstLesson] }], {
+      focusLessonId: firstLesson.id,
+      previewLessonId: firstLesson.id
     });
   }
 
@@ -1245,7 +1255,25 @@ export function TeacherDashboardPage() {
   }
 
   function removeDraftLesson(sectionIndex, lessonIndex) {
-    const lesson = courseDraft.sections[sectionIndex]?.lessons?.[lessonIndex];
+    const targetSection = courseDraft.sections[sectionIndex];
+    const lesson = targetSection?.lessons?.[lessonIndex];
+
+    // Bài cuối cùng của chương: chương không được để rỗng nên xóa bài này đồng
+    // nghĩa xóa cả chương — nói thẳng trong hộp xác nhận thay vì âm thầm để lại
+    // một chương trắng.
+    if ((targetSection?.lessons?.length || 0) <= 1) {
+      if (
+        !window.confirm(
+          `"${lesson?.title || 'Bài học'}" là bài duy nhất của chương "${targetSection?.title || `Chương ${sectionIndex + 1}`}".\n\nChương không được để rỗng, nên xóa bài này sẽ xóa luôn cả chương. Tiếp tục?`
+        )
+      ) {
+        return;
+      }
+
+      updateDraftSectionsInPlace(courseDraft.sections.filter((_, index) => index !== sectionIndex));
+      return;
+    }
+
     if (!window.confirm(`Xóa bài "${lesson?.title || 'Bài học'}"?`)) {
       return;
     }
@@ -1375,6 +1403,21 @@ export function TeacherDashboardPage() {
     });
 
     updateDraftSectionsInPlace(nextSections);
+  }
+
+  // Kéo thả bằng chuột không thay được bàn phím: Alt + ↑/↓ trên một bài đang
+  // focus sẽ đổi vị trí bài đó trong chương của nó.
+  function moveDraftLessonByKeyboard(sectionIndex, lessonIndex, direction) {
+    const lessons = courseDraft.sections[sectionIndex]?.lessons || [];
+    const targetIndex = lessonIndex + direction;
+
+    if (targetIndex < 0 || targetIndex >= lessons.length) {
+      return;
+    }
+
+    // reorderDraftLesson nhận toIndex theo hệ "chèn trước phần tử thứ toIndex",
+    // nên đi xuống phải cộng thêm 1 mới nhảy qua được bài kế bên.
+    reorderDraftLesson(sectionIndex, lessonIndex, direction > 0 ? targetIndex + 1 : targetIndex);
   }
 
   function handleDraftLessonDragStart(event, sectionIndex, lessonIndex, lessonKey) {
@@ -1943,15 +1986,26 @@ export function TeacherDashboardPage() {
         });
         globalLessonIndex++;
       } else {
-        if (currentSection.lessons.length > 0 || currentSection.title !== 'Video bài giảng') {
+        // Chỉ giữ chương đã gom được bài. Hai dòng tiêu đề liền nhau sẽ sinh ra
+        // một chương rỗng — trình soạn không cho phép chương rỗng nên bỏ luôn
+        // thay vì đẩy sang màn Confirm rồi chặn ở bước đăng.
+        if (currentSection.lessons.length > 0) {
           sections.push(currentSection);
         }
         currentSection = { title: row, lessons: [] };
       }
     }
 
-    if (currentSection.lessons.length > 0 || sections.length === 0) {
+    if (currentSection.lessons.length > 0) {
       sections.push(currentSection);
+    }
+
+    if (!sections.length) {
+      setImportMessage({
+        type: 'error',
+        text: 'Không tìm thấy dòng nào chứa link Google Drive. Mỗi bài học cần một dòng có link, dòng không có link sẽ thành tên chương.'
+      });
+      return;
     }
 
     updateDraftSections(sections);
@@ -2037,6 +2091,20 @@ export function TeacherDashboardPage() {
 
     if (!draftLessons.length) {
       setMessage({ type: 'error', text: 'Hãy tạo bài học bằng Drive, Excel hoặc nhập thủ công trước khi đăng.' });
+      return;
+    }
+
+    // Lưới an toàn cuối cùng cho quy ước "không để chương rỗng": bản nháp cũ khôi
+    // phục từ localStorage có thể còn chương trắng từ trước khi có ràng buộc này.
+    const emptySectionNames = courseDraft.sections
+      .map((section, index) => ((section.lessons || []).length ? '' : section.title || `Chương ${index + 1}`))
+      .filter(Boolean);
+
+    if (emptySectionNames.length) {
+      setMessage({
+        type: 'error',
+        text: `${emptySectionNames.map((name) => `"${name}"`).join(', ')} chưa có bài học nào. Hãy thêm ít nhất 1 bài cho mỗi chương hoặc xóa chương trống trước khi đăng.`
+      });
       return;
     }
 
@@ -2177,20 +2245,33 @@ export function TeacherDashboardPage() {
       title="Bảng điều khiển giảng viên"
       description="Đăng khóa học, theo dõi học sinh đang học từng khóa, tiến độ hoàn thành và hiệu quả học tập."
       metrics={metrics}
+      loading={loading}
     >
       <section className="section teacher-course-dashboard">
-        <div className="teacher-console-layout">
+        <div
+          className={`teacher-console-layout ${
+            teacherSection === 'khoa-hoc' ? '' : 'teacher-console-layout--single'
+          }`}
+        >
           <aside className="content-card content-card--enterprise teacher-console-rail">
             <div className="teacher-console-identity">
-              <strong>Admin Hub</strong>
-              <span>Giảng viên khóa học</span>
+              {/* Nhãn cũ ghi "Admin Hub" ngay trên bảng của giảng viên. */}
+              <strong>{auth.user?.user_metadata?.full_name || 'Giảng viên'}</strong>
+              <span>Bảng điều khiển giảng viên</span>
             </div>
 
-            <button type="button" className="button teacher-console-primary" onClick={openCoursePublisherForNew}>
+            <button
+              type="button"
+              className="button teacher-console-primary"
+              onClick={() => {
+                setTeacherSection('khoa-hoc');
+                openCoursePublisherForNew();
+              }}
+            >
               Đăng khóa học mới
             </button>
 
-            {coursePublisherOpen ? (
+            {coursePublisherOpen && teacherSection === 'khoa-hoc' ? (
               <button type="button" className="button-ghost teacher-console-secondary" onClick={() => setCoursePublisherOpen(false)}>
                 Ẩn form
               </button>
@@ -2205,27 +2286,40 @@ export function TeacherDashboardPage() {
               </div>
             ) : null}
 
-            <nav className="teacher-console-nav" aria-label="Teacher dashboard">
-              <button type="button" className="is-active">
-                Dashboard
-              </button>
+            <DashboardSectionNav
+              sections={teacherSections}
+              activeId={teacherSection}
+              onSelect={setTeacherSection}
+              label="Mục bảng điều khiển giảng viên"
+            />
+
+            {/* Công tắc riêng của mục "Soạn khóa học" nên đứng ngay dưới danh
+                sách mục; link rời trang xuống cuối cùng. */}
+            {teacherSection === 'khoa-hoc' ? (
               <button
                 type="button"
-                className={activeCoursesOpen ? 'is-active' : ''}
+                className={`button-ghost teacher-console-secondary ${activeCoursesOpen ? 'is-active' : ''}`}
                 onClick={() => setActiveCoursesOpen((isOpen) => !isOpen)}
-                aria-expanded={activeCoursesOpen}
+                aria-pressed={activeCoursesOpen}
               >
-                Active Courses
+                {activeCoursesOpen ? 'Ẩn danh sách khóa' : 'Hiện danh sách khóa'}
               </button>
-              <button type="button">Curriculum</button>
-              <button type="button">Analytics</button>
-              <button type="button">Settings</button>
-            </nav>
+            ) : null}
+
+            {/* Tiến độ học sinh là một trang riêng, nên để đúng dạng link — bấm
+                vào đây rời khỏi bảng điều khiển chứ không đổi mục tại chỗ. */}
+            <Link className="button-ghost teacher-console-secondary" to="/student-progress">
+              Tiến độ học sinh →
+            </Link>
           </aside>
 
           <div className="teacher-console-main">
-          {activeCoursesOpen ? (
-          <div className="content-card content-card--enterprise teacher-course-overview teacher-course-overview--compact">
+          {teacherSection === 'tong-quan' || (teacherSection === 'khoa-hoc' && activeCoursesOpen) ? (
+          <div
+            className={`content-card content-card--enterprise teacher-course-overview teacher-course-overview--compact ${
+              teacherSection === 'tong-quan' ? 'teacher-course-overview--full' : ''
+            }`}
+          >
             <div className="section-head teacher-course-overview__head">
               <div>
                 <span className="eyebrow">Khóa đã đăng</span>
@@ -2296,7 +2390,21 @@ export function TeacherDashboardPage() {
           </div>
           ) : null}
 
-        {coursePublisherOpen ? (
+        {teacherSection === 'khoa-hoc' && !coursePublisherOpen ? (
+          <div className="content-card content-card--enterprise teacher-course-publisher teacher-console-empty">
+            <span className="eyebrow">Soạn khóa học</span>
+            <h2>Chọn một khóa để sửa, hoặc tạo khóa mới</h2>
+            <p>
+              Bấm <strong>Đăng khóa học mới</strong> ở cột trái để bắt đầu từ đầu, hoặc mở{' '}
+              <strong>Hiện danh sách khóa</strong> rồi chọn khóa cần chỉnh sửa.
+            </p>
+            <button type="button" className="button" onClick={openCoursePublisherForNew}>
+              Đăng khóa học mới
+            </button>
+          </div>
+        ) : null}
+
+        {teacherSection === 'khoa-hoc' && coursePublisherOpen ? (
         <form
           className={`content-card content-card--enterprise dashboard-form teacher-course-publisher ${activeCoursesOpen ? 'teacher-course-publisher--with-course-panel' : ''}`}
           onSubmit={handlePublishCourse}
@@ -2560,15 +2668,18 @@ export function TeacherDashboardPage() {
                   ref={importLessonStripRef}
                   onDragOver={scrollDraftLessonStripWhileDragging}
                 >
-                  <div className="import-lesson-strip-actions" style={{ justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <button type="button" className="button-ghost" onClick={addDraftSectionAtEnd} style={{ flex: 1, marginRight: '0.25rem' }}>
-                      + Thêm chương mới
-                    </button>
-                    <button type="button" className="button-ghost" onClick={addDraftLessonAtEnd} style={{ flex: 1, marginLeft: '0.25rem' }}>
-                      + Thêm bài vào cuối
-                    </button>
-                  </div>
+                  <p className="import-lesson-strip__hint">
+                    Bài học luôn nằm trong một chương. Dùng nút <strong>Tạo bài mới</strong> ở cuối mỗi chương để thêm bài,
+                    kéo tay cầm hoặc nhấn <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd> để đổi thứ tự.
+                  </p>
                   {courseDraft.sections.map((section, sectionIndex) => {
+                    const sectionLessons = Array.isArray(section.lessons) ? section.lessons : [];
+                    const isSectionEmpty = sectionLessons.length === 0;
+                    const sectionQuestionCount = getCourseQuestionCount([section]);
+                    const isLessonDropAtEnd =
+                      Boolean(draggedDraftLessonId) &&
+                      draftLessonDropTarget?.sectionIndex === sectionIndex &&
+                      draftLessonDropTarget?.placement === 'end';
                     const isSectionDragging = sectionIndex === draggedDraftSectionIndex;
                     const isSectionDropBefore =
                       !isSectionDragging &&
@@ -2587,6 +2698,7 @@ export function TeacherDashboardPage() {
                       key={sectionIndex}
                       className={[
                         'import-lesson-section',
+                        isSectionEmpty ? 'is-empty' : '',
                         isSectionDragging ? 'is-dragging' : '',
                         isSectionDropBefore ? 'is-drop-before' : '',
                         isSectionDropAfter ? 'is-drop-after' : ''
@@ -2612,37 +2724,44 @@ export function TeacherDashboardPage() {
                         >
                           ⠿
                         </span>
-                        <div className="import-lesson-section__meta">
-                          <input
-                            className="import-lesson-section__title-input"
-                            value={section.title || ''}
-                            onChange={(event) => renameDraftSection(sectionIndex, event.target.value)}
-                            placeholder="Tên chương"
-                            aria-label={`Tên chương ${sectionIndex + 1}`}
-                          />
-                          <strong>{Array.isArray(section.lessons) ? section.lessons.length : 0} bài</strong>
-                        </div>
-                        <div className="import-lesson-section__actions">
-                          <button
-                            type="button"
-                            className="button-ghost import-lesson-section__action"
-                            onClick={() => addDraftLessonToSection(sectionIndex)}
-                          >
-                            + Bài
-                          </button>
-                          <button
-                            type="button"
-                            className="button-ghost import-lesson-section__action import-lesson-section__action--danger"
-                            onClick={() => removeDraftSection(sectionIndex)}
-                            aria-label={`Xóa chương ${section.title || sectionIndex + 1}`}
-                          >
-                            Xóa
-                          </button>
-                        </div>
+                        <input
+                          className="import-lesson-section__title-input"
+                          value={section.title || ''}
+                          onChange={(event) => renameDraftSection(sectionIndex, event.target.value)}
+                          placeholder="Tên chương"
+                          aria-label={`Tên chương ${sectionIndex + 1}`}
+                        />
+                        {/* Xóa chương là hành động phá hủy nên tách hẳn sang mép
+                            phải, không đứng cạnh nút tạo bài ở cuối khối. */}
+                        <button
+                          type="button"
+                          className="import-lesson-section__delete"
+                          onClick={() => removeDraftSection(sectionIndex)}
+                          aria-label={`Xóa chương ${section.title || sectionIndex + 1}`}
+                          title="Xóa chương"
+                        >
+                          ✕
+                        </button>
+                        <p className="import-lesson-section__meta">
+                          {/* Chỉ số vị trí, không lặp lại chữ "Chương": tên chương
+                              do giảng viên tự đặt và không đổi khi kéo sắp xếp,
+                              nên hai chỗ cùng ghi "Chương 1" sẽ đá nhau ngay sau
+                              lần đổi vị trí đầu tiên. */}
+                          <span className="import-lesson-section__index">#{sectionIndex + 1}</span>
+                          <span>{sectionLessons.length} bài</span>
+                          {sectionQuestionCount ? <span>{sectionQuestionCount} câu</span> : null}
+                        </p>
                       </div>
 
                       <div className="import-lesson-section__list">
-                        {(Array.isArray(section.lessons) ? section.lessons : []).map((lesson, lessonIndex) => {
+                        {isSectionEmpty ? (
+                          <p className="import-lesson-section__warning" role="status">
+                            <span aria-hidden="true">⚠</span>
+                            Chương này chưa có bài học. Tạo ít nhất 1 bài hoặc xóa chương thì mới đăng được khóa.
+                          </p>
+                        ) : null}
+
+                        {sectionLessons.map((lesson, lessonIndex) => {
                           const lessonKey = getDraftLessonKey(lesson);
                           const isSelected = lessonKey === selectedDraftLessonId;
                           const isDragging = lessonKey === draggedDraftLessonId;
@@ -2681,6 +2800,12 @@ export function TeacherDashboardPage() {
                                   event.preventDefault();
                                   setSelectedDraftLessonId(lessonKey);
                                   setStudentPreviewLessonId(lessonKey);
+                                  return;
+                                }
+
+                                if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+                                  event.preventDefault();
+                                  moveDraftLessonByKeyboard(sectionIndex, lessonIndex, event.key === 'ArrowUp' ? -1 : 1);
                                 }
                               }}
                               onDragStart={(event) => handleDraftLessonDragStart(event, sectionIndex, lessonIndex, lessonKey)}
@@ -2731,16 +2856,26 @@ export function TeacherDashboardPage() {
                           );
                         })}
 
-                        <div
+                        {/* Một ô duy nhất cho hai việc: bình thường là nút tạo
+                            bài của chương này, khi đang kéo thì thành vùng thả
+                            để đưa bài xuống cuối — tránh xếp hai khung nét đứt
+                            chồng nhau ở đáy mỗi chương. */}
+                        <button
+                          type="button"
                           className={[
-                            'import-lesson-drop-end',
-                            draggedDraftLessonId && draftLessonDropTarget?.sectionIndex === sectionIndex && draftLessonDropTarget?.placement === 'end'
-                              ? 'is-active'
-                              : ''
+                            'import-lesson-add',
+                            isLessonDropAtEnd ? 'is-drop-active' : '',
+                            isSectionEmpty ? 'is-required' : ''
                           ]
                             .filter(Boolean)
                             .join(' ')}
+                          onClick={() => addDraftLessonToSection(sectionIndex)}
+                          aria-label={`Tạo bài mới trong chương ${section.title || sectionIndex + 1}`}
                           onDragOver={(event) => {
+                            if (!draggedDraftLessonId) {
+                              return;
+                            }
+
                             event.preventDefault();
                             event.dataTransfer.dropEffect = 'move';
                             scrollDraftLessonStripWhileDragging(event);
@@ -2751,13 +2886,16 @@ export function TeacherDashboardPage() {
                             handleDraftLessonDropToEnd(sectionIndex);
                           }}
                         >
-                          {draggedDraftLessonId ? 'Thả ở đây để đưa xuống cuối' : 'Kéo bài vào đây để đưa xuống cuối'}
-                        </div>
+                          {draggedDraftLessonId ? 'Thả vào đây để đưa xuống cuối' : '+ Tạo bài mới'}
+                        </button>
                       </div>
                     </section>
                     );
                   })}
 
+                  <button type="button" className="import-lesson-add-section" onClick={addDraftSectionAtEnd}>
+                    + Thêm chương mới
+                  </button>
                 </div>
 
                 {selectedDraftLesson ? (
@@ -3302,7 +3440,21 @@ export function TeacherDashboardPage() {
                 <LessonStudentViewPreview lesson={studentPreviewLesson} />
               ) : null}
             </div>
-          ) : null}
+          ) : (
+            /* Chưa có chương nào: mở sẵn một lối đi thay vì để giảng viên đoán
+               rằng bắt buộc phải qua Drive/Excel/nhập thủ công mới bắt đầu được. */
+            <div className="course-import-preview course-outline-empty">
+              <span className="eyebrow">Nội dung khóa học</span>
+              <h3>Bắt đầu bằng một chương</h3>
+              <p>
+                Khóa học được xếp theo chương, mỗi chương chứa các bài học. Tạo chương đầu tiên rồi thêm bài vào bên
+                trong, hoặc dùng Drive / Excel / nhập thủ công ở trên để sinh sẵn cả chương lẫn bài.
+              </p>
+              <button type="button" className="button" onClick={addDraftSectionAtEnd}>
+                + Tạo chương đầu tiên
+              </button>
+            </div>
+          )}
 
           <button type="submit" className="button dashboard-submit" disabled={saving}>
             {saving ? 'Đang lưu...' : editingCourseId ? 'Cập nhật khóa học' : 'Confirm và đăng bài'}
@@ -3319,7 +3471,11 @@ export function TeacherDashboardPage() {
         </form>
         ) : null}
 
-          <TeacherExamPanel teacherId={teacherId} accessToken={auth.session?.access_token} />
+          {teacherSection === 'de-thi' ? (
+            <div className="teacher-console-wide">
+              <TeacherExamPanel teacherId={teacherId} accessToken={auth.session?.access_token} />
+            </div>
+          ) : null}
 
           </div>
         </div>
@@ -3392,6 +3548,17 @@ const paymentStatusLabels = {
   failed: 'Thất bại',
   cancelled: 'Đã hủy'
 };
+
+// Bảng quản trị trước đây đổ 10 khối quản lý vào cùng một tab "Tổng quan", cuộn
+// mãi mới tới nơi cần. Tách theo đầu việc, mỗi lúc chỉ dựng một mục.
+const ADMIN_SECTIONS = [
+  { id: 'tong-quan', label: 'Tổng quan' },
+  { id: 'thanh-toan', label: 'Thanh toán' },
+  { id: 'nguoi-dung', label: 'Người dùng' },
+  { id: 'khoa-bai', label: 'Khóa & bài học' },
+  { id: 'de-thi', label: 'Đề thi & kết quả' },
+  { id: 'he-thong', label: 'Hệ thống' }
+];
 
 function formatMoney(value) {
   return formatVnd(value);
@@ -3469,7 +3636,9 @@ export function AdminDashboardPage() {
   const [transferring, setTransferring] = useState(false);
 
   // ── New feature state ──────────────────────────────────
-  const [adminTab, setAdminTab] = useState('overview'); // 'overview' | 'users' | 'activity'
+  // Mục đang xem nằm trong URL (?muc=...) thay vì useState: F5 không văng về
+  // "Tổng quan", back quay lại đúng mục vừa xem, và gửi được link tới đúng chỗ.
+  const { activeId: adminSection, setActiveId: setAdminSection } = useDashboardSection(ADMIN_SECTIONS);
   const [usersWithOrders, setUsersWithOrders] = useState({ profiles: [], orders: [] });
   const [studentRoster, setStudentRoster] = useState([]);
   const [userFilter, setUserFilter] = useState('all'); // 'all' | 'purchased' | 'not_purchased'
@@ -3531,8 +3700,8 @@ export function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (adminTab === 'activity') void loadActivityLogs();
-  }, [adminTab]);
+    if (adminSection === 'he-thong') void loadActivityLogs();
+  }, [adminSection]);
 
   const profiles = adminData.profiles;
   const students = profiles.filter((profile) => profile.role === 'student');
@@ -3591,6 +3760,15 @@ export function AdminDashboardPage() {
   const paidOrders = adminData.orders.filter((order) => order.status === 'paid');
   const paymentReviewOrders = adminData.orders.filter((order) =>
     ['pending_payment', 'pending', 'awaiting_admin', 'paid'].includes(order.status)
+  );
+  // Chỉ mục thanh toán mới gắn số: đơn chờ duyệt là việc tồn đọng cần xử lý,
+  // các mục khác chỉ là nơi tra cứu nên dán số vào sẽ làm loãng.
+  const adminNavSections = useMemo(
+    () =>
+      ADMIN_SECTIONS.map((section) =>
+        section.id === 'thanh-toan' ? { ...section, badge: paymentReviewOrders.length || null } : section
+      ),
+    [paymentReviewOrders.length]
   );
   const confirmationCourse = confirmationOrder
     ? courseLookup.get(confirmationOrder.courseId) || courseLookup.get(confirmationOrder.localCourseId)
@@ -4192,6 +4370,7 @@ export function AdminDashboardPage() {
       title="Bảng điều khiển quản trị"
       description="Tổng hợp dữ liệu giảng viên, học viên, khóa học, bài học và quyền hệ thống trong một nơi."
       metrics={metrics}
+      loading={loading}
     >
       {/* Tải hỏng thì các bảng bên dưới rỗng trông y hệt "chưa có dữ liệu" —
           phải nói rõ là lỗi và cho đường tải lại. */}
@@ -4207,33 +4386,38 @@ export function AdminDashboardPage() {
         </section>
       ) : null}
 
-      {/* ── Tab Navigation ── */}
       <section className="section">
-        <div className="admin-tabs-nav" role="tablist" aria-label="Điều hướng quản trị">
-          {[
-            { id: 'overview', label: '📊 Tổng quan' },
-            { id: 'payments', label: '💳 Thanh toán' },
-            { id: 'users', label: '👥 Người dùng' },
-            { id: 'exams', label: '📝 Đề thi' },
-            { id: 'activity', label: '📋 Lịch sử hoạt động' },
-          ].map((tab) => (
+        <div className="admin-console-layout">
+          {/* Rail dựng giống hệt bên giảng viên: hai bảng điều khiển thao tác
+              cùng một kiểu, học một lần dùng được cả hai. */}
+          <aside className="content-card content-card--enterprise admin-console-rail">
+            <div className="teacher-console-identity">
+              <strong>{auth.user?.user_metadata?.full_name || 'Quản trị viên'}</strong>
+              <span>Bảng điều khiển quản trị</span>
+            </div>
+
+            <DashboardSectionNav
+              sections={adminNavSections}
+              activeId={adminSection}
+              onSelect={setAdminSection}
+              label="Mục bảng điều khiển quản trị"
+            />
+
             <button
-              key={tab.id}
               type="button"
-              role="tab"
-              aria-selected={adminTab === tab.id}
-              className={`admin-tab-btn ${adminTab === tab.id ? 'is-active' : ''}`}
-              onClick={() => setAdminTab(tab.id)}
+              className="button-ghost teacher-console-secondary"
+              onClick={() => void reloadAdminData()}
+              disabled={loading}
             >
-              {tab.label}
+              {loading ? 'Đang tải...' : 'Tải lại dữ liệu'}
             </button>
-          ))}
-        </div>
-      </section>
+          </aside>
 
-      {adminTab === 'exams' ? <AdminExamResultsPanel /> : null}
+          <div className="admin-console-main">
 
-      {adminTab === 'payments' ? (
+      {adminSection === 'de-thi' ? <AdminExamResultsPanel /> : null}
+
+      {adminSection === 'thanh-toan' ? (
         <section className="content-card content-card--enterprise admin-panel">
           <div className="section-head">
             <div>
@@ -4362,7 +4546,7 @@ export function AdminDashboardPage() {
       ) : null}
 
       {/* ── Tab: Người dùng ── */}
-      {adminTab === 'users' ? (
+      {adminSection === 'nguoi-dung' ? (
         <section className="content-card content-card--enterprise">
           <div className="section-head">
             <div>
@@ -4558,7 +4742,7 @@ export function AdminDashboardPage() {
       ) : null}
 
       {/* ── Tab: Lịch sử hoạt động ── */}
-      {adminTab === 'activity' ? (
+      {adminSection === 'he-thong' ? (
         <section className="content-card content-card--enterprise">
           <div className="section-head">
             <div>
@@ -4641,7 +4825,7 @@ export function AdminDashboardPage() {
       ) : null}
 
       {/* ── Tab: Tổng quan (original content) ── */}
-      {adminTab === 'overview' ? (
+      {adminSection === 'tong-quan' ? (
       <>
       <section className="content-card content-card--enterprise admin-overview">
         <div className="section-head">
@@ -4695,6 +4879,11 @@ export function AdminDashboardPage() {
         </div>
       </section>
 
+      </>
+      ) : null}
+
+      {adminSection === 'nguoi-dung' ? (
+      <>
       <section className="section admin-management-grid">
         <form className="content-card content-card--enterprise dashboard-form admin-panel" onSubmit={handleSaveProfile}>
           <div className="section-head">
@@ -4903,6 +5092,11 @@ export function AdminDashboardPage() {
         </form>
       </section>
 
+      </>
+      ) : null}
+
+      {adminSection === 'khoa-bai' ? (
+      <>
       <section className="section admin-management-grid">
         <form className="content-card content-card--enterprise dashboard-form admin-panel" onSubmit={handleSaveCourse}>
           <div className="section-head">
@@ -5180,6 +5374,10 @@ export function AdminDashboardPage() {
         </div>
       </section>
 
+      </>
+      ) : null}
+
+      {adminSection === 'nguoi-dung' ? (
       <section className="section split-layout">
         <div className="content-card content-card--enterprise admin-panel">
           <div className="section-head">
@@ -5231,7 +5429,9 @@ export function AdminDashboardPage() {
           />
         </div>
       </section>
+      ) : null}
 
+      {adminSection === 'he-thong' ? (
       <section className="content-card content-card--enterprise admin-panel">
         <div className="section-head">
           <div>
@@ -5267,8 +5467,11 @@ export function AdminDashboardPage() {
           ))}
         </div>
       </section>
-      </>
       ) : null}
+
+          </div>
+        </div>
+      </section>
     </DashboardShell>
   );
 }

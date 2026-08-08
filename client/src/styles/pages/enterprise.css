@@ -1560,16 +1560,19 @@ textarea:focus-visible {
   border-radius: 8px !important;
 }
 
-.teacher-console-nav {
+/* Điều hướng theo mục, dùng chung cho rail của giảng viên và quản trị để hai
+   bảng điều khiển thao tác giống hệt nhau. */
+.dashboard-section-nav {
   display: grid;
   gap: 6px;
   padding-top: 6px;
 }
 
-.teacher-console-nav button {
+.dashboard-section-nav__item {
   min-height: 38px;
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 8px 10px;
   color: var(--muted);
@@ -1583,16 +1586,138 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
-.teacher-console-nav button:hover,
-.teacher-console-nav button.is-active {
+.dashboard-section-nav__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-section-nav__item:hover,
+.dashboard-section-nav__item.is-active {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   border-color: color-mix(in srgb, var(--accent) 18%, transparent) !important;
 }
 
+/* Số việc đang chờ: dùng màu cảnh báo chứ không phải màu nhấn, để nó không lẫn
+   với trạng thái "mục đang mở". */
+.dashboard-section-nav__badge {
+  flex: 0 0 auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.admin-console-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-console-rail {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 12px;
+  padding: 14px !important;
+}
+
+.admin-console-main {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+/* Ô lưới mặc định là min-width:auto nên nó nở theo min-content của bảng bên
+   trong thay vì co về bề rộng cột. Trên mobile khối này phình tới ~1040px trong
+   cột 327px rồi bị .app-shell{overflow:hidden} cắt cụt — bảng và thanh lọc mất
+   hẳn phần bên phải, không cuộn tới được. Ghim min-width:0 để phần cuộn ngang
+   nằm đúng trong .admin-table-wrap. */
+.admin-console-main > *,
+.teacher-console-main > * {
+  min-width: 0;
+}
+
+/* Vệt chờ dữ liệu. Giữ đúng chiều cao của nội dung thật để khối không nhảy khi
+   số liệu về (CLS), và đủ mờ để đọc ra là "chưa có" chứ không phải một giá trị. */
+.stat-card__placeholder {
+  display: block;
+  width: 60%;
+  min-height: 1em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--muted) 22%, transparent);
+}
+
+.assignment-card-skeleton {
+  min-height: 132px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+}
+
+.stat-card__placeholder,
+.assignment-card-skeleton {
+  animation: dashboard-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dashboard-skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .teacher-console-main {
   min-width: 0;
   display: contents;
+}
+
+/* Chỉ mục "Soạn khóa học" mới cần 3 cột (rail · danh sách khóa · trình soạn).
+   Các mục khác chỉ có một khối nội dung nên trả về 2 cột để khối đó dùng hết
+   bề ngang thay vì nằm co trong cột 3. */
+.teacher-console-layout--single {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.teacher-console-layout--single .teacher-console-main > * {
+  grid-column: 2;
+  grid-row: auto;
+}
+
+.teacher-course-overview--full {
+  position: static;
+  grid-column: 2 / -1;
+}
+
+.teacher-console-wide {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
+
+.teacher-console-empty {
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+}
+
+.teacher-console-empty h2 {
+  margin: 0;
+}
+
+.teacher-console-empty p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.teacher-console-secondary.is-active {
+  color: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
 }
 
 .teacher-course-launcher {
@@ -1719,8 +1844,8 @@ textarea:focus-visible {
   grid-template-columns: 56px minmax(0, 1fr);
 }
 
-.teacher-course-publisher .import-lesson-strip-actions {
-  margin-top: 6px;
+.teacher-course-publisher .import-lesson-strip__hint {
+  font-size: 12.5px;
 }
 
 .teacher-course-publisher .import-lesson-pill {
@@ -1756,24 +1881,23 @@ textarea:focus-visible {
   bottom: -6px;
 }
 
-.teacher-course-publisher .import-lesson-drop-end {
-  display: grid;
+.teacher-course-publisher .import-lesson-add {
   min-height: 34px;
-  place-items: center;
   margin-top: 2px;
-  border: 1px dashed color-mix(in srgb, var(--border-strong) 68%, transparent);
   border-radius: 8px;
-  color: var(--muted);
   font-size: 13.5px;
   font-weight: 750;
-  transition: min-height 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
-.teacher-course-publisher .import-lesson-drop-end.is-active {
-  min-height: 48px;
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  color: var(--accent);
+.teacher-course-publisher .import-lesson-add-section {
+  min-height: 38px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 750;
+}
+
+.teacher-course-publisher .import-lesson-section__delete {
+  border-radius: 8px;
 }
 
 .teacher-course-publisher .import-lesson-section {
@@ -2889,12 +3013,32 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .teacher-console-layout {
+  .teacher-console-layout,
+  .admin-console-layout {
     grid-template-columns: 1fr;
   }
 
-  .teacher-console-rail {
+  .teacher-console-rail,
+  .admin-console-rail {
     position: static;
+  }
+
+  /* Hết chỗ cho rail dọc: danh sách mục thành một hàng chip cuộn ngang, vẫn
+     nhìn thấy hết mục thay vì phải cuộn qua một cột cao. */
+  .dashboard-section-nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .dashboard-section-nav__item {
+    min-height: 44px;
+    width: auto;
+    flex: 0 0 auto;
+    border-color: var(--border) !important;
+    white-space: nowrap;
   }
 
   .teacher-console-main {

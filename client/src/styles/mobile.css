@@ -1,0 +1,207 @@
+/* ── Lớp mobile chung ────────────────────────────────────────────────────────
+   Nạp cuối cùng để đè được các quy tắc theo màn hình lớn. Chỉ chứa những thứ
+   đúng-cho-mọi-trang trên thiết bị cầm tay: vùng an toàn quanh tai thỏ, đơn vị
+   chiều cao động, độ trễ chạm, cỡ chữ ô nhập và vùng chạm tối thiểu.
+   Bố cục riêng của từng trang vẫn nằm ở file của trang đó. */
+
+/* ── 1. Chiều cao thật của khung nhìn ───────────────────────────────────────
+   100vh trên trình duyệt di động tính cả phần thanh URL sẽ thu lại, nên trang
+   luôn cao hơn màn hình một khoảng và nhảy khi cuộn. dvh bám theo chiều cao
+   đang thấy thật. Khai báo 100vh trước làm dự phòng cho trình duyệt cũ. */
+.app-shell,
+.page.centered {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ── 2. Độ trễ chạm ─────────────────────────────────────────────────────────
+   Safari trên iOS chờ ~300ms sau mỗi lần chạm để xem có phải double-tap-zoom
+   không. touch-action: manipulation tắt double-tap-zoom nên thao tác phản hồi
+   ngay, vẫn giữ nguyên pinch-zoom (không được chặn phóng to). */
+a,
+button,
+input,
+select,
+textarea,
+label,
+summary,
+[role='button'],
+[role='tab'] {
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  /* ── 3. Ô nhập không được nhỏ hơn 16px ───────────────────────────────────
+     Safari trên iOS tự phóng to cả trang khi focus vào ô nhập có cỡ chữ dưới
+     16px, rồi không tự thu lại — người dùng phải tự pinch về. Nhiều ô ở đây
+     thừa hưởng 0.78rem từ khối bao ngoài (≈13px) nên dính đúng lỗi này.
+     max() giữ nguyên các ô vốn đã lớn hơn 16px.
+     !important vì nhiều ô có class riêng đặt font-size, đặc hiệu cao hơn. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+
+  /* ── 4. Vùng chạm tối thiểu ──────────────────────────────────────────────
+     Nới bằng pseudo-element để không phải phóng to phần nhìn thấy — giữ nguyên
+     bố cục dày của header và footer. Cùng cách làm đã dùng cho nút hamburger
+     và nút gạt theme. */
+  .site-nav__close,
+  .user-avatar-btn,
+  .consult-popup__close,
+  .hero-slideshow__dot,
+  .site-footer__link,
+  .site-footer__contact-value,
+  .site-footer__social a,
+  .course-tile__link {
+    position: relative;
+  }
+
+  .site-nav__close::after,
+  .user-avatar-btn::after,
+  .consult-popup__close::after,
+  .hero-slideshow__dot::after,
+  .site-footer__link::after,
+  .site-footer__contact-value::after,
+  .site-footer__social a::after,
+  .course-tile__link::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Danh sách link trong footer xếp dọc sát nhau: chỉ nới vùng chạm là chưa đủ,
+     hai vùng 44px cạnh nhau sẽ chồng lên nhau và bấm trúng nhầm dòng. Giãn
+     khoảng cách để mỗi vùng chạm có chỗ riêng. */
+  .site-footer__link {
+    padding-block: 6px;
+  }
+
+  /* Ô tích "Giao câu N" trong trình giao bài: cao 29px, quá nhỏ để bấm trúng
+     khi lướt qua danh sách câu hỏi. Nới cả nhãn chứ không chỉ ô tích để vùng
+     bấm phủ luôn phần chữ. */
+  .ocr-toggle {
+    min-height: 44px;
+  }
+
+  /* Vài cụm nút cố ý hạ xuống 42px cho gọn trên desktop. Chênh 2px thì mắt
+     không thấy nhưng vẫn dưới ngưỡng chạm — kéo về 44px trên mobile. */
+  .marketplace-hero--compact .marketplace-hero__actions .button,
+  .marketplace-hero--compact .marketplace-hero__actions .button-ghost,
+  .teacher-course-launcher__actions .button,
+  .teacher-course-launcher__actions .button-ghost,
+  .teacher-course-form-actions .button-ghost,
+  .import-step,
+  .sidebar-course-select {
+    min-height: 44px;
+  }
+
+  /* Chấm chuyển ảnh chỉ rộng 11px, cách nhau 0.6rem. Nới vùng chạm lên 44px mà
+     giữ nguyên khoảng cách thì hai vùng chồng lên nhau — bấm chấm 2 lại nhảy
+     sang ảnh 3, còn tệ hơn chấm nhỏ. Giãn ra đủ để mỗi vùng 44px có 9px trống
+     hai bên (tâm cách nhau 53px). */
+  .hero-slideshow__dots {
+    gap: 42px;
+  }
+}
+
+/* ── 5. Phòng học: danh sách bài không được chiếm nửa màn hình ──────────────
+   Dưới 860px, .lesson-sidebar đang là sticky top:70px với max-height 54dvh —
+   nghĩa là suốt lúc đọc bài, hơn nửa màn hình vẫn bị danh sách bài che, và
+   người học phải cuộn trong một vùng cuộn lồng trước khi tới nội dung.
+   Bỏ sticky để cả khối trôi đi như nội dung bình thường, và chỉ giới hạn chiều
+   cao đúng phần danh sách thay vì cả cột (ô chọn khóa và thanh tiến độ luôn
+   hiện đủ). overscroll-behavior chặn cuộn lan sang trang khi chạm đáy danh sách. */
+@media (max-width: 860px) {
+  .learning-page .lesson-sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .learning-page .lesson-sidebar .lesson-list {
+    max-height: 46vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ── 6. Vùng an toàn quanh tai thỏ và thanh gạt home ────────────────────────
+   index.html khai báo viewport-fit=cover để trang tràn hết màn hình; đổi lại
+   phải tự chừa chỗ cho tai thỏ, thanh trạng thái và vạch home, nếu không
+   header dán trên cùng chui xuống dưới tai thỏ còn các nút nổi góc dưới nằm
+   đè lên vạch gạt home. */
+.site-header {
+  padding-top: env(safe-area-inset-top);
+  height: calc(var(--header-height) + env(safe-area-inset-top));
+}
+
+/* Header cao thêm bao nhiêu thì phần bù cho nội dung bên dưới phải cộng đúng
+   bấy nhiêu, nếu không dòng đầu của trang chui xuống dưới header. */
+.app-shell:not(.app-shell--immersive) .site-main {
+  padding-top: calc(var(--site-header-height, 87px) + env(safe-area-inset-top));
+}
+
+.site-frame {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.floating-contact {
+  right: calc(18px + env(safe-area-inset-right));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+.consult-fab {
+  right: calc(18px + env(safe-area-inset-right));
+  bottom: calc(98px + env(safe-area-inset-bottom));
+}
+
+.floating-test-button {
+  left: calc(18px + env(safe-area-inset-left));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+.skip-link {
+  top: env(safe-area-inset-top);
+  left: env(safe-area-inset-left);
+}
+
+/* Điện thoại nằm ngang chỉ còn ~390px chiều cao. Cụm nút nổi giữ nguyên cỡ
+   desktop (68px + FAB 52px) sẽ ăn gần một phần ba màn hình và đè lên nội dung.
+   Thu nhỏ về đúng ngưỡng chạm 44px thay vì ẩn đi — vẫn bấm được, nhưng trả lại
+   phần lớn diện tích cho nội dung. */
+@media (orientation: landscape) and (max-height: 480px) {
+  .floating-test-button,
+  .floating-contact__toggle {
+    width: 48px;
+    height: 48px;
+    border-width: 2px;
+  }
+
+  .consult-fab {
+    height: 44px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    padding: 0 14px 0 12px;
+  }
+
+  .floating-contact {
+    gap: 6px;
+  }
+}
+
+/* Lớp phủ toàn màn hình dùng inset:0 nên với viewport-fit=cover chúng trải cả
+   vào vùng tai thỏ. Thẻ nội dung bên trong phải lùi vào, nếu không nút đóng ở
+   góc trên chui xuống dưới tai thỏ. */
+.consult-popup,
+.exam-confirm {
+  padding-top: calc(1rem + env(safe-area-inset-top));
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding-left: calc(1rem + env(safe-area-inset-left));
+  padding-right: calc(1rem + env(safe-area-inset-right));
+}

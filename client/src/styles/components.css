@@ -1838,6 +1838,11 @@
   font-size: 0.84rem;
 }
 
+.field-hint--error {
+  color: var(--error);
+  font-weight: 700;
+}
+
 .auth-message--error {
   border-color: rgba(255, 107, 107, 0.36);
   color: #ffb4b4;
@@ -1873,6 +1878,29 @@
   background: var(--surface-soft);
 }
 
+/* Chưa có chương nào: nêu rõ cấu trúc chương → bài và mở sẵn một lối bắt đầu,
+   thay vì để cả khối biến mất và giảng viên tưởng phải qua Drive/Excel. */
+.course-outline-empty {
+  justify-items: start;
+  gap: 0.5rem;
+  border-style: dashed;
+}
+
+.course-outline-empty h3 {
+  margin: 0;
+}
+
+.course-outline-empty p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.course-outline-empty > .button {
+  margin-top: 0.35rem;
+}
+
 .import-lesson-strip {
   display: grid;
   gap: 0.45rem;
@@ -1882,9 +1910,27 @@
   padding-right: 0.25rem;
 }
 
-.import-lesson-strip-actions {
-  display: flex;
-  justify-content: flex-end;
+/* Câu dẫn ngắn trên đầu cột: quy ước "bài luôn nằm trong chương" và phím tắt đổi
+   thứ tự đều không tự lộ ra từ bố cục. */
+.import-lesson-strip__hint {
+  margin: 0 0 0.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.import-lesson-strip__hint strong {
+  color: var(--text);
+}
+
+.import-lesson-strip__hint kbd {
+  padding: 0.05em 0.32em;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.94em;
+  font-weight: 700;
 }
 
 .import-lesson-pill {
@@ -1987,22 +2033,39 @@
   bottom: -6px;
 }
 
-/* Cột danh sách bài chỉ rộng ~230px nên head phải xếp 2 hàng: hàng 1 là tay
-   cầm + ô đổi tên (chiếm hết bề ngang còn lại), hàng 2 là các nút thao tác —
-   để một hàng ngang thì ô đổi tên bị bóp còn ~78px, không gõ được. */
+/* Cột danh sách bài chỉ rộng ~290px nên head xếp 2 hàng: hàng 1 là tay cầm + ô
+   đổi tên + nút xóa chương, hàng 2 là dòng số liệu — nhồi hết vào một hàng thì
+   ô đổi tên bị bóp còn ~78px, không gõ được. */
 .import-lesson-section__head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.4rem 0.5rem;
+  gap: 0.3rem 0.45rem;
 }
 
-/* nhắm đúng khối tiêu đề, không dùng "> div" — selector đó cũng trúng cả khối
-   nút thao tác và ghi đè display:flex của nó (specificity cao hơn). */
+/* Hàng 2 của head: vị trí chương + số bài + số câu, đặt tách khỏi ô đổi tên để
+   ô đổi tên giữ nguyên bề ngang. */
 .import-lesson-section__meta {
-  display: grid;
-  min-width: 0;
-  gap: 0.15rem;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.import-lesson-section__index {
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 /* Chỉ tay cầm mới kéo được — phần còn lại của head giữ con trỏ text để ô đổi
@@ -2052,26 +2115,139 @@
   border-color: var(--accent);
 }
 
-.import-lesson-section__actions {
-  grid-column: 1 / -1;
+/* Xóa chương là hành động phá hủy: giữ nó nhỏ và trung tính ở mép head, cách xa
+   nút tạo bài ở đáy khối, chỉ chuyển sang màu cảnh báo khi hover/focus. */
+.import-lesson-section__delete {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.import-lesson-section__delete:hover,
+.import-lesson-section__delete:focus-visible {
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
+}
+
+/* Nút tạo bài của riêng từng chương, nằm ngay dưới bài cuối cùng — đúng chỗ bài
+   mới sẽ xuất hiện. Nét đứt đọc ra là "còn chỗ trống, thêm được vào đây", và
+   cũng chính là vùng thả khi kéo bài xuống cuối chương. */
+.import-lesson-add {
+  display: grid;
+  min-height: 36px;
+  place-items: center;
+  padding: 0 0.6rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: min-height 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.import-lesson-add:hover,
+.import-lesson-add:focus-visible {
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+.import-lesson-add.is-drop-active {
+  min-height: 48px;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+
+/* Chương rỗng thì tạo bài không còn là tùy chọn nữa — đặc nút lại cho nó đọc ra
+   là việc phải làm. */
+.import-lesson-add.is-required {
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.import-lesson-add-section {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  margin-top: 0.15rem;
+  padding: 0 0.6rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 0.8rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.import-lesson-add-section:hover,
+.import-lesson-add-section:focus-visible {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+}
+
+/* Chương rỗng phải nhìn ra ngay là chưa xong — viền + nền + dòng cảnh báo có
+   biểu tượng, không chỉ dựa vào màu. */
+.import-lesson-section.is-empty {
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+  background: color-mix(in srgb, var(--warning) 7%, transparent);
+}
+
+.import-lesson-section__warning {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
-.import-lesson-section__action {
-  flex: 1;
-  min-height: 30px !important;
-  padding: 0 0.5rem !important;
-  font-size: 0.76rem !important;
+.import-lesson-section__warning span {
+  color: var(--warning);
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
-/* Cụm nút import của giáo viên cố tình nhỏ để danh sách bài dài vẫn nhìn được
-   trên màn desktop. Nhưng 30px (và nút ✕ 24px) là quá nhỏ cho ngón tay, nên chỉ
+/* Cụm điều khiển của giáo viên cố tình nhỏ để danh sách bài dài vẫn nhìn được
+   trên màn desktop. Nhưng 26px (và nút ✕ 24px) là quá nhỏ cho ngón tay, nên chỉ
    nới ra khi thiết bị dùng con trỏ thô — giữ nguyên bố cục dày trên chuột. */
 @media (pointer: coarse) {
-  .import-lesson-section__action {
-    min-height: 44px !important;
+  /* Nới vùng chạm bằng pseudo-element để head chương không bị đội cao thêm 18px
+     chỉ vì một nút xóa hiếm khi dùng. */
+  .import-lesson-section__delete {
+    position: relative;
+  }
+
+  .import-lesson-section__delete::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  .import-lesson-add {
+    min-height: 44px;
+  }
+
+  .import-lesson-add-section {
+    min-height: 48px;
   }
 
   .import-lesson-pill__remove {
@@ -2080,12 +2256,6 @@
     top: 0;
     right: 0;
   }
-}
-
-.import-lesson-section__action--danger:hover {
-  color: var(--error) !important;
-  border-color: color-mix(in srgb, var(--error) 45%, transparent) !important;
-  background: color-mix(in srgb, var(--error) 10%, transparent) !important;
 }
 
 /* Nút xóa bài chỉ hiện khi hover/focus vào pill để danh sách bài không bị rối
@@ -2390,38 +2560,6 @@
   gap: 1rem;
 }
 
-.admin-tabs-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-soft);
-}
-
-.admin-tab-btn {
-  padding: 0.65rem 1rem;
-  border: none;
-  border-radius: calc(var(--radius) - 0.15rem);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.admin-tab-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.admin-tab-btn.is-active {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-
 .admin-overview-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2451,6 +2589,12 @@
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 35%, transparent);
   background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.pill--warning {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
 }
 
 .admin-summary-grid,

@@ -60,4 +60,4 @@ create policy "Admin sees all device slots"
 -- HOÀN TẤT — Kiểm tra kết quả:
 -- -----------------------------------------------
 -- select * from public.active_device_sessions;
--- select policyname from pg_policies where tablename = 'active_device_sessions';
+-- select policyname from pg_policies where tablename = 'active_device_sessions';sssssssssssssssssssss

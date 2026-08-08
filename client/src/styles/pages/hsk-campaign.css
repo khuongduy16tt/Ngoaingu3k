@@ -1504,6 +1504,71 @@
 
 .assignment-studio {
   gap: 16px;
+  margin-top: 1.5rem;
+}
+
+.assignment-studio__summary {
+  margin: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.assignment-studio__summary::-webkit-details-marker {
+  display: none;
+}
+
+.assignment-studio__summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.assignment-studio__summary-toggle {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.assignment-studio__body {
+  padding-top: 1.5rem;
+}
+
+/* Giao bài là hành động gửi ra ngoài, không rút lại được — tóm tắt "giao gì cho
+   ai" hoặc "còn thiếu gì" ngay sát nút bấm. */
+.assignment-ready {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.assignment-ready.is-ready {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.assignment-ready.is-blocked {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+
+.assignment-ready__summary {
+  margin: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.assignment-ready__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+}
+
+.assignment-ready__list li + li {
+  margin-top: 3px;
 }
 
 .assignment-studio__layout {

@@ -24,3 +24,7 @@
 
 /* 7. Danh sách bài học dùng chung (nạp sau enterprise.css để override h2/button) */
 @import './components/lesson-list.css';
+
+/* 8. Lớp mobile chung: vùng an toàn, dvh, độ trễ chạm, cỡ chữ ô nhập, vùng
+      chạm tối thiểu. Nạp cuối để đè được các quy tắc theo màn hình lớn. */
+@import './mobile.css';
