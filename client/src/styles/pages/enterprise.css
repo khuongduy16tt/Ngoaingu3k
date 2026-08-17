@@ -3576,6 +3576,8 @@ textarea:focus-visible {
   gap: 8px;
 }
 
+/* Cả chip là vùng bấm để mở tab, nên nó phải đọc ra là bấm được — không chỉ
+   mỗi nút số. Ô đổi tên và các nút bên trong vẫn giữ con trỏ riêng của chúng. */
 .draft-tab-chip {
   display: flex;
   flex-wrap: wrap;
@@ -3585,11 +3587,29 @@ textarea:focus-visible {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 6px);
   background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.draft-tab-chip:hover {
+  border-color: color-mix(in srgb, var(--text) 24%, var(--border));
+}
+
+.draft-tab-chip__title,
+.draft-tab-chip .button-ghost {
+  cursor: auto;
+}
+
+.draft-tab-chip .button-ghost {
+  cursor: pointer;
+}
+
+/* Tab đang mở: viền đậm + vạch dọc bên trái. Chỉ đổi nền nhạt là quá mờ khi
+   danh sách có 5-6 tab, và đó chính là lúc bấm nhầm tab gây hại nhất. */
 .draft-tab-chip.is-active {
   border-color: color-mix(in srgb, var(--text) 34%, var(--border));
   background: color-mix(in srgb, var(--brand, #2563eb) 8%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--brand, #2563eb);
 }
 
 .draft-tab-chip__select {

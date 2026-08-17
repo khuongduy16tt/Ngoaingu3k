@@ -1071,6 +1071,11 @@ export function TeacherDashboardPage() {
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === selectedDraftLessonId) || draftLessons[0] || null;
   const studentPreviewLesson =
     draftLessons.find((lesson) => getDraftLessonKey(lesson) === studentPreviewLessonId) || selectedDraftLesson;
+  // Bài đang được kéo, lấy từ danh sách đã làm phẳng vì chỉ ở đó bài học mới có
+  // sectionIndex — cần biết bài xuất phát từ chương nào để tô đúng chương đích.
+  const draggedDraftLesson = draggedDraftLessonId
+    ? draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId) || null
+    : null;
   const selectedDraftLessonSection = selectedDraftLesson
     ? courseDraft.sections[selectedDraftLesson.sectionIndex] || null
     : null;
@@ -1330,10 +1335,25 @@ export function TeacherDashboardPage() {
     setDraftSectionDropTarget(null);
   }
 
-  // Guarded on draggedDraftSectionIndex !== null nên các sự kiện dragover/drop nổi
-  // bọt lên từ lesson pill bên trong (khi đang kéo lesson, không phải kéo chương)
-  // sẽ tự bị bỏ qua — không cần stopPropagation ở phía lesson handlers.
+  // Khối chương nhận hai loại kéo: kéo chính nó để đổi thứ tự chương, và kéo một
+  // bài học thả vào bất kỳ chỗ trống nào trong chương (đầu đề, viền, khoảng hở
+  // giữa các bài) — đây là vùng thả dự phòng, mặc định đưa bài xuống cuối chương.
+  // Các pill bài học ở trong đã stopPropagation khi tính được vị trí chèn chính
+  // xác, nên handler này chỉ chạy khi con trỏ không trúng bài nào.
   function handleDraftSectionDragOver(event, sectionIndex) {
+    if (draggedDraftLessonId) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      scrollDraftLessonStripWhileDragging(event);
+
+      setDraftLessonDropTarget((currentTarget) =>
+        currentTarget?.sectionIndex === sectionIndex && currentTarget?.placement === 'end'
+          ? currentTarget
+          : { sectionIndex, lessonIndex: -1, placement: 'end' }
+      );
+      return;
+    }
+
     if (draggedDraftSectionIndex === null) {
       return;
     }
@@ -1358,6 +1378,12 @@ export function TeacherDashboardPage() {
   }
 
   function handleDraftSectionDrop(event, sectionIndex) {
+    if (draggedDraftLessonId) {
+      event.preventDefault();
+      handleDraftLessonDropToEnd(sectionIndex);
+      return;
+    }
+
     if (draggedDraftSectionIndex === null) {
       return;
     }
@@ -1405,6 +1431,53 @@ export function TeacherDashboardPage() {
     updateDraftSectionsInPlace(nextSections);
   }
 
+  // Chuyển một bài sang chương khác. Tách riêng khỏi reorderDraftLesson vì hai
+  // mảng lessons là hai mảng khác nhau: không phải bù trừ chỉ số như khi cắt rồi
+  // chèn lại trong cùng một mảng.
+  function moveDraftLessonToSection(fromSectionIndex, fromLessonIndex, toSectionIndex, insertionIndex) {
+    if (fromSectionIndex === toSectionIndex) {
+      reorderDraftLesson(fromSectionIndex, fromLessonIndex, insertionIndex);
+      return;
+    }
+
+    const sourceSection = courseDraft.sections[fromSectionIndex];
+    const targetSection = courseDraft.sections[toSectionIndex];
+    if (!sourceSection || !targetSection) {
+      return;
+    }
+
+    const sourceLessons = Array.isArray(sourceSection.lessons) ? [...sourceSection.lessons] : [];
+    const [movedLesson] = sourceLessons.splice(fromLessonIndex, 1);
+    if (!movedLesson) {
+      return;
+    }
+
+    const targetLessons = Array.isArray(targetSection.lessons) ? [...targetSection.lessons] : [];
+    const nextIndex = Math.max(0, Math.min(insertionIndex, targetLessons.length));
+
+    // Bài học giữ một bản sao tên chương (sectionTitle) để hiển thị/đăng bài,
+    // nên đổi chương thì phải viết lại theo tên chương mới.
+    targetLessons.splice(nextIndex, 0, {
+      ...movedLesson,
+      sectionTitle: targetSection.title || movedLesson.sectionTitle
+    });
+
+    const nextSections = courseDraft.sections.map((section, index) => {
+      if (index === fromSectionIndex) {
+        return { ...section, lessons: sourceLessons };
+      }
+
+      if (index === toSectionIndex) {
+        return { ...section, lessons: targetLessons };
+      }
+
+      return section;
+    });
+
+    const focusId = movedLesson.id || '';
+    updateDraftSectionsInPlace(nextSections, { focusLessonId: focusId, previewLessonId: focusId });
+  }
+
   // Kéo thả bằng chuột không thay được bàn phím: Alt + ↑/↓ trên một bài đang
   // focus sẽ đổi vị trí bài đó trong chương của nó.
   function moveDraftLessonByKeyboard(sectionIndex, lessonIndex, direction) {
@@ -1418,6 +1491,23 @@ export function TeacherDashboardPage() {
     // reorderDraftLesson nhận toIndex theo hệ "chèn trước phần tử thứ toIndex",
     // nên đi xuống phải cộng thêm 1 mới nhảy qua được bài kế bên.
     reorderDraftLesson(sectionIndex, lessonIndex, direction > 0 ? targetIndex + 1 : targetIndex);
+  }
+
+  // Alt + ←/→ : chuyển bài sang chương liền trước/liền sau. Đây là đường bàn phím
+  // tương đương với việc kéo bài thả sang chương khác.
+  function moveDraftLessonToAdjacentSection(sectionIndex, lessonIndex, direction) {
+    const targetSectionIndex = sectionIndex + direction;
+
+    if (targetSectionIndex < 0 || targetSectionIndex >= courseDraft.sections.length) {
+      return;
+    }
+
+    // Sang chương trước thì rơi xuống cuối chương đó, sang chương sau thì lên
+    // đầu — bài học đi tiếp đúng mạch thứ tự đọc của cả khóa.
+    const targetLessons = courseDraft.sections[targetSectionIndex]?.lessons || [];
+    const insertionIndex = direction > 0 ? 0 : targetLessons.length;
+
+    moveDraftLessonToSection(sectionIndex, lessonIndex, targetSectionIndex, insertionIndex);
   }
 
   function handleDraftLessonDragStart(event, sectionIndex, lessonIndex, lessonKey) {
@@ -1451,11 +1541,20 @@ export function TeacherDashboardPage() {
   }
 
   function handleDraftLessonDragOver(event, sectionIndex, lessonIndex, lessonKey) {
+    // Đang kéo chương chứ không phải kéo bài: để nguyên cho handler của chương
+    // nhận sự kiện nổi bọt lên, không chặn.
+    if (!draggedDraftLessonId) {
+      return;
+    }
+
     event.preventDefault();
+    // Chặn nổi bọt: chương cũng nhận dragover của bài (để thả vào vùng trống),
+    // nếu không chặn thì nó sẽ ghi đè vị trí chèn chính xác vừa tính ở đây.
+    event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
     scrollDraftLessonStripWhileDragging(event);
 
-    if (!draggedDraftLessonId || draggedDraftLessonId === lessonKey) {
+    if (draggedDraftLessonId === lessonKey) {
       return;
     }
 
@@ -1472,19 +1571,21 @@ export function TeacherDashboardPage() {
     );
   }
 
+  // sectionIndex ở đây là chương *đích* — có thể khác chương của bài đang kéo,
+  // đó chính là trường hợp kéo bài từ chương này sang chương khác.
   function handleDraftLessonDrop(sectionIndex, insertionIndex) {
     if (!draggedDraftLessonId) {
       return;
     }
 
     const sourceLesson = draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId);
-    if (!sourceLesson || sourceLesson.sectionIndex !== sectionIndex) {
+    if (!sourceLesson) {
       setDraggedDraftLessonId('');
       setDraftLessonDropTarget(null);
       return;
     }
 
-    reorderDraftLesson(sectionIndex, sourceLesson.lessonIndex, insertionIndex);
+    moveDraftLessonToSection(sourceLesson.sectionIndex, sourceLesson.lessonIndex, sectionIndex, insertionIndex);
     setDraggedDraftLessonId('');
     setDraftLessonDropTarget(null);
   }
@@ -1495,14 +1596,19 @@ export function TeacherDashboardPage() {
     }
 
     const sourceLesson = draftLessons.find((lesson) => getDraftLessonKey(lesson) === draggedDraftLessonId);
-    if (!sourceLesson || sourceLesson.sectionIndex !== sectionIndex) {
+    if (!sourceLesson) {
       setDraggedDraftLessonId('');
       setDraftLessonDropTarget(null);
       return;
     }
 
     const targetSectionLessons = courseDraft.sections[sectionIndex]?.lessons || [];
-    reorderDraftLesson(sectionIndex, sourceLesson.lessonIndex, targetSectionLessons.length);
+    moveDraftLessonToSection(
+      sourceLesson.sectionIndex,
+      sourceLesson.lessonIndex,
+      sectionIndex,
+      targetSectionLessons.length
+    );
     setDraggedDraftLessonId('');
     setDraftLessonDropTarget(null);
   }
@@ -2669,8 +2775,10 @@ export function TeacherDashboardPage() {
                   onDragOver={scrollDraftLessonStripWhileDragging}
                 >
                   <p className="import-lesson-strip__hint">
-                    Bài học luôn nằm trong một chương. Dùng nút <strong>Tạo bài mới</strong> ở cuối mỗi chương để thêm bài,
-                    kéo tay cầm hoặc nhấn <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd> để đổi thứ tự.
+                    Bài học luôn nằm trong một chương. Dùng nút <strong>Tạo bài mới</strong> ở cuối mỗi chương để thêm bài.
+                    Kéo tay cầm ⠿ để đổi vị trí chương, kéo một bài để đổi vị trí trong chương hoặc thả sang chương khác.
+                    Bằng bàn phím: <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd> đổi thứ tự bài,{' '}
+                    <kbd>Alt</kbd> + <kbd>←</kbd>/<kbd>→</kbd> chuyển bài sang chương trước/sau.
                   </p>
                   {courseDraft.sections.map((section, sectionIndex) => {
                     const sectionLessons = Array.isArray(section.lessons) ? section.lessons : [];
@@ -2680,6 +2788,13 @@ export function TeacherDashboardPage() {
                       Boolean(draggedDraftLessonId) &&
                       draftLessonDropTarget?.sectionIndex === sectionIndex &&
                       draftLessonDropTarget?.placement === 'end';
+                    const isDraggedLessonFromThisSection = draggedDraftLesson?.sectionIndex === sectionIndex;
+                    // Chương đích khi đang kéo bài từ chương khác sang: viền sáng
+                    // lên để thấy rõ bài sẽ rơi vào chương nào.
+                    const isLessonTargetSection =
+                      Boolean(draggedDraftLessonId) &&
+                      !isDraggedLessonFromThisSection &&
+                      draftLessonDropTarget?.sectionIndex === sectionIndex;
                     const isSectionDragging = sectionIndex === draggedDraftSectionIndex;
                     const isSectionDropBefore =
                       !isSectionDragging &&
@@ -2701,7 +2816,8 @@ export function TeacherDashboardPage() {
                         isSectionEmpty ? 'is-empty' : '',
                         isSectionDragging ? 'is-dragging' : '',
                         isSectionDropBefore ? 'is-drop-before' : '',
-                        isSectionDropAfter ? 'is-drop-after' : ''
+                        isSectionDropAfter ? 'is-drop-after' : '',
+                        isLessonTargetSection ? 'is-lesson-target' : ''
                       ]
                         .filter(Boolean)
                         .join(' ')}
@@ -2806,13 +2922,32 @@ export function TeacherDashboardPage() {
                                 if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
                                   event.preventDefault();
                                   moveDraftLessonByKeyboard(sectionIndex, lessonIndex, event.key === 'ArrowUp' ? -1 : 1);
+                                  return;
+                                }
+
+                                if (event.altKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+                                  event.preventDefault();
+                                  moveDraftLessonToAdjacentSection(
+                                    sectionIndex,
+                                    lessonIndex,
+                                    event.key === 'ArrowLeft' ? -1 : 1
+                                  );
                                 }
                               }}
                               onDragStart={(event) => handleDraftLessonDragStart(event, sectionIndex, lessonIndex, lessonKey)}
                               onDragEnd={handleDraftLessonDragEnd}
                               onDragOver={(event) => handleDraftLessonDragOver(event, sectionIndex, lessonIndex, lessonKey)}
                               onDrop={(event) => {
+                                // Đang kéo chương: thả trúng pill vẫn phải tính là
+                                // thả vào chương chứa nó → nhường cho handler cha.
+                                if (!draggedDraftLessonId) {
+                                  return;
+                                }
+
                                 event.preventDefault();
+                                // Không để nổi bọt lên chương: chương cũng có onDrop
+                                // cho bài học và sẽ chuyển bài xuống cuối lần nữa.
+                                event.stopPropagation();
                                 const insertionIndex =
                                   draftLessonDropTarget?.sectionIndex === sectionIndex &&
                                   draftLessonDropTarget?.lessonIndex === lessonIndex &&
@@ -2877,16 +3012,26 @@ export function TeacherDashboardPage() {
                             }
 
                             event.preventDefault();
+                            event.stopPropagation();
                             event.dataTransfer.dropEffect = 'move';
                             scrollDraftLessonStripWhileDragging(event);
                             setDraftLessonDropTarget({ sectionIndex, lessonIndex: -1, placement: 'end' });
                           }}
                           onDrop={(event) => {
+                            if (!draggedDraftLessonId) {
+                              return;
+                            }
+
                             event.preventDefault();
+                            event.stopPropagation();
                             handleDraftLessonDropToEnd(sectionIndex);
                           }}
                         >
-                          {draggedDraftLessonId ? 'Thả vào đây để đưa xuống cuối' : '+ Tạo bài mới'}
+                          {draggedDraftLessonId
+                            ? isDraggedLessonFromThisSection
+                              ? 'Thả vào đây để đưa xuống cuối'
+                              : `Thả vào đây để chuyển sang ${section.title || `chương ${sectionIndex + 1}`}`
+                            : '+ Tạo bài mới'}
                         </button>
                       </div>
                     </section>
@@ -3044,14 +3189,20 @@ export function TeacherDashboardPage() {
                       {selectedDraftExerciseTabs.length ? (
                         <div className="draft-tab-bar__list">
                           {selectedDraftExerciseTabs.map((tab, tabIndex) => (
+                            // Bấm chỗ nào trong chip cũng mở tab đó. Trước đây chỉ
+                            // mỗi nút số tròn 28px đổi được tab, còn tên tab lại là
+                            // ô input đổi tên: bấm vào tên — chỗ to nhất, dễ bấm
+                            // nhất — chỉ đặt con trỏ vào ô chữ chứ không đổi tab,
+                            // nên mọi thao tác sửa sau đó rơi vào tab cũ.
                             <div
                               key={tab.id}
                               className={`draft-tab-chip ${tab.id === activeDraftTab?.id ? 'is-active' : ''}`}
+                              onClick={() => setActiveDraftTabId(tab.id)}
                             >
                               <button
                                 type="button"
                                 className="draft-tab-chip__select"
-                                onClick={() => setActiveDraftTabId(tab.id)}
+                                aria-pressed={tab.id === activeDraftTab?.id}
                                 title="Soạn câu hỏi cho tab này"
                               >
                                 {tabIndex + 1}
@@ -3059,6 +3210,10 @@ export function TeacherDashboardPage() {
                               <input
                                 className="draft-tab-chip__title"
                                 value={tab.title}
+                                // Đặt con trỏ vào ô đổi tên cũng là mở tab đó: gõ
+                                // tên tab này trong khi đang soạn câu của tab khác
+                                // là cái bẫy cũ.
+                                onFocus={() => setActiveDraftTabId(tab.id)}
                                 onChange={(event) =>
                                   renameDraftTab(
                                     selectedDraftLesson.sectionIndex,
@@ -3103,13 +3258,16 @@ export function TeacherDashboardPage() {
                               <button
                                 type="button"
                                 className="button-ghost"
-                                onClick={() =>
+                                onClick={(event) => {
+                                  // Không để click nổi bọt lên chip: chip sẽ mở
+                                  // lại đúng cái tab vừa bị xóa.
+                                  event.stopPropagation();
                                   deleteDraftTab(
                                     selectedDraftLesson.sectionIndex,
                                     selectedDraftLesson.lessonIndex,
                                     tab.id
-                                  )
-                                }
+                                  );
+                                }}
                               >
                                 Xóa
                               </button>

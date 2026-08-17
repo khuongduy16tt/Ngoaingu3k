@@ -2000,7 +2000,7 @@
   border: 1px solid var(--border);
   border-radius: 0.9rem;
   background: rgba(255, 255, 255, 0.02);
-  transition: opacity 140ms ease, border-color 140ms ease;
+  transition: opacity 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
 }
 
 .import-lesson-section:last-child {
@@ -2023,6 +2023,14 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
   content: '';
   pointer-events: none;
+}
+
+/* Chương đang chờ nhận một bài kéo sang từ chương khác: tô cả khối chứ không chỉ
+   một vạch chèn, vì việc đang diễn ra là "đổi chương" chứ không phải "đổi chỗ". */
+.import-lesson-section.is-lesson-target {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .import-lesson-section.is-drop-before::before {
