@@ -3525,12 +3525,56 @@ textarea:focus-visible {
 
 .lesson-tab-manager__actions {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 6px;
+  margin-left: auto;
 }
 
-.lesson-tab-manager__actions .button-ghost {
+.lesson-tab-manager__actions .button-ghost,
+.lesson-tab-manager__actions .button {
   padding: 6px 12px;
   font-size: 14.5px;
+}
+
+/* Hàng tab giờ đọc theo chiều ngang: số · tên · số câu · nhóm nút. Trước đây ô
+   đổi tên chiếm cả hàng nên 5-6 tab là thành một bức tường ô nhập. */
+.lesson-tab-manager__row {
+  align-items: center;
+}
+
+.lesson-tab-manager__name {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ô đổi tên tách xuống hàng riêng, chỉ hiện khi bấm "Sửa tab". */
+.lesson-tab-manager__rename {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--brand, #2563eb) 35%, var(--border));
+  border-top: 0;
+  border-radius: 0 0 calc(var(--radius) - 4px) calc(var(--radius) - 4px);
+  background: color-mix(in srgb, var(--brand, #2563eb) 5%, transparent);
+}
+
+.lesson-tab-manager__actions .button-ghost.danger {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 45%, var(--border));
+  color: var(--danger, #dc2626);
+}
+
+/* Sửa câu hỏi lưu ngay, còn đổi tên/thứ tự/xóa tab thì phải bấm nút lưu riêng —
+   nhãn này là chỗ duy nhất nói ra sự khác nhau đó. */
+.lesson-tab-manager__dirty {
+  border-color: color-mix(in srgb, var(--warning, #d97706) 45%, var(--border));
+  background: color-mix(in srgb, var(--warning, #d97706) 12%, transparent);
+  color: var(--warning, #d97706);
+  font-weight: 700;
 }
 
 .lesson-tab-manager__editor {
