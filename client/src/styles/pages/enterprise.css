@@ -3536,8 +3536,63 @@ textarea:focus-visible {
   font-size: 14.5px;
 }
 
-/* Hàng tab giờ đọc theo chiều ngang: số · tên · số câu · nhóm nút. Trước đây ô
-   đổi tên chiếm cả hàng nên 5-6 tab là thành một bức tường ô nhập. */
+/* Thanh tab: bấm chip nào thì khung bên dưới hiện đúng tab đó. Trước đây mọi
+   tab đều bung ra thành hàng riêng kèm trình soạn câu hỏi, nên màn hình dài ra
+   theo số tab. */
+.lesson-tab-manager__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.lesson-tab-manager__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lesson-tab-manager__chip:hover {
+  border-color: color-mix(in srgb, var(--text) 26%, var(--border));
+}
+
+/* Tab đang mở phải nổi hẳn: đây là thứ quyết định nội dung bên dưới là của ai. */
+.lesson-tab-manager__chip.is-selected {
+  border-color: var(--brand, #2563eb);
+  background: color-mix(in srgb, var(--brand, #2563eb) 12%, var(--surface));
+  box-shadow: inset 0 -3px 0 var(--brand, #2563eb);
+  font-weight: 700;
+}
+
+.lesson-tab-manager__chip .lesson-tab-manager__pick {
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+
+.lesson-tab-manager__panel {
+  border: 1px solid color-mix(in srgb, var(--brand, #2563eb) 30%, var(--border));
+  border-radius: calc(var(--radius) - 4px);
+  overflow: hidden;
+}
+
+.lesson-tab-manager__panel .lesson-tab-manager__row {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  cursor: default;
+}
+
+/* Hàng tab đọc theo chiều ngang: tên · số câu · nhóm nút. */
 .lesson-tab-manager__row {
   align-items: center;
 }

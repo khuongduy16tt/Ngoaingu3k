@@ -1896,6 +1896,8 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
   const exerciseTabs = getExerciseTabs(draftTabs);
   const videoTab = getVideoTab(draftTabs);
   const selectedTab = exerciseTabs.find((tab) => tab.id === selectedTabId) || exerciseTabs[0] || null;
+  // Vị trí trong toàn bộ danh sách — dùng để khóa nút ↑/↓ ở hai đầu.
+  const selectedTabIndex = selectedTab ? exerciseTabs.findIndex((tab) => tab.id === selectedTab.id) : -1;
 
   // Đổi tên / đổi thứ tự / xóa tab chỉ nằm trong bản nháp cho tới khi bấm "Lưu
   // cấu trúc tab" (sửa câu hỏi thì lưu ngay). Hai kiểu lưu khác nhau mà không
@@ -2000,69 +2002,74 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
 
       {exerciseTabs.length ? (
         <>
-        <div className="lesson-tab-manager__list">
+        {/* Thanh tab thật: bấm tab nào thì bên dưới hiện đúng nội dung tab đó.
+            Trước đây mọi tab đều bung ra thành một hàng riêng kèm nút và trình
+            soạn câu hỏi, nên màn hình dài ra theo số tab. */}
+        <div className="lesson-tab-manager__strip" role="tablist" aria-label="Tab bài tập của chủ đề">
           {tabPagination.pageItems.map((tab) => {
-            // Số thứ tự và các nút ↑/↓ tính theo vị trí trong TOÀN BỘ danh sách,
-            // không theo vị trí trong trang — nếu không thì tab đầu trang 2 sẽ
-            // bị khóa nút ↑ dù trên nó vẫn còn tab.
+            // Số thứ tự tính theo TOÀN BỘ danh sách, không theo trang.
             const index = exerciseTabs.findIndex((current) => current.id === tab.id);
             const isSelected = tab.id === selectedTab?.id;
-            const isRenaming = tab.id === renamingTabId;
-            const isActionsOpen = tab.id === openActionsTabId;
 
             return (
-            <div key={tab.id} className="lesson-tab-manager__item">
-              <div
-                className={`lesson-tab-manager__row ${isSelected ? 'is-selected' : ''}`}
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`tab-chip-${tab.id}`}
+                aria-selected={isSelected}
+                aria-controls={`tab-panel-${tab.id}`}
+                className={`lesson-tab-manager__chip ${isSelected ? 'is-selected' : ''}`}
                 onClick={() => setSelectedTabId(tab.id)}
               >
-              <span className="lesson-tab-manager__pick" aria-hidden="true">{index + 1}</span>
-              <span className="lesson-tab-manager__name">{tab.title}</span>
-              <span className="pill">{countLessonTabQuestions(tab)} câu</span>
+                <span className="lesson-tab-manager__pick" aria-hidden="true">{index + 1}</span>
+                <span className="lesson-tab-manager__name">{tab.title}</span>
+                <span className="pill">{countLessonTabQuestions(tab)} câu</span>
+              </button>
+            );
+          })}
+        </div>
+        <PaginationControls {...tabPagination} label="tab bài tập" />
+
+        {selectedTab ? (
+          <div
+            className="lesson-tab-manager__panel"
+            role="tabpanel"
+            id={`tab-panel-${selectedTab.id}`}
+            aria-labelledby={`tab-chip-${selectedTab.id}`}
+          >
+            <div className="lesson-tab-manager__row is-selected">
+              <span className="lesson-tab-manager__name">{selectedTab.title}</span>
+              <span className="pill">{countLessonTabQuestions(selectedTab)} câu</span>
               <div className="lesson-tab-manager__actions">
                 <button
                   type="button"
-                  className={isSelected ? 'button' : 'button-ghost'}
-                  onClick={() => setSelectedTabId(tab.id)}
-                  aria-pressed={isSelected}
-                >
-                  Sửa câu hỏi
-                </button>
-                <button
-                  type="button"
                   className="button-ghost"
-                  aria-pressed={isRenaming}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setRenamingTabId(isRenaming ? '' : tab.id);
-                  }}
+                  aria-pressed={renamingTabId === selectedTab.id}
+                  onClick={() => setRenamingTabId(renamingTabId === selectedTab.id ? '' : selectedTab.id)}
                 >
                   Sửa tab
                 </button>
-                {/* ↑ ↓ Xóa nằm sau một nút: bày sẵn cho mọi tab thì hàng nào cũng
-                    5 nút, và nút Xóa luôn chực chờ ngay cạnh nút hay bấm nhất. */}
+                {/* ↑ ↓ Xóa nằm sau một nút: nút Xóa mà đứng sẵn cạnh nút hay bấm
+                    nhất thì sớm muộn cũng có người bấm nhầm. */}
                 <button
                   type="button"
                   className="button-ghost"
-                  aria-expanded={isActionsOpen}
-                  aria-label={`Thêm thao tác cho tab ${tab.title}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setOpenActionsTabId(isActionsOpen ? '' : tab.id);
-                  }}
+                  aria-expanded={openActionsTabId === selectedTab.id}
+                  aria-label={`Thêm thao tác cho tab ${selectedTab.title}`}
+                  onClick={() =>
+                    setOpenActionsTabId(openActionsTabId === selectedTab.id ? '' : selectedTab.id)
+                  }
                 >
                   ⋯
                 </button>
-                {isActionsOpen ? (
+                {openActionsTabId === selectedTab.id ? (
                   <>
                     <button
                       type="button"
                       className="button-ghost"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        moveTab(tab.id, -1);
-                      }}
-                      disabled={index === 0}
+                      onClick={() => moveTab(selectedTab.id, -1)}
+                      disabled={selectedTabIndex === 0}
                       aria-label="Đưa tab lên trên"
                     >
                       ↑
@@ -2070,11 +2077,8 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
                     <button
                       type="button"
                       className="button-ghost"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        moveTab(tab.id, 1);
-                      }}
-                      disabled={index === exerciseTabs.length - 1}
+                      onClick={() => moveTab(selectedTab.id, 1)}
+                      disabled={selectedTabIndex === exerciseTabs.length - 1}
                       aria-label="Đưa tab xuống dưới"
                     >
                       ↓
@@ -2083,20 +2087,18 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
                       type="button"
                       className="button-ghost danger"
                       // Trình soạn câu hỏi ngay bên dưới cũng có nút "Xóa" cho
-                      // từng lựa chọn — nhãn này để không ai (và không test nào)
-                      // nhầm hai thứ với nhau.
-                      aria-label={`Xóa tab ${tab.title}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
+                      // từng lựa chọn — nhãn này để không ai nhầm hai thứ.
+                      aria-label={`Xóa tab ${selectedTab.title}`}
+                      onClick={() => {
                         if (
-                          countLessonTabQuestions(tab) > 0 &&
+                          countLessonTabQuestions(selectedTab) > 0 &&
                           !window.confirm(
-                            `Xóa tab "${tab.title}" cùng ${countLessonTabQuestions(tab)} câu hỏi bên trong?`
+                            `Xóa tab "${selectedTab.title}" cùng ${countLessonTabQuestions(selectedTab)} câu hỏi bên trong?`
                           )
                         ) {
                           return;
                         }
-                        deleteTab(tab.id);
+                        deleteTab(selectedTab.id);
                       }}
                     >
                       Xóa
@@ -2104,53 +2106,48 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
                   </>
                 ) : null}
               </div>
-              </div>
-
-              {isRenaming ? (
-                <div className="lesson-tab-manager__rename">
-                  <label className="auth-field lesson-tab-manager__field">
-                    <span>Tên tab</span>
-                    <input
-                      className="lesson-input"
-                      value={tab.title}
-                      autoFocus
-                      onChange={(event) => patchTab(tab.id, { title: event.target.value })}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === 'Escape') {
-                          event.preventDefault();
-                          setRenamingTabId('');
-                        }
-                      }}
-                      placeholder="VD: Bài tập ngữ pháp 1"
-                    />
-                  </label>
-                  <button type="button" className="button-ghost" onClick={() => setRenamingTabId('')}>
-                    Xong
-                  </button>
-                </div>
-              ) : null}
-
-              {isSelected ? (
-                <div className="lesson-tab-manager__editor">
-                  <h3>Câu hỏi của &ldquo;{selectedTab.title}&rdquo;</h3>
-                  <VideoQuestionEditor
-                    key={selectedTab.id}
-                    lesson={{
-                      id: `${lesson?.id || 'lesson'}:${selectedTab.id}`,
-                      databaseId: lesson?.databaseId,
-                      exercises: selectedTab.exercises
-                    }}
-                    saving={saving}
-                    status={null}
-                    onSave={(questions) => handleSaveTabQuestions(selectedTab.id, questions)}
-                  />
-                </div>
-              ) : null}
             </div>
-            );
-          })}
-        </div>
-        <PaginationControls {...tabPagination} label="tab bài tập" />
+
+            {renamingTabId === selectedTab.id ? (
+              <div className="lesson-tab-manager__rename">
+                <label className="auth-field lesson-tab-manager__field">
+                  <span>Tên tab</span>
+                  <input
+                    className="lesson-input"
+                    value={selectedTab.title}
+                    autoFocus
+                    onChange={(event) => patchTab(selectedTab.id, { title: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === 'Escape') {
+                        event.preventDefault();
+                        setRenamingTabId('');
+                      }
+                    }}
+                    placeholder="VD: Bài tập ngữ pháp 1"
+                  />
+                </label>
+                <button type="button" className="button-ghost" onClick={() => setRenamingTabId('')}>
+                  Xong
+                </button>
+              </div>
+            ) : null}
+
+            <div className="lesson-tab-manager__editor">
+              <h3>Câu hỏi của &ldquo;{selectedTab.title}&rdquo;</h3>
+              <VideoQuestionEditor
+                key={selectedTab.id}
+                lesson={{
+                  id: `${lesson?.id || 'lesson'}:${selectedTab.id}`,
+                  databaseId: lesson?.databaseId,
+                  exercises: selectedTab.exercises
+                }}
+                saving={saving}
+                status={null}
+                onSave={(questions) => handleSaveTabQuestions(selectedTab.id, questions)}
+              />
+            </div>
+          </div>
+        ) : null}
         </>
       ) : (
         <div className="empty-state">

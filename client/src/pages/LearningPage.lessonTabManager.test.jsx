@@ -15,7 +15,9 @@ const lesson = {
 };
 
 describe('LessonTabManager', () => {
-  it('chọn đúng tab để sửa nội dung bằng nút thao tác rõ ràng', () => {
+  // Bảng này giờ là tab thật: chọn tab bằng cách bấm chip trên thanh tab, thay
+  // cho nút "Sửa câu hỏi" trên từng hàng của bản danh sách cũ.
+  it('chọn đúng tab để sửa nội dung', () => {
     const { container } = render(
       <MemoryRouter>
         <LessonTabManager lesson={lesson} saving={false} status={null} onSave={vi.fn()} />
@@ -24,9 +26,9 @@ describe('LessonTabManager', () => {
 
     expect(screen.getByRole('heading', { name: /Ngữ pháp/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Sửa câu hỏi' })[1]);
+    fireEvent.click(screen.getAllByRole('tab')[1]);
 
     expect(screen.getByRole('heading', { name: /Từ vựng/ })).toBeInTheDocument();
-    expect(container.querySelectorAll('.lesson-tab-manager__row')[2]).toHaveClass('is-selected');
+    expect(container.querySelectorAll('.lesson-tab-manager__chip')[1]).toHaveClass('is-selected');
   });
 });
