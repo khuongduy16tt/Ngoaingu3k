@@ -1,18 +1,49 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { formatVnd } from '../lib/money';
 
 const statusText = {
-  pending_payment: 'Chờ học viên chuyển khoản',
-  pending: 'Chờ học viên chuyển khoản',
-  awaiting_admin: 'Đã xác nhận chuyển khoản, chờ admin mở khóa',
-  paid: 'Đã mở khóa',
-  failed: 'Thanh toán thất bại'
+  pending_payment: 'Đang chờ chuyển khoản',
+  pending: 'Đang chờ chuyển khoản',
+  paid: 'Đã thanh toán — khóa học đã mở',
+  failed: 'Thanh toán thất bại',
+  cancelled: 'Đơn đã hủy'
 };
+
+function CopyField({ label, value }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(String(value));
+      setCopied(true);
+    } catch {
+      // Trình duyệt chặn clipboard thì học viên vẫn đọc được số trên màn hình.
+    }
+  }
+
+  return (
+    <div>
+      <span>{label}</span>
+      <div className="payment-copy-row">
+        <strong>{value}</strong>
+        <button type="button" className="payment-copy-button" onClick={handleCopy}>
+          {copied ? 'Đã chép' : 'Chép'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function PaymentInstructions({
   order,
-  confirming = false,
-  onConfirm,
+  checking = false,
+  onCheckNow,
   variant = 'card',
   open = true,
   onClose
@@ -42,16 +73,15 @@ export function PaymentInstructions({
   if (!order) return null;
   if (isOverlay && !open) return null;
 
-  const awaitingAdmin = order.status === 'awaiting_admin';
   const paid = order.status === 'paid';
 
   const content = (
     <section className={`content-card content-card--enterprise payment-instructions ${isOverlay ? 'payment-instructions--overlay' : ''}`}>
       <div className="payment-instructions__head">
         <div>
-          <span className="eyebrow">Thanh toán chuyển khoản</span>
+          <span className="eyebrow">Thanh toán tự động qua SePay</span>
           <h3>{order.courseTitle}</h3>
-          <p>{statusText[order.status] || 'Chờ thanh toán'}</p>
+          <p>{statusText[order.status] || 'Đang chờ chuyển khoản'}</p>
         </div>
         {onClose ? (
           <button type="button" className="payment-instructions__close" onClick={onClose} aria-label="Đóng hướng dẫn thanh toán">
@@ -63,11 +93,11 @@ export function PaymentInstructions({
       <div className="payment-instructions__body">
         <div className="payment-qr-box">
           {order.qrImageUrl ? (
-            <img src={order.qrImageUrl} alt="Mã QR thanh toán" />
+            <img src={order.qrImageUrl} alt="Mã QR thanh toán SePay" />
           ) : (
             <div>
               <strong>QR</strong>
-              <span>Sẽ cập nhật ảnh QR tại biến VITE_PAYMENT_QR_URL</span>
+              <span>Chưa cấu hình tài khoản SePay (SEPAY_ACCOUNT_NUMBER, SEPAY_BANK_CODE)</span>
             </div>
           )}
         </div>
@@ -77,25 +107,37 @@ export function PaymentInstructions({
             <span>Số tiền</span>
             <strong>{formatVnd(order.amount)}</strong>
           </div>
-          <div>
-            <span>Nội dung chuyển khoản</span>
-            <strong>{order.transferCode}</strong>
-          </div>
-          <div>
-            <span>Học viên</span>
-            <strong>{order.studentEmail || order.studentName || 'Tài khoản hiện tại'}</strong>
-          </div>
+          <CopyField label="Nội dung chuyển khoản (bắt buộc giữ nguyên)" value={order.transferCode} />
+          {order.accountNumber ? (
+            <CopyField label={`Số tài khoản${order.bankCode ? ` · ${order.bankCode}` : ''}`} value={order.accountNumber} />
+          ) : null}
+          {order.accountName ? (
+            <div>
+              <span>Chủ tài khoản</span>
+              <strong>{order.accountName}</strong>
+            </div>
+          ) : null}
         </div>
       </div>
 
       {paid ? (
-        <p className="empty-state">Khóa học đã được mở, học viên có thể vào phòng học.</p>
-      ) : awaitingAdmin ? (
-        <p className="empty-state">Admin đã nhận yêu cầu. Khóa học sẽ được mở sau khi kế toán kiểm tra giao dịch.</p>
+        <p className="empty-state">Đã nhận được tiền. Khóa học đã mở, học viên vào phòng học được ngay.</p>
       ) : (
-        <button type="button" className="button" onClick={onConfirm} disabled={confirming}>
-          {confirming ? 'Đang gửi xác nhận...' : 'Tôi đã chuyển khoản'}
-        </button>
+        <div className="payment-instructions__waiting">
+          <p>
+            Quét QR hoặc chuyển khoản đúng số tiền và nội dung ở trên. SePay báo về là hệ thống
+            mở khóa học tự động trong vài giây, không cần bấm xác nhận hay chờ admin duyệt.
+          </p>
+          <div className="payment-instructions__waiting-row">
+            <span className="payment-waiting-dot" aria-hidden="true" />
+            <span>{checking ? 'Đang kiểm tra giao dịch...' : 'Đang chờ tiền về'}</span>
+            {onCheckNow ? (
+              <button type="button" className="button-ghost" onClick={onCheckNow} disabled={checking}>
+                Kiểm tra ngay
+              </button>
+            ) : null}
+          </div>
+        </div>
       )}
     </section>
   );
@@ -105,7 +147,7 @@ export function PaymentInstructions({
   }
 
   return (
-    <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Thanh toán chuyển khoản">
+    <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Thanh toán qua SePay">
       <button type="button" className="payment-screen__backdrop" onClick={onClose} aria-label="Đóng hướng dẫn thanh toán" />
       <div className="payment-screen__panel">
         {content}

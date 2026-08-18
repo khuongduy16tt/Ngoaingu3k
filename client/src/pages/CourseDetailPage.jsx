@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  confirmCoursePayment,
+  checkCoursePaymentStatus,
   getCourseBySlug,
   getOwnedCourseIds,
   getPendingCoursePaymentOrder,
@@ -12,6 +12,7 @@ import { isLessonComplete } from '../lib/lessonStars';
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { usePaymentStatusPolling } from '../hooks/usePaymentStatusPolling';
 import { CourseLessonList } from '../components/CourseLessonList';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { PaymentInstructions } from '../components/PaymentInstructions';
@@ -30,7 +31,7 @@ export default function CourseDetailPage() {
   const [purchasing, setPurchasing] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [lessonProgressMap, setLessonProgressMap] = useState({});
 
@@ -116,6 +117,44 @@ export default function CourseDetailPage() {
     };
   }, [auth.user?.id, auth.user?.email, course?.id, courseLessons]);
 
+  const syncPaymentStatus = useCallback(
+    async (order) => {
+      if (!order?.id || order.status === 'paid') {
+        return;
+      }
+
+      setCheckingPayment(true);
+
+      try {
+        const result = await checkCoursePaymentStatus({
+          order,
+          accessToken: auth.session?.access_token
+        });
+
+        if (result.order) {
+          setPaymentOrder(result.order);
+        }
+
+        if (result.paid && course) {
+          setOwnedCourseIds(await getOwnedCourseIds(auth.user?.id, [course]));
+          setFeedback('Đã nhận được thanh toán. Khóa học đã mở, bạn vào học được ngay.');
+        }
+      } catch (error) {
+        // Rớt mạng một nhịp thì nhịp sau hỏi lại, không cần dựng báo lỗi.
+        console.warn('[checkCoursePaymentStatus]', error?.message || error);
+      } finally {
+        setCheckingPayment(false);
+      }
+    },
+    [auth.session?.access_token, auth.user?.id, course]
+  );
+
+  usePaymentStatusPolling({
+    order: paymentOrder,
+    active: paymentScreenOpen,
+    onCheck: syncPaymentStatus
+  });
+
   async function handlePurchase() {
     if (!course || !auth.session || currentRole !== 'student' || isOwned) {
       return;
@@ -145,34 +184,13 @@ export default function CourseDetailPage() {
       }
       setFeedback(
         result.requiresPayment
-          ? 'Đã tạo mã thanh toán. Vui lòng chuyển khoản theo QR rồi bấm xác nhận.'
+          ? 'Đã tạo mã thanh toán. Quét QR và chuyển khoản, khóa học mở tự động khi tiền về.'
           : `${course.title} đã được ghi nhận.`
       );
     } catch (error) {
       setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
     } finally {
       setPurchasing(false);
-    }
-  }
-
-  async function handleConfirmPayment() {
-    if (!paymentOrder) return;
-
-    setConfirmingPayment(true);
-    setFeedback('');
-
-    try {
-      const nextOrder = await confirmCoursePayment({
-        order: paymentOrder,
-        accessToken: auth.session?.access_token
-      });
-      setPaymentOrder(nextOrder);
-      setPaymentScreenOpen(true);
-      setFeedback('Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.');
-    } catch (error) {
-      setFeedback(error?.message || 'Chưa thể gửi xác nhận thanh toán.');
-    } finally {
-      setConfirmingPayment(false);
     }
   }
 
@@ -288,8 +306,8 @@ export default function CourseDetailPage() {
 
       <PaymentInstructions
         order={paymentOrder}
-        confirming={confirmingPayment}
-        onConfirm={handleConfirmPayment}
+        checking={checkingPayment}
+        onCheckNow={() => syncPaymentStatus(paymentOrder)}
         variant="overlay"
         open={paymentScreenOpen}
         onClose={() => setPaymentScreenOpen(false)}

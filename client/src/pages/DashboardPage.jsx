@@ -3701,7 +3701,8 @@ const adminRoleLabels = {
 const paymentStatusLabels = {
   pending_payment: 'Chờ chuyển khoản',
   pending: 'Chờ chuyển khoản',
-  awaiting_admin: 'Chờ admin mở khóa',
+  // Đơn tồn từ luồng duyệt tay trước khi chuyển sang SePay.
+  awaiting_admin: 'Chờ admin mở khóa (đơn cũ)',
   paid: 'Đã mở khóa',
   failed: 'Thất bại',
   cancelled: 'Đã hủy'
@@ -4579,8 +4580,12 @@ export function AdminDashboardPage() {
         <section className="content-card content-card--enterprise admin-panel">
           <div className="section-head">
             <div>
-              <span className="eyebrow">Duyệt thanh toán</span>
-              <h2>Yêu cầu mở khóa sau chuyển khoản</h2>
+              <span className="eyebrow">Thanh toán SePay</span>
+              <h2>Đơn hàng và mở khóa tay</h2>
+              <p>
+                Tiền về đúng nội dung chuyển khoản là SePay mở khóa tự động. Bảng này để đối
+                soát và xử lý tay các ca chuyển sai nội dung hoặc thiếu tiền.
+              </p>
             </div>
             <span className="pill">{paymentReviewOrders.length} đơn</span>
           </div>

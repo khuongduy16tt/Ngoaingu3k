@@ -4,9 +4,9 @@ import { logActivity } from '../lib/activityService';
 import { featuredCourses as mockCourses, courseDetail as mockCourseDetail } from '../data/mock';
 import { formatVnd, normalizeVndAmount } from './money';
 import {
-  createManualPaymentOrder,
-  confirmManualPaymentTransfer,
+  createSepayPaymentOrder,
   findPaymentOrderForCourse,
+  markPaymentOrderPaid,
   upsertPaymentOrder
 } from './paymentService';
 import {
@@ -709,21 +709,21 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
   if (existingOrder) {
     return {
       ownedCourseIds: currentIds,
-      mode: 'manual-payment',
+      mode: 'sepay',
       order: existingOrder,
       requiresPayment: true
     };
   }
 
   if (!isSupabaseReady() || !userId) {
-    const order = createManualPaymentOrder({
+    const order = createSepayPaymentOrder({
       course,
       user: user || { id: userId || 'local' }
     });
     if (userId) {
       void logActivity(userId, 'purchase', course.id, course.title, { orderId: order.id, status: order.status });
     }
-    return { ownedCourseIds: currentIds, mode: 'manual-payment', order, requiresPayment: true };
+    return { ownedCourseIds: currentIds, mode: 'sepay', order, requiresPayment: true };
   }
 
   if (!accessToken) {
@@ -732,12 +732,12 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
 
   const remoteCourseId = course.databaseId || course.id;
   if (!isUuid(remoteCourseId)) {
-    const order = createManualPaymentOrder({
+    const order = createSepayPaymentOrder({
       course,
       user: user || { id: userId }
     });
     void logActivity(userId, 'purchase', course.id, course.title, { orderId: order.id, status: order.status });
-    return { ownedCourseIds: currentIds, mode: 'manual-payment', order, requiresPayment: true };
+    return { ownedCourseIds: currentIds, mode: 'sepay', order, requiresPayment: true };
   }
 
   const response = await apiFetch('/api/payments/checkout', {
@@ -746,11 +746,18 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
     body: {
       courseId: remoteCourseId,
       amount: course.priceValue ?? 0,
-      provider: 'manual-bank-transfer'
+      provider: 'sepay'
     }
   });
 
-  const order = createManualPaymentOrder({
+  // Server có thể trả về đơn cũ (mode 'existing') khi học viên đã trả tiền rồi.
+  if (response.status === 'paid') {
+    const ownedIds = dedupeStrings([...currentIds, course.id, remoteCourseId]);
+    setStoredPurchasedCourseIds(ownedIds, userId);
+    return { ownedCourseIds: ownedIds, mode: 'existing', requiresPayment: false, orderId: response.orderId };
+  }
+
+  const order = createSepayPaymentOrder({
     course,
     user: user || { id: userId },
     remoteOrder: {
@@ -758,7 +765,10 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
       amount: response.amount ?? course.priceValue ?? 0,
       status: response.status || 'pending',
       transferCode: response.transferCode,
-      qrImageUrl: response.qrImageUrl
+      qrImageUrl: response.qrImageUrl,
+      bankCode: response.bankCode,
+      accountNumber: response.accountNumber,
+      accountName: response.accountName
     }
   });
 
@@ -770,7 +780,7 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
 
   return {
     ownedCourseIds: currentIds,
-    mode: response.mode || 'manual-payment',
+    mode: response.mode || 'sepay',
     order,
     orderId: response.orderId,
     requiresPayment: true,
@@ -782,32 +792,49 @@ export function getPendingCoursePaymentOrder(userId, courseId) {
   return findPaymentOrderForCourse(userId || 'local', courseId);
 }
 
-export async function confirmCoursePayment({ order, accessToken }) {
+/**
+ * Hỏi server xem SePay đã báo tiền về cho đơn này chưa. Màn thanh toán gọi lại
+ * vài giây một lần; tiền về là mở khóa khóa học ngay, không cần admin duyệt.
+ *
+ * @returns {Promise<{ order: object|null, paid: boolean }>}
+ */
+export async function checkCoursePaymentStatus({ order, accessToken }) {
   if (!order?.id) {
     throw new Error('Thiếu thông tin đơn thanh toán.');
   }
 
+  // Bản demo (không Supabase / đơn tạo offline) không có gì để hỏi.
   if (!isSupabaseReady() || !accessToken || String(order.id).startsWith('local-payment-')) {
-    return confirmManualPaymentTransfer(order.id);
+    return { order, paid: order.status === 'paid' };
   }
 
-  const response = await apiFetch('/api/payments/confirm-transfer', {
-    method: 'POST',
-    token: accessToken,
-    body: {
-      orderId: order.id
-    }
+  const response = await apiFetch(`/api/payments/${order.id}/status`, {
+    method: 'GET',
+    token: accessToken
   });
 
-  return confirmManualPaymentTransfer(order.id, {
+  if (response.status === 'paid') {
+    const paidOrder =
+      markPaymentOrderPaid(order.id, { paidAt: response.paidAt }) ||
+      upsertPaymentOrder({ ...order, status: 'paid', paidAt: response.paidAt });
+
+    void logActivity(order.userId, 'purchase', order.courseId, order.courseTitle, {
+      orderId: order.id,
+      status: 'paid',
+      provider: 'sepay'
+    });
+
+    return { order: paidOrder, paid: true };
+  }
+
+  const nextOrder = upsertPaymentOrder({
     ...order,
-    status: response.status || 'awaiting_admin',
-    adminEmailSent: Boolean(response.adminEmailSent)
-  }) || upsertPaymentOrder({
-    ...order,
-    status: response.status || 'awaiting_admin',
-    adminEmailSent: Boolean(response.adminEmailSent)
+    status: response.status || order.status,
+    transferCode: response.transferCode || order.transferCode,
+    qrImageUrl: response.qrImageUrl || order.qrImageUrl
   });
+
+  return { order: nextOrder || order, paid: false };
 }
 
 /**

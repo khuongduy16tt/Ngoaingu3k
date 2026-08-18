@@ -6,6 +6,8 @@ export type Role = 'student' | 'teacher' | 'admin';
 
 export type CourseStatus = 'draft' | 'published' | 'hidden';
 
+// 'awaiting_admin' là trạng thái của luồng chuyển khoản thủ công cũ — giữ lại để
+// đọc được đơn tồn trước khi chuyển sang SePay, không sinh mới nữa.
 export type OrderStatus = 'pending' | 'pending_payment' | 'awaiting_admin' | 'paid' | 'failed' | 'refunded';
 
 export type AssignmentScope = 'selected_students' | 'course_buyers';
@@ -68,6 +70,11 @@ export interface Order {
   status: OrderStatus;
   amount: number;
   createdAt: string;
+  /** Nội dung chuyển khoản riêng của đơn — webhook SePay khớp tiền về theo mã này. */
+  transferCode?: string;
+  paidAt?: string;
+  /** referenceCode phía ngân hàng do SePay gửi sang. */
+  sepayRef?: string;
 }
 
 export interface Progress {

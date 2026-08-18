@@ -2,7 +2,16 @@ import { formatVnd, normalizeVndAmount } from './money';
 import { grantPurchasedCourseId, revokePurchasedCourseId } from './purchaseStorage';
 
 const PAYMENT_ORDERS_STORAGE_KEY = 'learning-payment-orders-v1';
-const PAYMENT_QR_URL = import.meta.env.VITE_PAYMENT_QR_URL || '';
+
+// Dùng khi chạy bản demo không có server (không gọi được /api/payments) — server
+// thật trả sẵn qrImageUrl nên không cần tới mấy biến này.
+const SEPAY_ACCOUNT_NUMBER = import.meta.env.VITE_SEPAY_ACCOUNT_NUMBER || '';
+const SEPAY_BANK_CODE = import.meta.env.VITE_SEPAY_BANK_CODE || '';
+const SEPAY_ACCOUNT_NAME = import.meta.env.VITE_SEPAY_ACCOUNT_NAME || '';
+const SEPAY_CODE_PREFIX = (import.meta.env.VITE_SEPAY_CODE_PREFIX || 'NN3K').toUpperCase();
+
+// Bỏ I, O, S cho khỏi lẫn với 1, 0, 5 khi đọc mã.
+const CODE_ALPHABET = '0123456789ABCDEFGHJKLMNPQRTUVWXYZ';
 
 function readStoredJson(key, fallback) {
   try {
@@ -27,8 +36,28 @@ function writePaymentOrders(orders) {
   return nextOrders;
 }
 
-function makeTransferCode(orderId) {
-  return `NN3K-${String(orderId || Date.now()).slice(-8).toUpperCase()}`;
+function makeTransferCode() {
+  let body = '';
+  for (let index = 0; index < 6; index += 1) {
+    body += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  }
+  return `${SEPAY_CODE_PREFIX}${body}`;
+}
+
+export function buildSepayQrUrl({ amount, transferCode }) {
+  if (!SEPAY_ACCOUNT_NUMBER || !SEPAY_BANK_CODE || !transferCode) {
+    return '';
+  }
+
+  const params = new URLSearchParams({
+    acc: SEPAY_ACCOUNT_NUMBER,
+    bank: SEPAY_BANK_CODE,
+    amount: String(Math.round(Number(amount) || 0)),
+    des: transferCode,
+    template: 'compact'
+  });
+
+  return `https://qr.sepay.vn/img?${params.toString()}`;
 }
 
 export function readPaymentOrders() {
@@ -39,11 +68,16 @@ export function readPaymentOrders() {
 export function upsertPaymentOrder(order) {
   if (!order?.id) return null;
   const orders = readPaymentOrders();
+  const amount = normalizeVndAmount(order.amount);
+  // Không tự bịa mã ở đây: mã là do server (hoặc createSepayPaymentOrder cho
+  // bản demo) cấp, upsert chỉ giữ nguyên mã sẵn có.
+  const transferCode = order.transferCode || '';
   const nextOrder = {
     ...order,
-    amount: normalizeVndAmount(order.amount),
-    qrImageUrl: order.qrImageUrl || PAYMENT_QR_URL,
-    transferCode: order.transferCode || makeTransferCode(order.id),
+    amount,
+    amountLabel: formatVnd(amount),
+    transferCode,
+    qrImageUrl: order.qrImageUrl || buildSepayQrUrl({ amount, transferCode }),
     updatedAt: new Date().toISOString()
   };
 
@@ -55,8 +89,10 @@ export function upsertPaymentOrder(order) {
   return nextOrder;
 }
 
-export function createManualPaymentOrder({ course, user, remoteOrder = {} }) {
+export function createSepayPaymentOrder({ course, user, remoteOrder = {} }) {
   const orderId = remoteOrder.orderId || remoteOrder.id || `local-payment-${Date.now()}`;
+  const amount = remoteOrder.amount ?? course.priceValue ?? course.price ?? 0;
+
   return upsertPaymentOrder({
     id: orderId,
     userId: user?.id || 'local',
@@ -65,12 +101,14 @@ export function createManualPaymentOrder({ course, user, remoteOrder = {} }) {
     courseId: course.databaseId || course.id,
     localCourseId: course.id,
     courseTitle: course.title,
-    amount: remoteOrder.amount ?? course.priceValue ?? course.price ?? 0,
-    amountLabel: formatVnd(remoteOrder.amount ?? course.priceValue ?? course.price ?? 0),
-    status: remoteOrder.status || 'pending_payment',
-    provider: 'manual-bank-transfer',
-    transferCode: remoteOrder.transferCode || makeTransferCode(orderId),
-    qrImageUrl: remoteOrder.qrImageUrl || PAYMENT_QR_URL,
+    amount,
+    status: remoteOrder.status || 'pending',
+    provider: 'sepay',
+    transferCode: remoteOrder.transferCode || makeTransferCode(),
+    qrImageUrl: remoteOrder.qrImageUrl || '',
+    bankCode: remoteOrder.bankCode || SEPAY_BANK_CODE,
+    accountNumber: remoteOrder.accountNumber || SEPAY_ACCOUNT_NUMBER,
+    accountName: remoteOrder.accountName || SEPAY_ACCOUNT_NAME,
     createdAt: remoteOrder.createdAt || new Date().toISOString()
   });
 }
@@ -86,31 +124,27 @@ export function findPaymentOrderForCourse(userId, courseId) {
   );
 }
 
-export function confirmManualPaymentTransfer(orderId, updates = {}) {
-  const order = readPaymentOrders().find((item) => item.id === orderId);
-  if (!order) return null;
-
-  return upsertPaymentOrder({
-    ...order,
-    ...updates,
-    status: 'awaiting_admin',
-    confirmedAt: updates.confirmedAt || new Date().toISOString(),
-    adminEmailQueuedAt: updates.adminEmailQueuedAt || new Date().toISOString()
-  });
-}
-
-export function approveManualPaymentOrder(orderId) {
+/**
+ * Ghi nhận đơn đã có tiền về (webhook SePay báo, hoặc admin mở khóa tay) và mở
+ * khóa khóa học ngay trên máy học viên.
+ */
+export function markPaymentOrderPaid(orderId, updates = {}) {
   const order = readPaymentOrders().find((item) => item.id === orderId);
   if (!order) return null;
 
   const nextOrder = upsertPaymentOrder({
     ...order,
+    ...updates,
     status: 'paid',
-    approvedAt: new Date().toISOString()
+    paidAt: updates.paidAt || new Date().toISOString()
   });
 
   grantPurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
   return nextOrder;
+}
+
+export function approveManualPaymentOrder(orderId) {
+  return markPaymentOrderPaid(orderId, { approvedAt: new Date().toISOString() });
 }
 
 export function revokeManualPaymentOrder(orderId) {

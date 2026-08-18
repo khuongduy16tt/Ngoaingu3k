@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  confirmCoursePayment,
+  checkCoursePaymentStatus,
   getCourseCatalog,
   getOwnedCourseIds,
   isHskCourse,
@@ -10,6 +10,7 @@ import {
 import { getEffectiveRole } from '../lib/permissions';
 import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { usePaymentStatusPolling } from '../hooks/usePaymentStatusPolling';
 import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 import { PaymentInstructions } from '../components/PaymentInstructions';
 
@@ -213,7 +214,7 @@ export default function CoursesPage() {
   const [purchasingCourseId, setPurchasingCourseId] = useState('');
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
-  const [confirmingOrderId, setConfirmingOrderId] = useState('');
+  const [checkingPayment, setCheckingPayment] = useState(false);
   const [feedback, setFeedback] = useState({ courseId: '', text: '' });
 
   useEffect(() => {
@@ -277,6 +278,48 @@ export default function CoursesPage() {
   );
   const hskCourses = useMemo(() => sortCoursesDefault(courses.filter(isHskCourse)), [courses]);
 
+  const syncPaymentStatus = useCallback(
+    async (order) => {
+      if (!order?.id || order.status === 'paid') {
+        return;
+      }
+
+      setCheckingPayment(true);
+
+      try {
+        const result = await checkCoursePaymentStatus({
+          order,
+          accessToken: auth.session?.access_token
+        });
+
+        if (result.order) {
+          setActivePaymentOrder(result.order);
+        }
+
+        if (result.paid) {
+          setOwnedCourseIds(await getOwnedCourseIds(auth.user?.id, courses));
+          setFeedback({
+            courseId: order.localCourseId || order.courseId || '',
+            text: `Đã nhận được thanh toán cho ${order.courseTitle}. Khóa học đã mở.`
+          });
+        }
+      } catch (error) {
+        // Mạng chập chờn giữa hai nhịp hỏi là chuyện thường, đừng dựng báo lỗi
+        // đỏ giữa màn thanh toán — nhịp sau hỏi lại.
+        console.warn('[checkCoursePaymentStatus]', error?.message || error);
+      } finally {
+        setCheckingPayment(false);
+      }
+    },
+    [auth.session?.access_token, auth.user?.id, courses]
+  );
+
+  usePaymentStatusPolling({
+    order: activePaymentOrder,
+    active: paymentScreenOpen,
+    onCheck: syncPaymentStatus
+  });
+
   async function handlePurchase(course) {
     if (!auth.session || currentRole !== 'student') {
       return;
@@ -301,7 +344,7 @@ export default function CoursesPage() {
       setFeedback({
         courseId: course.id,
         text: result.requiresPayment
-          ? `Đã tạo yêu cầu thanh toán cho ${course.title}. Vui lòng quét QR và bấm xác nhận sau khi chuyển khoản.`
+          ? `Đã tạo mã thanh toán cho ${course.title}. Quét QR và chuyển khoản, khóa học mở tự động khi tiền về.`
           : `${course.title} đã được ghi nhận.`
       });
     } catch (error) {
@@ -311,39 +354,12 @@ export default function CoursesPage() {
     }
   }
 
-  async function handleConfirmPayment() {
-    if (!activePaymentOrder) return;
-
-    setFeedback({ courseId: '', text: '' });
-    setConfirmingOrderId(activePaymentOrder.id);
-
-    try {
-      const nextOrder = await confirmCoursePayment({
-        order: activePaymentOrder,
-        accessToken: auth.session?.access_token
-      });
-      setActivePaymentOrder(nextOrder);
-      setPaymentScreenOpen(true);
-      setFeedback({
-        courseId: activePaymentOrder.localCourseId || activePaymentOrder.courseId || '',
-        text: 'Đã gửi xác nhận thanh toán cho admin. Khóa học sẽ được mở sau khi kế toán kiểm tra.'
-      });
-    } catch (error) {
-      setFeedback({
-        courseId: activePaymentOrder.localCourseId || activePaymentOrder.courseId || '',
-        text: error?.message || 'Chưa thể gửi xác nhận thanh toán.'
-      });
-    } finally {
-      setConfirmingOrderId('');
-    }
-  }
-
   return (
     <div className="page course-market-page">
       <PaymentInstructions
         order={activePaymentOrder}
-        confirming={confirmingOrderId === activePaymentOrder?.id}
-        onConfirm={handleConfirmPayment}
+        checking={checkingPayment}
+        onCheckNow={() => syncPaymentStatus(activePaymentOrder)}
         variant="overlay"
         open={paymentScreenOpen}
         onClose={() => setPaymentScreenOpen(false)}

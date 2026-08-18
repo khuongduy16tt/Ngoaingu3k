@@ -46,7 +46,8 @@ directly and starts the same local server.
 
 ## Notes
 
-- Google OAuth, payments, and realtime progress are scaffolded, not wired to production providers yet.
+- Google OAuth and realtime progress are scaffolded, not wired to production providers yet.
+  Payments run on SePay — see "Thanh toán tự động qua SePay" below.
 - The current UI can use local mock auth/data so you can review protected pages before connecting a database.
 - On Vercel, deploy the repository root. The root config builds `client/dist`,
   serves the React app, and sends `/api/*` requests to the Express serverless
@@ -54,14 +55,48 @@ directly and starts the same local server.
 - Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel project
   settings and local `client/.env`. Only set `VITE_API_URL` when the API is
   deployed on a different domain.
-- Manual bank-transfer checkout can show a real QR when `VITE_PAYMENT_QR_URL`
-  points to the QR image. Admin payment email requires `RESEND_API_KEY`,
-  `ADMIN_PAYMENT_EMAIL`, and optionally `PAYMENT_EMAIL_FROM` on the server.
+
+## Thanh toán tự động qua SePay
+
+Học viên bấm mua → server tạo đơn với một nội dung chuyển khoản riêng (vd
+`NN3K8F2K1P`) và trả về ảnh VietQR động. Học viên quét QR chuyển tiền, SePay bắn
+webhook về `/api/payments/sepay/webhook`, server dò mã trong nội dung giao dịch
+và mở khóa khóa học ngay — không ai phải bấm "tôi đã chuyển khoản", không chờ
+admin duyệt. Màn thanh toán hỏi lại `/api/payments/:orderId/status` mỗi 5 giây
+nên khóa học mở ra ngay trước mắt học viên.
+
+Các bước bật:
+
+1. Chạy `supabase/sepay-payment-migration.sql` trong Supabase SQL editor (thêm
+   `orders.transfer_code`, `orders.paid_at`, `orders.sepay_ref` và bảng nhật ký
+   `sepay_transactions`). Chưa chạy thì checkout báo lỗi kèm nhắc migration.
+2. Ở [my.sepay.vn](https://my.sepay.vn), liên kết tài khoản ngân hàng nhận tiền.
+3. Điền env cho server (Vercel project settings hoặc `server/.env`):
+   `SEPAY_ACCOUNT_NUMBER`, `SEPAY_BANK_CODE` (mã theo
+   <https://vietqr.app/banks.json>, vd `MBBank`), `SEPAY_ACCOUNT_NAME`,
+   `SEPAY_WEBHOOK_API_KEY`. Tùy chọn: `SEPAY_CODE_PREFIX` (mặc định `NN3K`),
+   `SEPAY_QR_TEMPLATE` (mặc định `compact`).
+4. Trong SePay → **Công ty → Webhooks**, tạo webhook:
+   - URL: `https://<domain>/api/payments/sepay/webhook`
+   - Kiểu xác thực: **API Key**, giá trị đúng bằng `SEPAY_WEBHOOK_API_KEY`
+     (SePay gửi header `Authorization: Apikey <key>`).
+   - Sự kiện: tiền vào (`transferType = in`).
+
+Ghi chú vận hành:
+
+- Chuyển **thiếu tiền** hoặc **sai nội dung** thì đơn giữ nguyên `pending`; giao
+  dịch vẫn được ghi vào `sepay_transactions` (`matched = false`, cột `note` nói
+  rõ lý do) để kế toán đối soát. Mở khóa tay ở Dashboard admin → tab Thanh toán.
+- Webhook chống xử lý trùng bằng `sepay_transactions.sepay_id`, nên SePay gửi
+  lại cùng một giao dịch cũng không mở khóa hai lần.
+- Chạy demo không có server: điền `VITE_SEPAY_ACCOUNT_NUMBER` và
+  `VITE_SEPAY_BANK_CODE` trong `client/.env` để client tự dựng QR.
 
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the SQL editor.
+2. Run `supabase/schema.sql` in the SQL editor, then
+   `supabase/sepay-payment-migration.sql`.
 3. Enable Email/Password and Google auth in Supabase Auth.
 4. Add the site URL and redirect URLs for local dev and Vercel.
 5. Set the two `VITE_SUPABASE_*` env vars in local `.env` and Vercel.

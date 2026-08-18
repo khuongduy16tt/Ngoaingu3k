@@ -335,13 +335,13 @@ function normalizeOrder(order) {
     studentEmail: order.studentEmail || order.student_email || '',
     studentName: order.studentName || order.student_name || '',
     transferCode: order.transferCode || order.transfer_code || '',
-    provider: order.provider || 'manual-bank-transfer',
+    provider: order.provider || 'sepay',
     status: order.status || 'pending',
     amount: normalizeVndAmount(order.amount),
     createdAt: order.created_at || order.createdAt || '',
-    confirmedAt: order.confirmed_at || order.confirmedAt || '',
-    approvedAt: order.approved_at || order.approvedAt || '',
-    adminEmailSent: Boolean(order.adminEmailSent || order.admin_email_sent)
+    paidAt: order.paid_at || order.paidAt || '',
+    sepayRef: order.sepay_ref || order.sepayRef || '',
+    approvedAt: order.approved_at || order.approvedAt || ''
   };
 }
 
@@ -413,7 +413,9 @@ export async function getAdminDashboardData() {
       query.select('id, chapter_id, title, video_url, content, position, is_preview, created_at').order('position', { ascending: true })
     ),
     maybeSelect('orders', (query) =>
-      query.select('id, user_id, course_id, status, amount, provider, created_at').order('created_at', { ascending: false })
+      query
+        .select('id, user_id, course_id, status, amount, provider, transfer_code, paid_at, sepay_ref, created_at')
+        .order('created_at', { ascending: false })
     ),
     maybeSelect('progress', (query) =>
       query.select('user_id, lesson_id, completed, updated_at')
@@ -879,7 +881,7 @@ export async function getUsersWithPurchaseInfo() {
         .order('created_at', { ascending: false }),
       supabase
         .from('orders')
-        .select('id, user_id, course_id, status, amount, provider, created_at'),
+        .select('id, user_id, course_id, status, amount, provider, transfer_code, paid_at, sepay_ref, created_at'),
     ]);
 
     const profiles = (profilesRes.data || []).map((p) => ({
