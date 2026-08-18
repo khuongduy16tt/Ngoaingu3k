@@ -6,7 +6,9 @@
     "dev": "node --watch src/index.js",
     "build": "cd .. && npm run build",
     "start": "node src/index.js",
-    "seed:test-users": "node scripts/seed-test-users.mjs"
+    "seed:test-users": "node scripts/seed-test-users.mjs",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

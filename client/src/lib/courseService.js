@@ -97,6 +97,8 @@ function normalizeManagedCourse(course, fallbackIndex = 0) {
     id: course.id || slug,
     databaseId: course.databaseId || course.id || slug,
     slug,
+    // Giữ chủ sở hữu cho Phòng học: chỉ giảng viên phụ trách mới thấy công cụ sửa.
+    teacherId: course.teacherId || course.teacher_id || '',
     title: formatCourseTitle(course.title || 'Khóa học chưa đặt tên'),
     level: course.level || 'Nền tảng',
     priceValue,
@@ -229,6 +231,8 @@ function normalizeRemoteLesson(lesson) {
   return {
     id: lesson.id,
     databaseId: lesson.databaseId || lesson.id,
+    // Chương chứa bài — trình sửa trong phòng học cần để biết bài đang nằm ở đâu.
+    chapterId: lesson.chapter_id || lesson.chapterId || '',
     title: lesson.title,
     position: lesson.position,
     status: lesson.is_preview ? 'active' : lesson.status,
@@ -261,7 +265,10 @@ function sortByPosition(rows) {
 
 function normalizeRemoteSections(sections = []) {
   return (Array.isArray(sections) ? sections : []).map((section) => ({
+    // id chương giữ nguyên để kéo bài sang chương khác biết chương đích.
+    id: section.id || section.databaseId || '',
     title: section.title || 'Nội dung khóa học',
+    position: section.position,
     lessons: (Array.isArray(section.lessons) ? section.lessons : []).map(normalizeRemoteLesson)
   }));
 }
@@ -595,6 +602,56 @@ export async function saveLessonTabsToSupabase({
   return response?.data || { lessonId, tabs, questions, questionCount: questions.length };
 }
 
+/**
+ * Đổi vị trí bài học của một khóa (kéo thả ngay trong phòng học).
+ * `moves` là danh sách { lessonId, chapterId, position } của những bài bị ảnh
+ * hưởng — server tự bỏ qua bài không đổi gì.
+ *
+ * Quyền do server quyết: giảng viên chỉ sắp xếp được khóa mình phụ trách,
+ * admin sắp xếp được mọi khóa. Client chỉ ẩn nút cho gọn mắt.
+ */
+export async function reorderCourseLessons({ moves = [], accessToken } = {}) {
+  if (!Array.isArray(moves) || !moves.length) {
+    return { updated: 0 };
+  }
+
+  if (!accessToken) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để sắp xếp bài học.');
+  }
+
+  const response = await apiFetch('/api/courses/lessons/reorder', {
+    method: 'PATCH',
+    token: accessToken,
+    body: { moves }
+  });
+
+  return response?.data || { updated: moves.length };
+}
+
+/**
+ * Đổi thứ tự chương của một khóa (kéo thả ngay trong phòng học).
+ * `moves` là danh sách { chapterId, position }; server bỏ qua chương không đổi.
+ *
+ * Mọi chương phải cùng một khóa — server từ chối nếu trộn hai khóa.
+ */
+export async function reorderCourseChapters({ moves = [], accessToken } = {}) {
+  if (!Array.isArray(moves) || !moves.length) {
+    return { updated: 0 };
+  }
+
+  if (!accessToken) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để sắp xếp chương.');
+  }
+
+  const response = await apiFetch('/api/courses/chapters/reorder', {
+    method: 'PATCH',
+    token: accessToken,
+    body: { moves }
+  });
+
+  return response?.data || { updated: moves.length };
+}
+
 export function getStoredPurchasedCourseIds(userId = 'local') {
   return getPurchasedCourseIds(userId);
 }
@@ -924,7 +981,9 @@ export async function getCourseBySlug(courseSlug, { summaryOnly = false } = {}) 
   const normalizedCourse = normalizeCourse(course);
   const normalizedChapters = normalizeRemoteSections(
     sortByPosition(course.chapters).map((chapter) => ({
+      id: chapter.id,
       title: chapter.title,
+      position: chapter.position,
       lessons: sortByPosition(chapter.lessons)
     }))
   );

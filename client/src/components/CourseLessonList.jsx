@@ -121,8 +121,19 @@ export function CourseLessonList({
   expandedSections,
   onToggleSection,
   emptyMessage = 'Danh sách bài học sẽ hiển thị khi chương được đồng bộ.',
-  footer = null
+  footer = null,
+  // Kéo thả sắp xếp bài. Mặc định TẮT: danh sách này còn dùng ở trang khóa
+  // học công khai, nơi người xem không được sắp xếp gì.
+  editable = false,
+  onReorderLessons,
+  onReorderSections
 }) {
+  const [draggedLesson, setDraggedLesson] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const [draggedSection, setDraggedSection] = useState(null);
+  const [sectionDropTarget, setSectionDropTarget] = useState(null);
+  const canReorder = Boolean(editable && onReorderLessons);
+  const canReorderSections = Boolean(editable && onReorderSections);
   const [localExpanded, setLocalExpanded] = useState({});
   const isControlled = Boolean(expandedSections);
   const expandedMap = isControlled ? expandedSections : localExpanded;
@@ -132,6 +143,64 @@ export function CourseLessonList({
   const doneUnits = Number.isFinite(completedLessonsCount)
     ? completedLessonsCount
     : allLessons.filter((lesson) => isLessonComplete(lesson, progressMap)).length;
+
+  // Cắt bài khỏi chương nguồn rồi chèn vào chương đích. Hai chương là hai
+  // mảng khác nhau nên chỉ bù trừ chỉ số khi cùng một chương.
+  function moveLesson(from, toSectionIndex, insertionIndex) {
+    const next = sections.map((section) => ({
+      ...section,
+      lessons: Array.isArray(section?.lessons) ? [...section.lessons] : []
+    }));
+
+    const source = next[from.sectionIndex - sectionOffset];
+    const target = next[toSectionIndex - sectionOffset];
+    if (!source || !target) return;
+
+    const [moved] = source.lessons.splice(from.lessonIndex, 1);
+    if (!moved) return;
+
+    const sameSection = source === target;
+    const bounded = sameSection && from.lessonIndex < insertionIndex ? insertionIndex - 1 : insertionIndex;
+    target.lessons.splice(Math.max(0, Math.min(bounded, target.lessons.length)), 0, moved);
+
+    onReorderLessons(next, { lessonId: moved.id, toSectionIndex });
+  }
+
+  function handleLessonDrop(toSectionIndex, insertionIndex) {
+    if (!draggedLesson) return;
+    moveLesson(draggedLesson, toSectionIndex, insertionIndex);
+    setDraggedLesson(null);
+    setDropTarget(null);
+  }
+
+  // Đổi chỗ hai chương. insertionIndex theo hệ "chèn TRƯỚC phần tử thứ i" nên đi
+  // xuống phải bù trừ 1 sau khi đã cắt chương ra khỏi mảng.
+  function moveSection(fromIndex, insertionIndex) {
+    if (fromIndex === insertionIndex || fromIndex + 1 === insertionIndex) {
+      return;
+    }
+
+    const next = sections.map((section) => ({ ...section }));
+    const [moved] = next.splice(fromIndex, 1);
+    if (!moved) return;
+
+    const bounded = fromIndex < insertionIndex ? insertionIndex - 1 : insertionIndex;
+    next.splice(Math.max(0, Math.min(bounded, next.length)), 0, moved);
+
+    onReorderSections(next);
+  }
+
+  function handleSectionDrop(sectionIndex) {
+    if (draggedSection === null) return;
+
+    const placement =
+      sectionDropTarget?.sectionIndex === sectionIndex ? sectionDropTarget.placement : 'before';
+    const insertionIndex = placement === 'after' ? sectionIndex + 1 : sectionIndex;
+
+    moveSection(draggedSection - sectionOffset, insertionIndex - sectionOffset);
+    setDraggedSection(null);
+    setSectionDropTarget(null);
+  }
 
   function toggleSection(sectionIndex) {
     if (onToggleSection) {
@@ -171,13 +240,69 @@ export function CourseLessonList({
             const isStarted = doneCount > 0 && !isComplete;
             const donePercent = lessons.length ? Math.round((doneCount / lessons.length) * 100) : 0;
 
+            const isSectionDragging = draggedSection === sectionIndex;
+            const isSectionDropBefore =
+              !isSectionDragging &&
+              sectionDropTarget?.sectionIndex === sectionIndex &&
+              sectionDropTarget?.placement === 'before';
+            const isSectionDropAfter =
+              !isSectionDragging &&
+              sectionDropTarget?.sectionIndex === sectionIndex &&
+              sectionDropTarget?.placement === 'after';
+
             return (
               <article
                 key={`${section?.title || 'section'}-${sectionIndex}`}
-                className={`lesson-list-section ${isExpanded ? 'is-expanded' : ''} ${
-                  isComplete ? 'is-complete' : isStarted ? 'is-started' : ''
-                }`}
+                className={[
+                  'lesson-list-section',
+                  isExpanded ? 'is-expanded' : '',
+                  isComplete ? 'is-complete' : isStarted ? 'is-started' : '',
+                  isSectionDragging ? 'is-section-dragging' : '',
+                  isSectionDropBefore ? 'is-section-drop-before' : '',
+                  isSectionDropAfter ? 'is-section-drop-after' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onDragOver={(event) => {
+                  // Chỉ nhận khi đang kéo CHƯƠNG. Lúc kéo bài, các handler bên
+                  // trong đã stopPropagation nên không lọt tới đây.
+                  if (draggedSection === null) return;
+                  event.preventDefault();
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  const placement =
+                    event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                  setSectionDropTarget({ sectionIndex, placement });
+                }}
+                onDrop={(event) => {
+                  if (draggedSection === null) return;
+                  event.preventDefault();
+                  handleSectionDrop(sectionIndex);
+                }}
               >
+                {/* Tay cầm nằm NGOÀI nút mở/đóng chương: nút lồng trong nút là
+                    HTML sai, và cả khối head mà kéo được thì bấm để mở chương sẽ
+                    hay bị nhận nhầm thành thao tác kéo. */}
+                {canReorderSections ? (
+                  <div
+                    className="lesson-list-section__drag-row"
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', `section-${sectionIndex}`);
+                      setDraggedSection(sectionIndex);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedSection(null);
+                      setSectionDropTarget(null);
+                    }}
+                  >
+                    <span className="lesson-list-section__drag" aria-hidden="true">
+                      ⠿
+                    </span>
+                    <span className="lesson-list-section__drag-label">Kéo để đổi vị trí chương</span>
+                  </div>
+                ) : null}
+
                 <button
                   type="button"
                   className="lesson-list-section__head"
@@ -211,9 +336,30 @@ export function CourseLessonList({
                 </button>
 
                 {isExpanded ? (
-                  <div className="lesson-list-section__lessons">
+                  <div
+                    className={`lesson-list-section__lessons ${
+                      canReorder &&
+                      draggedLesson &&
+                      dropTarget?.sectionIndex === sectionIndex &&
+                      dropTarget?.placement === 'end'
+                        ? 'is-drop-end'
+                        : ''
+                    }`}
+                    onDragOver={(event) => {
+                      if (!canReorder || !draggedLesson) return;
+                      // Lơ lửng ở khoảng trống của chương → mặc định thả xuống cuối,
+                      // nhờ vậy chương chưa có bài nào cũng nhận được bài kéo sang.
+                      event.preventDefault();
+                      setDropTarget({ sectionIndex, lessonIndex: -1, placement: 'end' });
+                    }}
+                    onDrop={(event) => {
+                      if (!canReorder || !draggedLesson) return;
+                      event.preventDefault();
+                      handleLessonDrop(sectionIndex, lessons.length);
+                    }}
+                  >
                     {lessons.length ? (
-                      lessons.map((lesson) => {
+                      lessons.map((lesson, lessonIndex) => {
                         const isDone = isLessonComplete(lesson, progressMap);
                         const stars = getLessonStars(lesson, progressMap);
                         const isLocked = !isDone && lesson.status === 'locked';
@@ -233,9 +379,8 @@ export function CourseLessonList({
                           </>
                         );
 
-                        return onSelectLesson ? (
+                        const row = onSelectLesson ? (
                           <button
-                            key={lesson.id}
                             type="button"
                             className={className}
                             onClick={() => onSelectLesson(lesson.id)}
@@ -243,8 +388,76 @@ export function CourseLessonList({
                             {content}
                           </button>
                         ) : (
-                          <div key={lesson.id} className={className}>
-                            {content}
+                          <div className={className}>{content}</div>
+                        );
+
+                        // Ngoài chế độ sửa thì markup giữ nguyên như cũ — trang khóa
+                        // học công khai không được mọc thêm tay cầm kéo.
+                        if (!canReorder) {
+                          return <React.Fragment key={lesson.id}>{row}</React.Fragment>;
+                        }
+
+                        const isDragging =
+                          draggedLesson?.sectionIndex === sectionIndex &&
+                          draggedLesson?.lessonIndex === lessonIndex;
+                        const isDropBefore =
+                          !isDragging &&
+                          dropTarget?.sectionIndex === sectionIndex &&
+                          dropTarget?.lessonIndex === lessonIndex &&
+                          dropTarget?.placement === 'before';
+                        const isDropAfter =
+                          !isDragging &&
+                          dropTarget?.sectionIndex === sectionIndex &&
+                          dropTarget?.lessonIndex === lessonIndex &&
+                          dropTarget?.placement === 'after';
+
+                        return (
+                          <div
+                            key={lesson.id}
+                            className={[
+                              'lesson-list-item-drag',
+                              isDragging ? 'is-dragging' : '',
+                              isDropBefore ? 'is-drop-before' : '',
+                              isDropAfter ? 'is-drop-after' : ''
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                            draggable
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/plain', lesson.id || '');
+                              setDraggedLesson({ sectionIndex, lessonIndex, id: lesson.id });
+                            }}
+                            onDragEnd={() => {
+                              setDraggedLesson(null);
+                              setDropTarget(null);
+                            }}
+                            onDragOver={(event) => {
+                              if (!draggedLesson) return;
+                              event.preventDefault();
+                              // Chặn nổi bọt: vùng chương bên ngoài cũng nhận dragover
+                              // và sẽ ghi đè vị trí chèn chính xác vừa tính ở đây.
+                              event.stopPropagation();
+                              const bounds = event.currentTarget.getBoundingClientRect();
+                              const placement =
+                                event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                              setDropTarget({ sectionIndex, lessonIndex, placement });
+                            }}
+                            onDrop={(event) => {
+                              if (!draggedLesson) return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              const after =
+                                dropTarget?.sectionIndex === sectionIndex &&
+                                dropTarget?.lessonIndex === lessonIndex &&
+                                dropTarget?.placement === 'after';
+                              handleLessonDrop(sectionIndex, after ? lessonIndex + 1 : lessonIndex);
+                            }}
+                          >
+                            <span className="lesson-list-item-drag__handle" aria-hidden="true">
+                              ⠿
+                            </span>
+                            {row}
                           </div>
                         );
                       })

@@ -71,6 +71,9 @@
 /* --- Chương --- */
 
 .lesson-list-section {
+  /* Mốc neo cho vạch chèn khi kéo đổi thứ tự chương. Thanh tiến độ bên trong
+     neo vào .lesson-list-section__head nên không bị ảnh hưởng. */
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -471,4 +474,125 @@ button.lesson-list-item:focus-visible {
   .lesson-list-section__lessons {
     padding: 6px 10px 12px;
   }
+}
+
+/* ── Kéo thả sắp xếp bài ngay trong phòng học ────────────────────────────────
+   Chỉ xuất hiện khi người quản lý khóa bật chế độ sửa; học viên không bao giờ
+   thấy lớp bọc này vì component không dựng nó khi editable = false. */
+.lesson-list-item-drag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lesson-list-item-drag > .lesson-list-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Tay cầm là chỗ duy nhất gợi ý "kéo được"; bản thân hàng vẫn bấm để mở bài. */
+.lesson-list-item-drag__handle {
+  flex: 0 0 auto;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: grab;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.lesson-list-item-drag__handle:active {
+  cursor: grabbing;
+}
+
+.lesson-list-item-drag.is-dragging {
+  opacity: 0.45;
+}
+
+.lesson-list-item-drag.is-drop-before::before,
+.lesson-list-item-drag.is-drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--brand, #2563eb);
+  content: '';
+  pointer-events: none;
+}
+
+.lesson-list-item-drag.is-drop-before::before {
+  top: -3px;
+}
+
+.lesson-list-item-drag.is-drop-after::after {
+  bottom: -3px;
+}
+
+/* Thả vào khoảng trống của chương = đưa bài xuống cuối chương đó. Tô cả khối vì
+   việc đang diễn ra là "đổi chương", không phải chèn vào giữa hai bài. */
+.lesson-list-section__lessons.is-drop-end {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--brand, #2563eb) 10%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--brand, #2563eb) 35%, transparent);
+}
+
+/* ── Kéo đổi thứ tự chương ───────────────────────────────────────────────────
+   Hàng tay cầm chỉ dựng khi bật chế độ sửa, nên bố cục chương ở chế độ xem
+   thường không xê dịch một pixel nào. */
+.lesson-list-section__drag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 0;
+  color: var(--muted);
+  cursor: grab;
+  font-size: 11px;
+  user-select: none;
+}
+
+.lesson-list-section__drag-row:active {
+  cursor: grabbing;
+}
+
+.lesson-list-section__drag {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.lesson-list-section__drag-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-list-section.is-section-dragging {
+  opacity: 0.45;
+}
+
+.lesson-list-section.is-section-drop-before::before,
+.lesson-list-section.is-section-drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--brand, #2563eb);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand, #2563eb) 18%, transparent);
+  content: '';
+  pointer-events: none;
+}
+
+/* Nằm SÁT mép trong chứ không tràn ra ngoài: .lesson-list-section có
+   overflow: hidden, đặt âm là bị cắt mất không thấy gì. */
+.lesson-list-section.is-section-drop-before::before {
+  top: 0;
+}
+
+.lesson-list-section.is-section-drop-after::after {
+  bottom: 0;
 }

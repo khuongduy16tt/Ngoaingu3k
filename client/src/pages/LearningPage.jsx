@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
-import { getDashboardPathForRole, getEffectiveRole } from '../lib/permissions';
+import { canManageCourse, getDashboardPathForRole, getEffectiveRole } from '../lib/permissions';
 import {
   createAssignment,
   getAssignmentAttemptsForStudent,
@@ -17,6 +17,8 @@ import {
   getOwnedCourseIds,
   readAllTeacherManagedCourses,
   PURCHASED_COURSES_STORAGE_KEY,
+  reorderCourseChapters,
+  reorderCourseLessons,
   saveLessonTabsToSupabase
 } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
@@ -309,6 +311,8 @@ function buildLessonsFromCourse(course) {
       (section.lessons || []).map((lesson) => ({
         ...lesson,
         sectionTitle: section.title,
+        // id chương trong DB — cần để lưu vị trí sau khi kéo thả trong phòng học.
+        sectionId: section.id || section.databaseId || lesson.chapterId || '',
         // Khóa nhóm chương ổn định — khác sectionTitle (chuỗi), vốn có thể trùng
         // nhau giữa 2 chương nếu giáo viên đặt tên giống nhau.
         sectionIndex
@@ -1864,7 +1868,7 @@ Giải thích: Hello nghĩa là xin chào.`}
 
 // Bảng quản lý tab của giảng viên: thêm / đổi tên / sắp xếp / xóa tab bài tập,
 // và sửa câu hỏi của từng tab bằng đúng trình soạn câu hỏi cũ.
-function LessonTabManager({ lesson, saving, status, onSave }) {
+export function LessonTabManager({ lesson, saving, status, onSave }) {
   const tabsKey = useMemo(
     () => JSON.stringify(lesson?.tabs || lesson?.exercises || []),
     [lesson?.tabs, lesson?.exercises]
@@ -1965,18 +1969,12 @@ function LessonTabManager({ lesson, saving, status, onSave }) {
       {exerciseTabs.length ? (
         <div className="lesson-tab-manager__list">
           {exerciseTabs.map((tab, index) => (
-            <div
-              key={tab.id}
-              className={`lesson-tab-manager__row ${tab.id === selectedTab?.id ? 'is-selected' : ''}`}
-            >
-              <button
-                type="button"
-                className="lesson-tab-manager__pick"
+            <div key={tab.id} className="lesson-tab-manager__item">
+              <div
+                className={`lesson-tab-manager__row ${tab.id === selectedTab?.id ? 'is-selected' : ''}`}
                 onClick={() => setSelectedTabId(tab.id)}
-                title="Sửa câu hỏi của tab này"
               >
-                {index + 1}
-              </button>
+              <span className="lesson-tab-manager__pick" aria-hidden="true">{index + 1}</span>
               <label className="auth-field lesson-tab-manager__field">
                 <span>Tên tab</span>
                 <input
@@ -1988,6 +1986,14 @@ function LessonTabManager({ lesson, saving, status, onSave }) {
               </label>
               <span className="pill">{countLessonTabQuestions(tab)} câu</span>
               <div className="lesson-tab-manager__actions">
+                <button
+                  type="button"
+                  className="button-ghost"
+                  onClick={() => setSelectedTabId(tab.id)}
+                  aria-pressed={tab.id === selectedTab?.id}
+                >
+                  Sửa câu hỏi
+                </button>
                 <button type="button" className="button-ghost" onClick={() => moveTab(tab.id, -1)} disabled={index === 0}>
                   ↑
                 </button>
@@ -2003,6 +2009,24 @@ function LessonTabManager({ lesson, saving, status, onSave }) {
                   Xóa
                 </button>
               </div>
+              </div>
+
+              {tab.id === selectedTab?.id ? (
+                <div className="lesson-tab-manager__editor">
+                  <h3>Câu hỏi của &ldquo;{selectedTab.title}&rdquo;</h3>
+                  <VideoQuestionEditor
+                    key={selectedTab.id}
+                    lesson={{
+                      id: `${lesson?.id || 'lesson'}:${selectedTab.id}`,
+                      databaseId: lesson?.databaseId,
+                      exercises: selectedTab.exercises
+                    }}
+                    saving={saving}
+                    status={null}
+                    onSave={(questions) => handleSaveTabQuestions(selectedTab.id, questions)}
+                  />
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -2018,22 +2042,6 @@ function LessonTabManager({ lesson, saving, status, onSave }) {
         </div>
       ) : null}
 
-      {selectedTab ? (
-        <div className="lesson-tab-manager__editor">
-          <h3>Câu hỏi của &ldquo;{selectedTab.title}&rdquo;</h3>
-          <VideoQuestionEditor
-            key={selectedTab.id}
-            lesson={{
-              id: `${lesson?.id || 'lesson'}:${selectedTab.id}`,
-              databaseId: lesson?.databaseId,
-              exercises: selectedTab.exercises
-            }}
-            saving={saving}
-            status={null}
-            onSave={(questions) => handleSaveTabQuestions(selectedTab.id, questions)}
-          />
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -2213,6 +2221,10 @@ export default function LearningPage() {
   const [teacherSaving, setTeacherSaving] = useState(false);
   const [teacherSaveStatus, setTeacherSaveStatus] = useState({ type: '', text: '' });
   const [assignmentStudioOpen, setAssignmentStudioOpen] = useState(false);
+  // Chế độ sửa của phòng học. Tắt thì phòng học hiện đúng như mắt học viên,
+  // nên giảng viên dùng luôn nó để xem trước mà không phải rời trang.
+  const [roomEditMode, setRoomEditMode] = useState(false);
+  const [reorderStatus, setReorderStatus] = useState({ type: '', text: '' });
   const [lessonProgressMap, setLessonProgressMap] = useState({});
   const [progressSaving, setProgressSaving] = useState(false);
   const [assignmentSavingId, setAssignmentSavingId] = useState('');
@@ -2544,6 +2556,22 @@ export default function LearningPage() {
       ? [{ key: currentCourseId, title: currentCourse.title }, ...courseOptions]
       : courseOptions;
   const isTeacher = currentRole === 'teacher' || currentRole === 'admin';
+  // Admin quản lý mọi khóa; giảng viên chỉ sửa khóa do mình phụ trách.
+  // Không để UI hiện nút rồi để API từ chối khiến thao tác có vẻ không hoạt động.
+  const canManageCurrentCourse = canManageCourse({
+    role: currentRole,
+    userId: auth.user?.id,
+    course: currentCourse
+  });
+
+  // Đổi sang khóa mình không phụ trách (hoặc bị hạ quyền giữa chừng) thì chế
+  // độ sửa phải tắt theo, không để trạng thái cũ đứng lại trên khóa mới.
+  useEffect(() => {
+    if (!canManageCurrentCourse) {
+      setRoomEditMode(false);
+    }
+  }, [canManageCurrentCourse, currentCourseId]);
+
   const purchasedCourseSet = new Set(purchasedCourses.map((courseKey) => String(courseKey).toLowerCase()));
   const hasPurchasedCourse =
     purchasedCourseSet.has(String(currentCourseId).toLowerCase()) ||
@@ -2583,7 +2611,12 @@ export default function LearningPage() {
     lessons.forEach((lesson) => {
       const key = lesson.sectionIndex ?? lesson.sectionTitle ?? 'default';
       if (!map.has(key)) {
-        map.set(key, { title: lesson.sectionTitle || 'Nội dung khóa học', lessons: [] });
+        map.set(key, {
+          // id chương đi kèm để lưu được vị trí sau khi kéo thả.
+          id: lesson.sectionId || '',
+          title: lesson.sectionTitle || 'Nội dung khóa học',
+          lessons: []
+        });
       }
       map.get(key).lessons.push(lesson);
     });
@@ -2936,6 +2969,127 @@ export default function LearningPage() {
     }
   }
 
+  /**
+   * Kéo thả xong một bài trong sidebar phòng học.
+   *
+   * Cập nhật lạc quan trước cho tay kéo không bị khựng, rồi mới gọi API. Server
+   * mới là nơi quyết định quyền (giảng viên chỉ sắp xếp khóa mình phụ trách),
+   * nên khi nó từ chối thì đưa danh sách về đúng trạng thái cũ thay vì để màn
+   * hình hiện một thứ tự mà DB không có.
+   */
+  async function handleReorderLessonsInRoom(nextSections) {
+    if (!canManageCurrentCourse) {
+      return;
+    }
+
+    const moves = [];
+    for (const section of nextSections) {
+      const chapterId = section?.id || '';
+      (section?.lessons || []).forEach((lesson, index) => {
+        const lessonId = lesson?.databaseId || lesson?.id || '';
+        moves.push({ lessonId, chapterId, position: index + 1 });
+      });
+    }
+
+    // Khóa chưa đồng bộ Supabase thì bài/chương không có id thật để lưu.
+    if (moves.some((move) => !move.lessonId || !move.chapterId)) {
+      setReorderStatus({
+        type: 'error',
+        text: 'Khóa này chưa đồng bộ Supabase nên chưa lưu được thứ tự bài.'
+      });
+      return;
+    }
+
+    const previousLessons = lessons;
+    const reordered = nextSections.flatMap((section, sectionIndex) =>
+      (section.lessons || []).map((lesson, index) => ({
+        ...lesson,
+        sectionIndex,
+        sectionId: section.id || lesson.sectionId || '',
+        sectionTitle: section.title || lesson.sectionTitle,
+        chapterId: section.id || lesson.chapterId || '',
+        position: index + 1
+      }))
+    );
+
+    setLessons(reordered);
+    setReorderStatus({ type: '', text: '' });
+
+    try {
+      await reorderCourseLessons({ moves, accessToken: auth.session?.access_token });
+      setReorderStatus({ type: 'success', text: 'Đã lưu thứ tự bài học.' });
+    } catch (error) {
+      setLessons(previousLessons);
+      setReorderStatus({
+        type: 'error',
+        text: error.message || 'Chưa lưu được thứ tự bài học nên đã trả về như cũ.'
+      });
+    }
+  }
+
+  /**
+   * Kéo đổi thứ tự chương trong sidebar phòng học.
+   *
+   * `sections` được suy ra từ mảng `lessons` phẳng (nhóm theo sectionIndex), nên
+   * đổi thứ tự chương = phát lại sectionIndex cho từng bài theo thứ tự chương
+   * mới. Cũng cập nhật lạc quan rồi hoàn tác nếu server từ chối.
+   */
+  async function handleReorderSectionsInRoom(nextSections) {
+    if (!canManageCurrentCourse) {
+      return;
+    }
+
+    const moves = nextSections.map((section, index) => ({
+      chapterId: section?.id || '',
+      position: index + 1
+    }));
+
+    if (moves.some((move) => !move.chapterId)) {
+      setReorderStatus({
+        type: 'error',
+        text: 'Khóa này chưa đồng bộ Supabase nên chưa lưu được thứ tự chương.'
+      });
+      return;
+    }
+
+    const previousLessons = lessons;
+    const previousExpanded = expandedSections;
+    const reordered = nextSections.flatMap((section, sectionIndex) =>
+      (section.lessons || []).map((lesson) => ({
+        ...lesson,
+        sectionIndex,
+        sectionId: section.id || lesson.sectionId || '',
+        sectionTitle: section.title || lesson.sectionTitle
+      }))
+    );
+
+    // Trạng thái mở/đóng đánh theo vị trí chương, nên nếu không dời theo thì kéo
+    // xong chương đang mở sẽ tự sập và một chương khác bung ra.
+    const remappedExpanded = {};
+    nextSections.forEach((section, newIndex) => {
+      const oldIndex = sections.findIndex((current) => current.id === section.id);
+      if (oldIndex >= 0 && previousExpanded[oldIndex] !== undefined) {
+        remappedExpanded[newIndex] = previousExpanded[oldIndex];
+      }
+    });
+
+    setLessons(reordered);
+    setExpandedSections(remappedExpanded);
+    setReorderStatus({ type: '', text: '' });
+
+    try {
+      await reorderCourseChapters({ moves, accessToken: auth.session?.access_token });
+      setReorderStatus({ type: 'success', text: 'Đã lưu thứ tự chương.' });
+    } catch (error) {
+      setLessons(previousLessons);
+      setExpandedSections(previousExpanded);
+      setReorderStatus({
+        type: 'error',
+        text: error.message || 'Chưa lưu được thứ tự chương nên đã trả về như cũ.'
+      });
+    }
+  }
+
   async function handleMarkLessonComplete(result) {
     if (!currentLesson) {
       return;
@@ -3224,7 +3378,24 @@ export default function LearningPage() {
               }))
             }
             emptyMessage="Chương này chưa có bài học nào."
+            // Kéo thả chỉ mở khi người quản lý khóa này BẬT chế độ sửa. Học viên
+            // và giảng viên khóa khác không bao giờ nhận props này; server vẫn
+            // kiểm lại quyền một lần nữa khi lưu.
+            editable={canManageCurrentCourse && roomEditMode}
+            onReorderLessons={handleReorderLessonsInRoom}
+            onReorderSections={handleReorderSectionsInRoom}
           />
+
+          {canManageCurrentCourse && roomEditMode && reorderStatus.text ? (
+            <p
+              role={reorderStatus.type === 'error' ? 'alert' : 'status'}
+              className={`auth-message ${
+                reorderStatus.type === 'error' ? 'auth-message--error' : 'auth-message--success'
+              }`}
+            >
+              {reorderStatus.text}
+            </p>
+          ) : null}
         </aside>
 
         <div className="learning-stage">
@@ -3236,7 +3407,7 @@ export default function LearningPage() {
                 <h1>{currentLesson.title}</h1>
                 {currentLesson.note ? <p>{currentLesson.note}</p> : null}
                 
-                {isTeacher && (
+                {canManageCurrentCourse && (
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span className="pill" style={{ opacity: currentLesson.videoUrl ? 1 : 0.5 }}>{currentLesson.videoUrl ? '✓ Video' : '✕ Video'}</span>
                     <span className="pill" style={{ opacity: lessonAudio ? 1 : 0.5 }}>{lessonAudio ? '✓ Audio' : '✕ Audio'}</span>
@@ -3245,6 +3416,20 @@ export default function LearningPage() {
                     <span className="pill">{visibleAssignments.length} Bài tập đã giao</span>
                     
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                      {/* Đường vào sửa nằm ngay trên bài đang mở, không phải đi
+                          vòng qua bảng điều khiển. Chỉ người quản lý được khóa
+                          này mới thấy — xem canManageCurrentCourse. */}
+                      <button
+                        type="button"
+                        className={roomEditMode ? 'button' : 'button-ghost'}
+                        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
+                        aria-pressed={roomEditMode}
+                        onClick={() => setRoomEditMode((on) => !on)}
+                      >
+                        {roomEditMode ? '✓ Xong' : '✎ Sửa bài'}
+                      </button>
+                      {roomEditMode ? (
+                      <>
                       <label className="button-ghost" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
                         Tải PDF
                         <input
@@ -3257,6 +3442,8 @@ export default function LearningPage() {
                       <a className="button" href="#teacher-assignment-studio" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>
                         Giao bài
                       </a>
+                      </>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -3270,7 +3457,7 @@ export default function LearningPage() {
                 onExercisesSubmitted={handleLessonExercisesSubmitted}
               />
 
-              {isTeacher ? (
+              {canManageCurrentCourse && roomEditMode ? (
                 <LessonTabManager
                   lesson={currentLesson}
                   saving={lessonQuestionSaving}
@@ -3279,7 +3466,7 @@ export default function LearningPage() {
                 />
               ) : null}
 
-              {isTeacher ? (
+              {canManageCurrentCourse && roomEditMode ? (
                 <details
                   id="teacher-assignment-studio"
                   className="content-card content-card--enterprise lesson-teacher-panel assignment-studio"

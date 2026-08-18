@@ -3,6 +3,16 @@ import { randomUUID } from 'crypto';
 import { supabaseAdmin, isSupabaseAdminReady } from '../config/supabase.js';
 import { mockCourses } from '../data/mock.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import {
+  checkReorderAccess,
+  collectReorderIds,
+  parseReorderMoves
+} from '../lib/lessonReorder.js';
+import {
+  checkChapterReorderAccess,
+  collectChapterIds,
+  parseChapterMoves
+} from '../lib/chapterReorder.js';
 
 const router = Router();
 const LESSON_CONTENT_VERSION = 'ngoaingu3k.lesson.v1';
@@ -878,8 +888,12 @@ router.get('/:courseId', async (req, res) => {
     }
 
     const { chapters, ...courseFields } = course;
+    // id/position của chương đi kèm ra client: trình sửa ngay trong phòng học
+    // cần biết chương đích là chương nào khi kéo một bài sang chương khác.
     const sections = sortByPosition(chapters).map((chapter) => ({
+      id: chapter.id,
       title: chapter.title,
+      position: chapter.position,
       lessons: sortByPosition(chapter.lessons).map((lesson) =>
         summaryOnly ? stripLessonQuestions(lesson) : lesson
       )
@@ -894,6 +908,180 @@ router.get('/:courseId', async (req, res) => {
   } catch (err) {
     console.error('[GET /api/courses/:courseId]', err.message);
     return res.status(500).json({ message: 'Lỗi máy chủ.' });
+  }
+});
+
+/**
+ * PATCH /api/courses/lessons/reorder
+ * Đổi vị trí bài học ngay từ phòng học. Nhận danh sách { lessonId, chapterId,
+ * position } và chỉ ghi đúng những bài có thay đổi.
+ *
+ * Chặn quyền ba lớp: middleware (đăng nhập + vai trò), checkReorderAccess
+ * (đối chiếu chủ khóa cho cả chương nguồn lẫn chương đích), và RLS của
+ * Supabase là lớp cuối. Vai trò lấy từ bảng profiles trong requireAuth chứ
+ * không tin client gửi lên.
+ */
+router.patch('/lessons/reorder', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
+  const { moves, error: parseError } = parseReorderMoves(req.body);
+
+  if (parseError) {
+    return res.status(400).json({ message: parseError });
+  }
+
+  if (!isSupabaseAdminReady()) {
+    return res.status(503).json({
+      message: 'Server chưa có SUPABASE_SERVICE_ROLE_KEY nên chưa thể đổi vị trí bài học.'
+    });
+  }
+
+  try {
+    const { lessonIds, chapterIds } = collectReorderIds(moves);
+
+    const { data: lessons, error: lessonError } = await supabaseAdmin
+      .from('lessons')
+      .select('id, chapter_id, position')
+      .in('id', lessonIds);
+
+    if (lessonError) {
+      throw lessonError;
+    }
+
+    // Nạp cả chương đích lẫn chương nguồn: thiếu chương nguồn thì không phát
+    // hiện được cú kéo vượt sang khóa khác.
+    const involvedChapterIds = [
+      ...new Set([...chapterIds, ...(lessons || []).map((lesson) => lesson.chapter_id)])
+    ];
+
+    const { data: chapters, error: chapterError } = await supabaseAdmin
+      .from('chapters')
+      .select('id, course_id')
+      .in('id', involvedChapterIds);
+
+    if (chapterError) {
+      throw chapterError;
+    }
+
+    const courseIds = [...new Set((chapters || []).map((chapter) => chapter.course_id))];
+    const { data: courses, error: courseError } = await supabaseAdmin
+      .from('courses')
+      .select('id, teacher_id')
+      .in('id', courseIds);
+
+    if (courseError) {
+      throw courseError;
+    }
+
+    const access = checkReorderAccess({
+      role: req.user.role,
+      userId: req.user.id,
+      moves,
+      lessons: lessons || [],
+      chapters: chapters || [],
+      courses: courses || []
+    });
+
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const lessonById = new Map((lessons || []).map((lesson) => [lesson.id, lesson]));
+    // Chỉ ghi bài thật sự đổi chương hoặc đổi vị trí.
+    const changed = moves.filter((move) => {
+      const lesson = lessonById.get(move.lessonId);
+      return lesson.chapter_id !== move.chapterId || Number(lesson.position) !== move.position;
+    });
+
+    for (const move of changed) {
+      const { error: updateError } = await supabaseAdmin
+        .from('lessons')
+        .update({ chapter_id: move.chapterId, position: move.position })
+        .eq('id', move.lessonId);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }
+
+    return res.json({ data: { updated: changed.length, moves }, mode: 'supabase' });
+  } catch (err) {
+    console.error('[PATCH /api/courses/lessons/reorder]', err.message);
+    return res.status(500).json({ message: 'Chưa thể đổi vị trí bài học.' });
+  }
+});
+
+/**
+ * PATCH /api/courses/chapters/reorder
+ * Đổi thứ tự chương ngay từ phòng học. Nhận danh sách { chapterId, position }.
+ *
+ * Chặn quyền ba lớp giống route đổi vị trí bài: middleware (đăng nhập + vai
+ * trò), checkChapterReorderAccess (mọi chương phải cùng một khóa và khóa đó
+ * phải do người dùng phụ trách), rồi RLS của Supabase là lớp cuối.
+ */
+router.patch('/chapters/reorder', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
+  const { moves, error: parseError } = parseChapterMoves(req.body);
+
+  if (parseError) {
+    return res.status(400).json({ message: parseError });
+  }
+
+  if (!isSupabaseAdminReady()) {
+    return res.status(503).json({
+      message: 'Server chưa có SUPABASE_SERVICE_ROLE_KEY nên chưa thể đổi thứ tự chương.'
+    });
+  }
+
+  try {
+    const chapterIds = collectChapterIds(moves);
+
+    const { data: chapters, error: chapterError } = await supabaseAdmin
+      .from('chapters')
+      .select('id, course_id, position')
+      .in('id', chapterIds);
+
+    if (chapterError) {
+      throw chapterError;
+    }
+
+    const courseIds = [...new Set((chapters || []).map((chapter) => chapter.course_id))];
+    const { data: courses, error: courseError } = await supabaseAdmin
+      .from('courses')
+      .select('id, teacher_id')
+      .in('id', courseIds);
+
+    if (courseError) {
+      throw courseError;
+    }
+
+    const access = checkChapterReorderAccess({
+      role: req.user.role,
+      userId: req.user.id,
+      moves,
+      chapters: chapters || [],
+      courses: courses || []
+    });
+
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const chapterById = new Map((chapters || []).map((chapter) => [chapter.id, chapter]));
+    const changed = moves.filter((move) => Number(chapterById.get(move.chapterId).position) !== move.position);
+
+    for (const move of changed) {
+      const { error: updateError } = await supabaseAdmin
+        .from('chapters')
+        .update({ position: move.position })
+        .eq('id', move.chapterId);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }
+
+    return res.json({ data: { updated: changed.length, courseId: access.courseId }, mode: 'supabase' });
+  } catch (err) {
+    console.error('[PATCH /api/courses/chapters/reorder]', err.message);
+    return res.status(500).json({ message: 'Chưa thể đổi thứ tự chương.' });
   }
 });
 
