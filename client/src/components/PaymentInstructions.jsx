@@ -124,10 +124,6 @@ export function PaymentInstructions({
         <p className="empty-state">Đã nhận được tiền. Khóa học đã mở, học viên vào phòng học được ngay.</p>
       ) : (
         <div className="payment-instructions__waiting">
-          <p>
-            Quét QR hoặc chuyển khoản đúng số tiền và nội dung ở trên. SePay báo về là hệ thống
-            mở khóa học tự động trong vài giây, không cần bấm xác nhận hay chờ admin duyệt.
-          </p>
           <div className="payment-instructions__waiting-row">
             <span className="payment-waiting-dot" aria-hidden="true" />
             <span>{checking ? 'Đang kiểm tra giao dịch...' : 'Đang chờ tiền về'}</span>

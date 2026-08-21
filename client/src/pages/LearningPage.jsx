@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { canManageCourse, getDashboardPathForRole, getEffectiveRole } from '../lib/permissions';
@@ -2300,6 +2300,13 @@ function LearningEmptyState({ role, loading }) {
   );
 }
 
+const SELECT_COURSE_STYLE = { width: '100%', padding: '0.5rem', marginTop: '0.25rem', marginBottom: '0.25rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '1rem', fontWeight: 'bold' };
+const PILL_ROW_STYLE = { display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap', alignItems: 'center' };
+const TOOLBAR_STYLE = { marginLeft: 'auto', display: 'flex', gap: '0.5rem' };
+const SMALL_BUTTON_STYLE = { padding: '0.25rem 0.75rem', fontSize: '0.8rem' };
+const UPLOAD_LABEL_STYLE = { padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 };
+const HIDDEN_INPUT_STYLE = { display: 'none' };
+
 export default function LearningPage() {
   usePageTitle('Phòng học');
   const { courseId, lessonId } = useParams();
@@ -2352,15 +2359,9 @@ export default function LearningPage() {
 
   useEffect(() => {
     writeStoredJson(storageKeys.audioByLesson, audioMap);
-  }, [audioMap]);
-
-  useEffect(() => {
     writeStoredJson(storageKeys.filesByLesson, fileMap);
-  }, [fileMap]);
-
-  useEffect(() => {
     writeStoredJson(storageKeys.purchasedCourses, purchasedCourses);
-  }, [purchasedCourses]);
+  }, [audioMap, fileMap, purchasedCourses]);
 
   useEffect(() => {
     const nextCachedRoomState = readLearningRoomCache(routeCourseKey, learningRoomScope);
@@ -2381,17 +2382,12 @@ export default function LearningPage() {
   const lastLoadedRoleRef = useRef(null);
   const availableCoursesRef = useRef(availableCourses);
   const purchasedCoursesRef = useRef(purchasedCourses);
+  const cacheWriteTimerRef = useRef(null);
+  availableCoursesRef.current = availableCourses;
+  purchasedCoursesRef.current = purchasedCourses;
   // Điểm từng tab bài tập đã nộp, theo chủ đề: { [lessonId]: { [tabId]: {...} } }.
   // Dùng để cộng dồn điểm của cả chủ đề khi lưu tiến độ.
   const lessonTabScoresRef = useRef({});
-
-  useEffect(() => {
-    availableCoursesRef.current = availableCourses;
-  }, [availableCourses]);
-
-  useEffect(() => {
-    purchasedCoursesRef.current = purchasedCourses;
-  }, [purchasedCourses]);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -2528,12 +2524,17 @@ export default function LearningPage() {
       return;
     }
 
-    writeLearningRoomCache(routeCourseKey, learningRoomScope, {
-      currentCourse,
-      lessons,
-      selectedLessonId,
-      availableCourses
-    });
+    clearTimeout(cacheWriteTimerRef.current);
+    cacheWriteTimerRef.current = setTimeout(() => {
+      writeLearningRoomCache(routeCourseKey, learningRoomScope, {
+        currentCourse,
+        lessons,
+        selectedLessonId,
+        availableCourses
+      });
+    }, 300);
+
+    return () => clearTimeout(cacheWriteTimerRef.current);
   }, [availableCourses, currentCourse, lessons, learningRoomScope, loadingCourse, routeCourseKey, selectedLessonId]);
 
   useEffect(() => {
@@ -2647,9 +2648,9 @@ export default function LearningPage() {
     };
   }, [auth.user?.id, auth.user?.email, currentCourse?.id, lessons]);
 
-  const currentLesson = lessons.find((lesson) => lesson.id === selectedLessonId) || lessons[0] || null;
-  const currentLessonExercises = Array.isArray(currentLesson?.exercises) ? currentLesson.exercises : [];
-  const lessonIndex = useMemo(() => lessons.findIndex((lesson) => lesson.id === selectedLessonId), [selectedLessonId]);
+  const currentLesson = useMemo(() => lessons.find((lesson) => lesson.id === selectedLessonId) || lessons[0] || null, [lessons, selectedLessonId]);
+  const currentLessonExercises = useMemo(() => Array.isArray(currentLesson?.exercises) ? currentLesson.exercises : [], [currentLesson]);
+  const lessonIndex = useMemo(() => lessons.findIndex((lesson) => lesson.id === selectedLessonId), [selectedLessonId, lessons]);
   const currentCourseId = currentCourse?.id || routeCourseKey || '';
   const lessonStorageId = currentCourseId && selectedLessonId ? `${currentCourseId}:${selectedLessonId}` : '';
   const studyCourseOptions = useMemo(() => {
@@ -2670,10 +2671,10 @@ export default function LearningPage() {
 
     return Array.from(optionMap.values());
   }, [availableCourses, currentCourse]);
-  const teacherCourseOptions =
+  const teacherCourseOptions = useMemo(() => 
     currentCourse && !courseOptions.some((course) => course.key === currentCourseId)
       ? [{ key: currentCourseId, title: currentCourse.title }, ...courseOptions]
-      : courseOptions;
+      : courseOptions, [currentCourse, courseOptions, currentCourseId]);
   const isTeacher = currentRole === 'teacher' || currentRole === 'admin';
   // Admin quản lý mọi khóa; giảng viên chỉ sửa khóa do mình phụ trách.
   // Không để UI hiện nút rồi để API từ chối khiến thao tác có vẻ không hoạt động.
@@ -2691,37 +2692,37 @@ export default function LearningPage() {
     }
   }, [canManageCurrentCourse, currentCourseId]);
 
-  const purchasedCourseSet = new Set(purchasedCourses.map((courseKey) => String(courseKey).toLowerCase()));
-  const hasPurchasedCourse =
+  const purchasedCourseSet = useMemo(() => new Set(purchasedCourses.map((courseKey) => String(courseKey).toLowerCase())), [purchasedCourses]);
+  const hasPurchasedCourse = useMemo(() => 
     purchasedCourseSet.has(String(currentCourseId).toLowerCase()) ||
-    purchasedCourseSet.has(String(routeCourseKey).toLowerCase());
+    purchasedCourseSet.has(String(routeCourseKey).toLowerCase()), [purchasedCourseSet, currentCourseId, routeCourseKey]);
   const allVisibleAssignments = isTeacher ? teacherAssignments : studentAssignments;
   const currentCourseAccessKeys = useMemo(() => {
     return getCourseAccessKeys(currentCourse);
   }, [currentCourse]);
 
-  const visibleAssignments = allVisibleAssignments.filter((assignment) => {
+  const visibleAssignments = useMemo(() => allVisibleAssignments.filter((assignment) => {
     const key = String(assignment.courseKey || '').toLowerCase();
     return (
       currentCourseAccessKeys.includes(key) ||
       key === String(currentCourseId).toLowerCase() ||
       key === String(routeCourseKey).toLowerCase()
     );
-  });
-  const currentLessonAssignments = currentLesson
+  }), [allVisibleAssignments, currentCourseAccessKeys, currentCourseId, routeCourseKey]);
+  const currentLessonAssignments = useMemo(() => currentLesson
     ? visibleAssignments.filter((assignment) => assignment.lessonTitle === currentLesson.title)
-    : [];
+    : [], [currentLesson, visibleAssignments]);
   const hasAssignedLesson = !isTeacher && currentLessonAssignments.length > 0;
   const hasLessonAccess = hasPurchasedCourse || hasAssignedLesson || isTeacher;
-  const completedLessonCount = lessons.filter((lesson) => isLessonComplete(lesson, lessonProgressMap)).length;
-  const lessonProgress = lessons.length ? Math.round((completedLessonCount / lessons.length) * 100) : 0;
-  const isCurrentLessonCompleted = currentLesson ? isLessonComplete(currentLesson, lessonProgressMap) : false;
+  const completedLessonCount = useMemo(() => lessons.filter((lesson) => isLessonComplete(lesson, lessonProgressMap)).length, [lessons, lessonProgressMap]);
+  const lessonProgress = useMemo(() => lessons.length ? Math.round((completedLessonCount / lessons.length) * 100) : 0, [lessons.length, completedLessonCount]);
+  const isCurrentLessonCompleted = useMemo(() => currentLesson ? isLessonComplete(currentLesson, lessonProgressMap) : false, [currentLesson, lessonProgressMap]);
   const currentLessonStatusLabel = isCurrentLessonCompleted
     ? 'Đã xong'
     : currentLesson?.status === 'locked'
       ? 'Đang khóa'
       : 'Đang học';
-  const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : lessons[1];
+  const nextLesson = useMemo(() => lessonIndex >= 0 ? lessons[lessonIndex + 1] : lessons[1], [lessonIndex, lessons]);
   // Nhóm theo sectionIndex (ổn định) chứ không theo title (chuỗi có thể trùng
   // giữa 2 chương) — cần để tick "hoàn thành chương" không gộp nhầm 2 chương
   // trùng tên thành một.
@@ -3303,32 +3304,32 @@ export default function LearningPage() {
     }
   }
 
-  function handleSelectStudyCourse(event) {
+  const handleSelectStudyCourse = useCallback((event) => {
     const nextCourseKey = event.target.value;
     if (!nextCourseKey || nextCourseKey === currentCourseId) {
       return;
     }
 
     navigate(`/learn/${nextCourseKey}`);
-  }
+  }, [currentCourseId, navigate]);
 
-  function handleSelectLesson(nextLessonId) {
-    const nextLesson = lessons.find((lesson) => lesson.id === nextLessonId);
-    if (auth.user?.id && nextLesson) {
-      void logActivity(auth.user.id, 'view_lesson', nextLessonId, nextLesson.title, {
+  const handleSelectLesson = useCallback((nextLessonId) => {
+    const nextSelectedLesson = lessons.find((lesson) => lesson.id === nextLessonId);
+    if (auth.user?.id && nextSelectedLesson) {
+      void logActivity(auth.user.id, 'view_lesson', nextLessonId, nextSelectedLesson.title, {
         courseKey: currentCourseId
       });
     }
     setShowStrokePractice(false);
     setSelectedLessonId(nextLessonId);
     navigate(`/learn/${currentCourseId}/${nextLessonId}`);
-  }
+  }, [auth.user?.id, currentCourseId, lessons, navigate]);
 
-  function handleGoToNextLesson() {
+  const handleGoToNextLesson = useCallback(() => {
     if (nextLesson) {
       handleSelectLesson(nextLesson.id);
     }
-  }
+  }, [handleSelectLesson, nextLesson]);
 
   const showBlockingLoading = loadingCourse && !currentCourse;
 
@@ -3430,7 +3431,7 @@ export default function LearningPage() {
                 className="sidebar-course-select" 
                 value={currentCourseId} 
                 onChange={handleSelectStudyCourse}
-                style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', marginBottom: '0.25rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '1rem', fontWeight: 'bold' }}
+                style={SELECT_COURSE_STYLE}
               >
                 {studyCourseOptions.map((course) => {
                   const courseKey = getCourseRouteKey(course);
@@ -3527,21 +3528,21 @@ export default function LearningPage() {
                 {currentLesson.note ? <p>{currentLesson.note}</p> : null}
                 
                 {canManageCurrentCourse && (
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={PILL_ROW_STYLE}>
                     <span className="pill" style={{ opacity: currentLesson.videoUrl ? 1 : 0.5 }}>{currentLesson.videoUrl ? '✓ Video' : '✕ Video'}</span>
                     <span className="pill" style={{ opacity: lessonAudio ? 1 : 0.5 }}>{lessonAudio ? '✓ Audio' : '✕ Audio'}</span>
                     <span className="pill" style={{ opacity: lessonFile ? 1 : 0.5 }}>{lessonFile ? '✓ Tài liệu' : '✕ Tài liệu'}</span>
                     <span className="pill">{currentLessonExercises.length} Câu video</span>
                     <span className="pill">{visibleAssignments.length} Bài tập đã giao</span>
                     
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                    <div style={TOOLBAR_STYLE}>
                       {/* Đường vào sửa nằm ngay trên bài đang mở, không phải đi
                           vòng qua bảng điều khiển. Chỉ người quản lý được khóa
                           này mới thấy — xem canManageCurrentCourse. */}
                       <button
                         type="button"
                         className={roomEditMode ? 'button' : 'button-ghost'}
-                        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
+                        style={SMALL_BUTTON_STYLE}
                         aria-pressed={roomEditMode}
                         onClick={() => setRoomEditMode((on) => !on)}
                       >
@@ -3549,16 +3550,16 @@ export default function LearningPage() {
                       </button>
                       {roomEditMode ? (
                       <>
-                      <label className="button-ghost" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                      <label className="button-ghost" style={UPLOAD_LABEL_STYLE}>
                         Tải PDF
                         <input
                           type="file"
                           accept=".pdf,.zip,.txt,.md,.doc,.docx,image/*"
-                          style={{ display: 'none' }}
+                          style={HIDDEN_INPUT_STYLE}
                           onChange={(event) => void handleTeacherSourceFile(event.target.files?.[0])}
                         />
                       </label>
-                      <a className="button" href="#teacher-assignment-studio" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>
+                      <a className="button" href="#teacher-assignment-studio" style={SMALL_BUTTON_STYLE}>
                         Giao bài
                       </a>
                       </>

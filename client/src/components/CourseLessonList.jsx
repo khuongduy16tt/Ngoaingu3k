@@ -271,7 +271,10 @@ export function CourseLessonList({
                   const bounds = event.currentTarget.getBoundingClientRect();
                   const placement =
                     event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
-                  setSectionDropTarget({ sectionIndex, placement });
+                  setSectionDropTarget((prev) => {
+                    if (prev?.sectionIndex === sectionIndex && prev?.placement === placement) return prev;
+                    return { sectionIndex, placement };
+                  });
                 }}
                 onDrop={(event) => {
                   if (draggedSection === null) return;
@@ -350,7 +353,10 @@ export function CourseLessonList({
                       // Lơ lửng ở khoảng trống của chương → mặc định thả xuống cuối,
                       // nhờ vậy chương chưa có bài nào cũng nhận được bài kéo sang.
                       event.preventDefault();
-                      setDropTarget({ sectionIndex, lessonIndex: -1, placement: 'end' });
+                      setDropTarget((prev) => {
+                        if (prev?.sectionIndex === sectionIndex && prev?.lessonIndex === -1 && prev?.placement === 'end') return prev;
+                        return { sectionIndex, lessonIndex: -1, placement: 'end' };
+                      });
                     }}
                     onDrop={(event) => {
                       if (!canReorder || !draggedLesson) return;
@@ -441,7 +447,10 @@ export function CourseLessonList({
                               const bounds = event.currentTarget.getBoundingClientRect();
                               const placement =
                                 event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
-                              setDropTarget({ sectionIndex, lessonIndex, placement });
+                              setDropTarget((prev) => {
+                                if (prev?.sectionIndex === sectionIndex && prev?.lessonIndex === lessonIndex && prev?.placement === placement) return prev;
+                                return { sectionIndex, lessonIndex, placement };
+                              });
                             }}
                             onDrop={(event) => {
                               if (!draggedLesson) return;
