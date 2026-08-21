@@ -2,6 +2,8 @@
 
 Base code for an e-learning platform built with Node.js and React.
 
+> Last updated: 2026-08-21
+
 ## Structure
 
 - `client`: React app powered by Vite and Supabase
