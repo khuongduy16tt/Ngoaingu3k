@@ -1,12 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { formatVnd } from '../lib/money';
 
+// ─── CẤU HÌNH QR & TÀI KHOẢN ─────────────────────────────────────────────────
+//
+//  1. Đặt file ảnh QR vào: client/public/payment-qr.png
+//     rồi đổi dòng bên dưới thành: const STATIC_QR_URL = '/payment-qr.png';
+//
+//  2. Hoặc dùng URL CDN:   const STATIC_QR_URL = 'https://...';
+//
+//  Để trống → placeholder cho đến khi có ảnh thật.
+//
+const STATIC_QR_URL = '/payment-qr.png'; // ảnh đặt tại client/public/payment-qr.png
+
+const BANK_INFO = {
+  bankName:      'Vietcombank',
+  accountNumber: '3227029999',
+  accountName:   'CT TNHH GIAO DUC VA PHAT TRIEN HA NOI',
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const statusText = {
-  pending_payment: 'Đang chờ chuyển khoản',
-  pending: 'Đang chờ chuyển khoản',
+  pending_payment: 'Chờ admin xác nhận',
+  pending: 'Chờ admin xác nhận',
+  awaiting_admin: 'Chờ admin xác nhận',
   paid: 'Đã thanh toán — khóa học đã mở',
   failed: 'Thanh toán thất bại',
-  cancelled: 'Đơn đã hủy'
+  cancelled: 'Đơn đã hủy',
 };
 
 function CopyField({ label, value }) {
@@ -23,7 +42,7 @@ function CopyField({ label, value }) {
       await navigator.clipboard.writeText(String(value));
       setCopied(true);
     } catch {
-      // Trình duyệt chặn clipboard thì học viên vẫn đọc được số trên màn hình.
+      // Trình duyệt chặn clipboard → học viên vẫn đọc được số trên màn hình.
     }
   }
 
@@ -42,11 +61,14 @@ function CopyField({ label, value }) {
 
 export function PaymentInstructions({
   order,
+  // checking / onCheckNow vẫn nhận prop để không vỡ interface hiện tại.
+  // eslint-disable-next-line no-unused-vars
   checking = false,
+  // eslint-disable-next-line no-unused-vars
   onCheckNow,
   variant = 'card',
   open = true,
-  onClose
+  onClose,
 }) {
   const isOverlay = variant === 'overlay';
 
@@ -57,9 +79,7 @@ export function PaymentInstructions({
     document.body.style.overflow = 'hidden';
 
     function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        onClose?.();
-      }
+      if (event.key === 'Escape') onClose?.();
     }
 
     window.addEventListener('keydown', handleKeyDown);
@@ -76,78 +96,131 @@ export function PaymentInstructions({
   const paid = order.status === 'paid';
 
   const content = (
-    <section className={`content-card content-card--enterprise payment-instructions ${isOverlay ? 'payment-instructions--overlay' : ''}`}>
+    <section
+      className={`content-card content-card--enterprise payment-instructions${isOverlay ? ' payment-instructions--overlay' : ''
+        }`}
+    >
+      {/* ── Header ── */}
       <div className="payment-instructions__head">
         <div>
-          <span className="eyebrow">Thanh toán tự động qua SePay</span>
+          <span className="eyebrow">Thanh toán chuyển khoản</span>
           <h3>{order.courseTitle}</h3>
-          <p>{statusText[order.status] || 'Đang chờ chuyển khoản'}</p>
+          <p>{statusText[order.status] || 'Chờ admin xác nhận'}</p>
         </div>
         {onClose ? (
-          <button type="button" className="payment-instructions__close" onClick={onClose} aria-label="Đóng hướng dẫn thanh toán">
+          <button
+            type="button"
+            className="payment-instructions__close"
+            onClick={onClose}
+            aria-label="Đóng hướng dẫn thanh toán"
+          >
             ×
           </button>
         ) : null}
       </div>
 
+      {/* ── Body ── */}
       <div className="payment-instructions__body">
+        {/* QR tĩnh */}
         <div className="payment-qr-box">
-          {order.qrImageUrl ? (
-            <img src={order.qrImageUrl} alt="Mã QR thanh toán SePay" />
+          {STATIC_QR_URL ? (
+            <img src={STATIC_QR_URL} alt="Mã QR chuyển khoản" />
           ) : (
-            <div>
-              <strong>QR</strong>
-              <span>Chưa cấu hình tài khoản SePay (SEPAY_ACCOUNT_NUMBER, SEPAY_BANK_CODE)</span>
+            <div
+              style={{
+                padding: '2rem 1.5rem',
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                border: '2px dashed var(--border)',
+                borderRadius: '0.75rem',
+              }}
+            >
+              <strong style={{ display: 'block', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                QR
+              </strong>
+              <span style={{ fontSize: '0.85rem' }}>
+                Ảnh QR sẽ được cập nhật sớm.
+                <br />
+                Vui lòng chuyển khoản theo thông tin bên dưới.
+              </span>
             </div>
           )}
         </div>
 
+        {/* Chi tiết tài khoản */}
         <div className="payment-detail-list">
           <div>
             <span>Số tiền</span>
             <strong>{formatVnd(order.amount)}</strong>
           </div>
-          <CopyField label="Nội dung chuyển khoản (bắt buộc giữ nguyên)" value={order.transferCode} />
-          {order.accountNumber ? (
-            <CopyField label={`Số tài khoản${order.bankCode ? ` · ${order.bankCode}` : ''}`} value={order.accountNumber} />
+
+          {order.transferCode ? (
+            <CopyField
+              label="Nội dung chuyển khoản (bắt buộc giữ nguyên)"
+              value={order.transferCode}
+            />
           ) : null}
-          {order.accountName ? (
+
+          {BANK_INFO.accountNumber ? (
+            <CopyField
+              label={`Số tài khoản${BANK_INFO.bankName ? ` · ${BANK_INFO.bankName}` : ''}`}
+              value={BANK_INFO.accountNumber}
+            />
+          ) : null}
+
+          {BANK_INFO.accountName ? (
             <div>
               <span>Chủ tài khoản</span>
-              <strong>{order.accountName}</strong>
+              <strong>{BANK_INFO.accountName}</strong>
             </div>
           ) : null}
         </div>
       </div>
 
+      {/* ── Trạng thái ── */}
       {paid ? (
-        <p className="empty-state">Đã nhận được tiền. Khóa học đã mở, học viên vào phòng học được ngay.</p>
+        <p className="empty-state">
+          Đã xác nhận thanh toán. Khóa học đã mở, bạn vào học được ngay.
+        </p>
       ) : (
         <div className="payment-instructions__waiting">
           <div className="payment-instructions__waiting-row">
             <span className="payment-waiting-dot" aria-hidden="true" />
-            <span>{checking ? 'Đang kiểm tra giao dịch...' : 'Đang chờ tiền về'}</span>
-            {onCheckNow ? (
-              <button type="button" className="button-ghost" onClick={onCheckNow} disabled={checking}>
-                Kiểm tra ngay
-              </button>
-            ) : null}
+            <span>
+              Sau khi chuyển khoản, vui lòng chờ admin xác nhận
+              (thường trong vài phút – vài giờ).
+            </span>
           </div>
+          <p
+            style={{
+              marginTop: '0.75rem',
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Khi admin xác nhận, khóa học sẽ tự động mở trong lần đăng nhập tiếp theo.
+          </p>
         </div>
       )}
     </section>
   );
 
-  if (!isOverlay) {
-    return content;
-  }
+  if (!isOverlay) return content;
 
   return (
-    <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Thanh toán qua SePay">
-      <button type="button" className="payment-screen__backdrop" onClick={onClose} aria-label="Đóng hướng dẫn thanh toán" />
-      <div className="payment-screen__panel">
-        {content}
-      </div>
+    <div
+      className="payment-screen"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Thanh toán chuyển khoản"
+    >
+      <button
+        type="button"
+        className="payment-screen__backdrop"
+        onClick={onClose}
+        aria-label="Đóng hướng dẫn thanh toán"
+      />
+      <div className="payment-screen__panel">{content}</div>
     </div>
   );
 }

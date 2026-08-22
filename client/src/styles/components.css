@@ -2451,16 +2451,16 @@
 }
 
 .payment-instructions__body {
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
   align-items: stretch;
 }
 
 .payment-qr-box {
-  min-height: 180px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 1rem;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
@@ -2470,9 +2470,10 @@
 
 .payment-qr-box img {
   width: 100%;
-  max-width: 160px;
+  max-width: 380px;
   aspect-ratio: 1;
   object-fit: contain;
+  border-radius: 0.75rem;
 }
 
 .payment-qr-box strong {
@@ -2488,26 +2489,30 @@
 
 .payment-detail-list {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.4rem;
 }
 
 .payment-detail-list div {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.9rem;
+  border-radius: 0.6rem;
   background: rgba(255, 255, 255, 0.03);
 }
 
 .payment-detail-list span {
   color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .payment-detail-list strong {
   color: var(--text);
+  font-size: 0.92rem;
   overflow-wrap: anywhere;
 }
 

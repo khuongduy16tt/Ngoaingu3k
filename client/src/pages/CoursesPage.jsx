@@ -344,7 +344,7 @@ export default function CoursesPage() {
       setFeedback({
         courseId: course.id,
         text: result.requiresPayment
-          ? `Đã tạo mã thanh toán cho ${course.title}. Quét QR và chuyển khoản, khóa học mở tự động khi tiền về.`
+          ? `Đã tạo đơn thanh toán cho ${course.title}. Vui lòng chuyển khoản và chờ admin xác nhận để mở khóa học.`
           : `${course.title} đã được ghi nhận.`
       });
     } catch (error) {

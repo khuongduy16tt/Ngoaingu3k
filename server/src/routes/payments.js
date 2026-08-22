@@ -7,7 +7,9 @@ import {
   extractTransferCode,
   isSepayReady,
   makeTransferCode,
-  verifySepayApiKey
+  verifySepayApiKey,
+  getSepayPgClient,
+  isSepayPgReady
 } from '../config/sepay.js';
 
 const router = Router();
@@ -38,6 +40,28 @@ function toPaymentResponse(order, extra = {}) {
     ...buildPaymentTarget({ amount, transferCode: order.transfer_code }),
     ...extra
   };
+}
+
+function getPgExtra(req, order, courseId) {
+  if (!isSepayPgReady() || !order || order.status === 'paid') return {};
+  
+  const sepayPgClient = getSepayPgClient();
+  if (!sepayPgClient) return {};
+  
+  const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+  const checkoutURL = sepayPgClient.checkout.initCheckoutUrl();
+  const checkoutFormfields = sepayPgClient.checkout.initOneTimePaymentFields({
+    payment_method: 'BANK_TRANSFER',
+    order_invoice_number: String(order.id),
+    order_amount: Number(order.amount || 0),
+    currency: 'VND',
+    order_description: order.transfer_code || String(order.id),
+    success_url: `${origin}/courses/${courseId}?payment=success`,
+    error_url: `${origin}/courses/${courseId}?payment=error`,
+    cancel_url: `${origin}/courses/${courseId}?payment=cancel`,
+  });
+  
+  return { checkoutURL, checkoutFormfields };
 }
 
 /**
@@ -137,7 +161,7 @@ router.post('/checkout', requireAuth, validate(['courseId']), async (req, res) =
       return res.json({
         message: 'Đơn đang chờ chuyển khoản.',
         mode: 'reused',
-        ...toPaymentResponse(pendingOrder)
+        ...toPaymentResponse(pendingOrder, getPgExtra(req, pendingOrder, courseId))
       });
     }
 
@@ -159,7 +183,7 @@ router.post('/checkout', requireAuth, validate(['courseId']), async (req, res) =
       message: 'Đơn hàng đã được tạo, chờ chuyển khoản.',
       mode: 'supabase',
       sepayReady: isSepayReady(),
-      ...toPaymentResponse(order)
+      ...toPaymentResponse(order, getPgExtra(req, order, courseId))
     });
   } catch (err) {
     console.error('[POST /api/payments/checkout]', err.message);

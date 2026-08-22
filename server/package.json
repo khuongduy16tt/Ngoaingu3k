@@ -14,7 +14,8 @@
     "@supabase/supabase-js": "^2.110.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "sepay-pg-node": "^1.0.0"
   },
   "devDependencies": {
     "vite": "^5.4.21"

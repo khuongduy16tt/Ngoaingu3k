@@ -1,4 +1,5 @@
 import { randomInt, timingSafeEqual } from 'node:crypto';
+import { SePayPgClient } from 'sepay-pg-node';
 
 // Bỏ I, O, S để nhân viên không đọc nhầm thành 1, 0, 5 khi đối soát tay.
 const CODE_ALPHABET = '0123456789ABCDEFGHJKLMNPQRTUVWXYZ';
@@ -20,14 +21,33 @@ export function getSepayConfig() {
     accountName: String(process.env.SEPAY_ACCOUNT_NAME || '').trim(),
     apiKey: String(process.env.SEPAY_WEBHOOK_API_KEY || '').trim(),
     template: String(process.env.SEPAY_QR_TEMPLATE || 'compact').trim(),
-    prefix: sanitizePrefix(process.env.SEPAY_CODE_PREFIX)
+    prefix: sanitizePrefix(process.env.SEPAY_CODE_PREFIX),
+    merchantId: String(process.env.SEPAY_MERCHANT_ID || '').trim(),
+    secretKey: String(process.env.SEPAY_SECRET_KEY || '').trim()
   };
 }
 
-/** Đủ thông tin tài khoản để dựng QR hay chưa. */
+/** Đủ thông tin để dùng cổng thanh toán SePay PG hay chưa. */
+export function isSepayPgReady() {
+  const { merchantId, secretKey } = getSepayConfig();
+  return Boolean(merchantId && secretKey);
+}
+
+/** Khởi tạo SePayPgClient */
+export function getSepayPgClient() {
+  if (!isSepayPgReady()) return null;
+  const { merchantId, secretKey } = getSepayConfig();
+  return new SePayPgClient({
+    env: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+    merchant_id: merchantId,
+    secret_key: secretKey
+  });
+}
+
+/** Đủ thông tin tài khoản để dựng QR VietQR hay chưa. */
 export function isSepayReady() {
   const { accountNumber, bankCode } = getSepayConfig();
-  return Boolean(accountNumber && bankCode);
+  return Boolean(accountNumber && bankCode) || isSepayPgReady();
 }
 
 /**
