@@ -106,5 +106,16 @@ export function getVideoEmbedIssue(url) {
 export function getVideoAccessHint(url) {
   if (!isGoogleDriveUrl(url)) return '';
 
-  return 'Nếu khung video báo 403, hãy mở quyền file trong Google Drive: Share -> General access -> Anyone with the link -> Viewer.';
+  return 'Nếu khung video báo lỗi hoặc 403, hãy kiểm tra:\n' +
+    '1. Mở quyền file: Google Drive → chuột phải file → Share → General access → Anyone with the link → Viewer.\n' +
+    '2. Nếu vẫn lỗi, trình duyệt có thể đang chặn cookie bên thứ 3 — hãy bấm nút "Mở video tab mới" bên dưới khung video.';
+}
+
+export function getGoogleDriveViewUrl(url) {
+  const fileId = getGoogleDriveFileId(url);
+  if (!fileId) return '';
+
+  const resourceKey = getGoogleDriveResourceKey(url);
+  const params = resourceKey ? `?resourcekey=${encodeURIComponent(resourceKey)}` : '';
+  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view${params}`;
 }

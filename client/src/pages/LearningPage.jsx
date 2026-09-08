@@ -59,7 +59,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { PaginationControls, usePagination } from '../components/Pagination';
 // Thư viện đọc Excel nặng 142KB gzip và chỉ giảng viên mới dùng tới (nút "Nhập
 // Excel" khi soạn câu hỏi). Nạp lúc bấm nút, không gói kèm phần học.
-import { getEmbeddableVideoUrl, getVideoEmbedIssue, getVideoSourceLabel } from '../lib/videoLinks';
+import { getEmbeddableVideoUrl, getGoogleDriveViewUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel, isGoogleDriveUrl } from '../lib/videoLinks';
 import { courseDetail as mockCourseDetail } from '../data/mock';
 
 const fallbackLessons = [
@@ -716,6 +716,9 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath }) {
   const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
   const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
   const videoIssue = getVideoEmbedIssue(rawVideoUrl);
+  const driveViewUrl = getGoogleDriveViewUrl(rawVideoUrl);
+  const isDriveVideo = isGoogleDriveUrl(rawVideoUrl);
+  const accessHint = isDriveVideo ? getVideoAccessHint(rawVideoUrl) : '';
 
   if (!videoUrl) {
     return (
@@ -756,9 +759,25 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath }) {
           src={videoUrl}
           title={lesson?.videoTitle || lesson?.title || 'Video bài học'}
           allow="autoplay; fullscreen; picture-in-picture"
+          referrerPolicy="no-referrer"
           allowFullScreen
         />
       </div>
+      {isDriveVideo ? (
+        <div className="lesson-video-panel__drive-fallback">
+          <a
+            className="button-ghost"
+            href={driveViewUrl || rawVideoUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            ⚠️ Nếu video không phát được, bấm đây để mở video trong tab mới
+          </a>
+          {isTeacher && accessHint ? (
+            <p className="lesson-video-panel__access-hint">{accessHint}</p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

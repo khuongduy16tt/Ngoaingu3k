@@ -2617,6 +2617,29 @@ textarea:focus-visible {
   border: 0;
 }
 
+.lesson-video-panel__drive-fallback {
+  padding: 10px 0 2px;
+  text-align: center;
+}
+
+.lesson-video-panel__drive-fallback .button-ghost {
+  font-size: 13px;
+  color: var(--primary, #4b8df8);
+  opacity: 0.85;
+}
+
+.lesson-video-panel__drive-fallback .button-ghost:hover {
+  opacity: 1;
+}
+
+.lesson-video-panel__access-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted, #888);
+  white-space: pre-line;
+}
+
 .learning-lesson-title-row {
   display: grid;
   gap: 8px;
