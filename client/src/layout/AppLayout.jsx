@@ -7,7 +7,7 @@ import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
 import { ConsultationFab } from '../components/ConsultationFab';
 import { ConsultationPopup } from '../components/ConsultationPopup';
-import { getCourseCatalog, isHskCourse, getHskLevel } from '../lib/courseService';
+import { getCourseCatalog, isHskCourse, getHskLevel, groupHskCourses } from '../lib/courseService';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
@@ -555,6 +555,60 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
 
     if (!groupCourses.length) {
       return <p className="site-menu__empty">Chưa có khóa học nào trong mục này.</p>;
+    }
+
+    // Nhóm HSK theo cấp độ: nếu có nhiều khóa cùng level → flyout lồng.
+    if (group === 'hsk') {
+      const grouped = groupHskCourses(groupCourses);
+      return (
+        <>
+          {grouped.map((entry) => {
+            if (entry.type === 'single') {
+              const c = entry.course;
+              return (
+                <Link
+                  key={c.id}
+                  to={`/courses/${c.id}`}
+                  className="site-menu__sub-link"
+                  role="menuitem"
+                  onClick={handleSelect}
+                >
+                  {c.title}
+                  <span>{c.category} · {c.level}</span>
+                </Link>
+              );
+            }
+            // group: hiển thị 1 hàng tến nhóm + flyout bên phải
+            return (
+              <div key={entry.label} className="site-menu__group-row" role="menuitem" tabIndex={0}>
+                <span>{entry.label}</span>
+                <svg className="site-menu__group-arrow" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 4l4 4-4 4" />
+                </svg>
+                <div className="site-menu__flyout" role="menu">
+                  {entry.courses.map((c) => (
+                    <Link
+                      key={c.id}
+                      to={`/courses/${c.id}`}
+                      className="site-menu__flyout-link"
+                      role="menuitem"
+                      onClick={handleSelect}
+                    >
+                      {c.title}
+                      <span>{c.category} · {c.level}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {groupCourses.length > NAV_DROPDOWN_MAX_COURSES ? (
+            <Link to={to} className="site-menu__sub-link" role="menuitem" onClick={handleSelect}>
+              Xem tất cả {groupCourses.length} khóa
+            </Link>
+          ) : null}
+        </>
+      );
     }
 
     return (

@@ -234,6 +234,96 @@
   font-size: 16px;
 }
 
+/* ── Nested HSK group flyout ─────────────────────────────────────────────── */
+/* Hàng nhóm (vd "HSK 5") — có mũi tên phải cho biết có flyout con. */
+.site-menu__group-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.4;
+  cursor: default;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  transition: opacity 0.2s ease;
+}
+
+.site-menu__group-row:first-child {
+  border-top: none;
+}
+
+.site-menu__group-row:hover {
+  opacity: 0.9;
+}
+
+.site-menu__group-arrow {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  opacity: 0.75;
+  transition: transform 0.2s ease;
+}
+
+/* Flyout panel hiện ra bên phải khi hover vào group-row */
+.site-menu__flyout {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  z-index: 100;
+  min-width: 220px;
+  padding: 10px 16px;
+  background: var(--header-green);
+  border-radius: 6px;
+  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  pointer-events: none;
+}
+
+.site-menu__group-row:hover .site-menu__flyout,
+.site-menu__group-row:focus-within .site-menu__flyout {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.site-menu__group-row:hover .site-menu__group-arrow {
+  transform: translateX(3px);
+}
+
+.site-menu__flyout-link {
+  display: block;
+  padding: 10px 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 400;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.site-menu__flyout-link:last-child {
+  border-bottom: none;
+}
+
+.site-menu__flyout-link:hover {
+  opacity: 0.82;
+  transform: translateX(4px);
+}
+
+.site-menu__flyout-link span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 /* ── Cụm bên phải ───────────────────────────────────────────────────────── */
 .site-header__actions {
   justify-self: end;

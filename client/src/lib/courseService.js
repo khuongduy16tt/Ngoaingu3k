@@ -37,6 +37,30 @@ export function getHskLevel(course) {
   return match ? parseInt(match[1], 10) : Infinity;
 }
 
+// Gộp danh sách khóa HSK theo cấp độ để hiển thị nested flyout trong header.
+// Mỗi phần tử kết quả là một trong hai dạng:
+//   • { type: 'single', course }         — cấp chỉ có 1 khóa, hiển thị thẳng
+//   • { type: 'group', level, label, courses[] } — cấp có ≥2 khóa, có flyout
+export function groupHskCourses(courses) {
+  const map = new Map(); // level (number) → courses[]
+  for (const course of courses) {
+    const level = getHskLevel(course);
+    if (!map.has(level)) map.set(level, []);
+    map.get(level).push(course);
+  }
+
+  const result = [];
+  for (const [level, group] of [...map.entries()].sort(([a], [b]) => a - b)) {
+    if (group.length === 1) {
+      result.push({ type: 'single', course: group[0] });
+    } else {
+      const label = level === Infinity ? 'Tiếng Trung' : `HSK ${level}`;
+      result.push({ type: 'group', level, label, courses: group });
+    }
+  }
+  return result;
+}
+
 export function readTeacherManagedCourses(teacherId = 'local') {
   try {
     const rawValue = localStorage.getItem(`${TEACHER_MANAGED_COURSES_KEY}:${teacherId}`);
