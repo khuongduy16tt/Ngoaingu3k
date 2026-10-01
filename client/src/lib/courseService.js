@@ -29,6 +29,14 @@ export function isHskCourse(course) {
   return haystack.includes('hsk') || haystack.includes('tiếng trung');
 }
 
+// Trích cấp độ HSK từ tiêu đề khóa học (ví dụ "HSK 3 – Từ Vựng" → 3).
+// Trả về Infinity nếu không tìm thấy số để khóa không có cấp xếp cuối cùng.
+export function getHskLevel(course) {
+  const haystack = `${course.title || ''} ${course.category || ''}`;
+  const match = haystack.match(/HSK\s*(\d+)/i);
+  return match ? parseInt(match[1], 10) : Infinity;
+}
+
 export function readTeacherManagedCourses(teacherId = 'local') {
   try {
     const rawValue = localStorage.getItem(`${TEACHER_MANAGED_COURSES_KEY}:${teacherId}`);

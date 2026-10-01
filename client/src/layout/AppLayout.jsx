@@ -7,7 +7,7 @@ import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
 import { ConsultationFab } from '../components/ConsultationFab';
 import { ConsultationPopup } from '../components/ConsultationPopup';
-import { getCourseCatalog, isHskCourse } from '../lib/courseService';
+import { getCourseCatalog, isHskCourse, getHskLevel } from '../lib/courseService';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
@@ -511,11 +511,18 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
 
   // Mục gộp nhận cả danh mục; 2 mục tách chỉ nhận khóa của đúng hệ ngôn ngữ
   // của mình — áp cho cả ô tìm kiếm để không trả về khóa của hệ bên kia.
-  const groupCourses = (courses || []).filter((course) => {
-    if (group === 'ielts') return !isHskCourse(course);
-    if (group === 'hsk') return isHskCourse(course);
-    return true;
-  });
+  const groupCourses = useMemo(() => {
+    const filtered = (courses || []).filter((course) => {
+      if (group === 'ielts') return !isHskCourse(course);
+      if (group === 'hsk') return isHskCourse(course);
+      return true;
+    });
+    // Sắp xếp khóa Tiếng Trung theo cấp độ HSK 1 → 5 (nhỏ nhất trước).
+    if (group === 'hsk') {
+      return [...filtered].sort((a, b) => getHskLevel(a) - getHskLevel(b));
+    }
+    return filtered;
+  }, [courses, group]);
 
   const normalizedSearch = search.trim().toLowerCase();
   const searchResults = normalizedSearch
