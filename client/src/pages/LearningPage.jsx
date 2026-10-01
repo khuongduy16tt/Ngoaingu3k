@@ -4014,59 +4014,6 @@ export default function LearningPage() {
             </section>
           )}
 
-          <section className="content-card content-card--enterprise">
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">{isTeacher ? 'Bảng giao việc' : 'Nhiệm vụ của tôi'}</span>
-                <h2>{isTeacher ? 'Nhiệm vụ đã lưu' : 'Bài học được giao'}</h2>
-              </div>
-              <span className="pill">{loadingAssignments ? 'Đang tải' : `${visibleAssignments.length} mục`}</span>
-            </div>
-
-            {visibleAssignments.length ? (
-              <>
-                <div className="assignment-list">
-                  {assignmentPagination.pageItems.map((assignment) => (
-                  <article key={assignment.id} className="assignment-card">
-                    <div className="assignment-card__head">
-                      <div>
-                        <span className="eyebrow">{assignment.courseTitle}</span>
-                        <h3>{assignment.title}</h3>
-                        <p>{assignment.lessonTitle}</p>
-                      </div>
-                      <span className="pill">
-                        {formatAssignmentScope(assignment.assignmentScope)}
-                      </span>
-                    </div>
-                    {assignment.description ? <p className="assignment-card__description">{assignment.description}</p> : null}
-                    <div className="assignment-card__meta">
-                      <span>
-                        {assignment.exerciseConfig?.generatedQuestions?.length
-                          ? `${assignment.exerciseConfig.generatedQuestions.length} câu hỏi`
-                          : `${assignment.recipients.length} học viên`}
-                      </span>
-                      <span>{assignment.audioName || 'Chưa có audio'}</span>
-                      <span>{assignment.attachmentName || 'Chưa có tài liệu'}</span>
-                    </div>
-                    {!isTeacher && assignment.lessonTitle === currentLesson.title ? (
-                      <StudentAssignmentPlayer
-                        assignment={assignment}
-                        attempt={assignmentAttempts[assignment.id]}
-                        saving={assignmentSavingId === assignment.id}
-                        onSubmit={handleSubmitAssignment}
-                      />
-                    ) : null}
-                  </article>
-                  ))}
-                </div>
-                <PaginationControls {...assignmentPagination} label="nhiệm vụ" />
-              </>
-            ) : (
-              <p className="empty-state">
-                {isTeacher ? 'Chưa có nhiệm vụ nào được lưu.' : 'Tài khoản của bạn chưa được giao nhiệm vụ học tập.'}
-              </p>
-            )}
-          </section>
         </div>
       </section>
     </div>
