@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getAssignmentsForStudent } from '../lib/assignmentService';
@@ -3920,6 +3921,7 @@ export function AdminDashboardPage() {
   const paymentReviewOrders = adminData.orders.filter((order) =>
     ['pending_payment', 'pending', 'awaiting_admin', 'paid'].includes(order.status)
   );
+  const paymentPagination = usePagination(paymentReviewOrders, { pageSize: 10 });
   // Chỉ mục thanh toán mới gắn số: đơn chờ duyệt là việc tồn đọng cần xử lý,
   // các mục khác chỉ là nơi tra cứu nên dán số vào sẽ làm loãng.
   const adminNavSections = useMemo(
@@ -4612,7 +4614,7 @@ export function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {paymentReviewOrders.map((order) => {
+                {paymentPagination.pageItems.map((order) => {
                   const user = profileLookup.get(order.userId);
                   const course = courseLookup.get(order.courseId) || courseLookup.get(order.localCourseId);
                   const canApprove = ['pending', 'pending_payment', 'awaiting_admin'].includes(order.status);
@@ -4655,57 +4657,61 @@ export function AdminDashboardPage() {
             </table>
           </div>
 
-          {confirmationOrder ? (
-            <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Xác nhận hành động mở/đóng khóa">
-              <button type="button" className="payment-screen__backdrop" onClick={closeConfirmation} aria-label="Đóng xác nhận" />
-              <div className="payment-screen__panel content-card content-card--enterprise">
-                <div className="section-head">
-                  <div>
-                    <span className="eyebrow">Xác nhận hành động</span>
-                    <h2>{confirmationAction === 'approve' ? 'Xác nhận mở khóa' : 'Xác nhận đóng khóa'}</h2>
-                  </div>
-                </div>
-                <div className="section-content">
-                  <p>
-                    Bạn có chắc chắn {confirmationAction === 'approve' ? 'mở khóa' : 'đóng khóa'} khóa học
-                    <strong> {confirmationCourseTitle} </strong> cho học viên
-                    <strong> {confirmationStudentName} </strong> không?
-                  </p>
-                  <p style={{ marginTop: '0.75rem', color: '#b03a2e' }}>
-                    Hành động này là vĩnh viễn và sẽ {confirmationAction === 'revoke' ? 'xóa quyền truy cập khoá học' : 'cấp quyền truy cập khoá học'}.
-                  </p>
-                  <div style={{ marginTop: '1rem' }}>
-                    <label htmlFor="confirmation-input" style={{ display: 'block', marginBottom: '0.5rem' }}>
-                      Nhập <strong>{confirmationPhrase}</strong> để xác nhận:
-                    </label>
-                    <input
-                      id="confirmation-input"
-                      className="text-control"
-                      type="text"
-                      value={confirmationInput}
-                      onChange={(event) => setConfirmationInput(event.target.value)}
-                      placeholder={confirmationPhrase}
-                      style={{ width: '100%', maxWidth: '420px' }}
-                    />
-                  </div>
-                </div>
-                <div className="section-actions" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                  <button
-                    type="button"
-                    className="button teacher-console-primary"
-                    onClick={confirmAction}
-                    disabled={saving || confirmationInput.trim().toUpperCase() !== confirmationPhrase}
-                  >
-                    Có, {confirmationAction === 'approve' ? 'mở khóa' : 'đóng khóa'}
-                  </button>
-                  <button type="button" className="button-ghost" onClick={closeConfirmation} disabled={saving}>
-                    Hủy
-                  </button>
-                </div>
+          <PaginationControls {...paymentPagination} label="đơn hàng" />
+
+        </section>
+      ) : null}
+
+      {confirmationOrder ? ReactDOM.createPortal(
+        <div className="payment-screen" role="dialog" aria-modal="true" aria-label="Xác nhận hành động mở/đóng khóa">
+          <button type="button" className="payment-screen__backdrop" onClick={closeConfirmation} aria-label="Đóng xác nhận" />
+          <div className="payment-screen__panel content-card content-card--enterprise">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">Xác nhận hành động</span>
+                <h2>{confirmationAction === 'approve' ? 'Xác nhận mở khóa' : 'Xác nhận đóng khóa'}</h2>
               </div>
             </div>
-          ) : null}
-        </section>
+            <div className="section-content">
+              <p>
+                Bạn có chắc chắn {confirmationAction === 'approve' ? 'mở khóa' : 'đóng khóa'} khóa học
+                <strong> {confirmationCourseTitle} </strong> cho học viên
+                <strong> {confirmationStudentName} </strong> không?
+              </p>
+              <p style={{ marginTop: '0.75rem', color: '#b03a2e' }}>
+                Hành động này là vĩnh viễn và sẽ {confirmationAction === 'revoke' ? 'xóa quyền truy cập khoá học' : 'cấp quyền truy cập khoá học'}.
+              </p>
+              <div style={{ marginTop: '1rem' }}>
+                <label htmlFor="confirmation-input" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Nhập <strong>{confirmationPhrase}</strong> để xác nhận:
+                </label>
+                <input
+                  id="confirmation-input"
+                  className="text-control"
+                  type="text"
+                  value={confirmationInput}
+                  onChange={(event) => setConfirmationInput(event.target.value)}
+                  placeholder={confirmationPhrase}
+                  style={{ width: '100%', maxWidth: '420px' }}
+                />
+              </div>
+            </div>
+            <div className="section-actions" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="button teacher-console-primary"
+                onClick={confirmAction}
+                disabled={saving || confirmationInput.trim().toUpperCase() !== confirmationPhrase}
+              >
+                Có, {confirmationAction === 'approve' ? 'mở khóa' : 'đóng khóa'}
+              </button>
+              <button type="button" className="button-ghost" onClick={closeConfirmation} disabled={saving}>
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       ) : null}
 
       {/* ── Tab: Người dùng ── */}
