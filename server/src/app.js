@@ -1,3 +1,4 @@
+import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
@@ -58,6 +59,17 @@ function registerErrorHandler(app) {
 export async function createApp() {
   const app = express();
 
+  // Nén gzip trước mọi route: bundle JS/CSS build ra là text thuần, không nén
+  // thì index.js đi nguyên 446KB thay vì ~133KB. Ngưỡng 1KB để khỏi tốn CPU
+  // nén những response bé xíu (health, ack) mà chẳng lợi được bao nhiêu byte.
+  //
+  // Trên Vercel thì bỏ qua: file tĩnh do CDN phục vụ chứ không qua Express, và
+  // response của serverless function đã được hạ tầng nén sẵn — bật thêm ở đây
+  // chỉ tốn CPU function và có nguy cơ nén chồng.
+  if (!process.env.VERCEL) {
+    app.use(compression({ threshold: 1024 }));
+  }
+
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
   app.use(morgan('dev'));
@@ -71,8 +83,34 @@ export async function createApp() {
   const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 
   if (isProduction) {
-    app.use(express.static(clientDistDir));
+    // Vite đặt hash nội dung vào tên file trong /assets, nên nội dung đổi là
+    // tên đổi theo — cache vĩnh viễn được. Mặc định express.static trả
+    // max-age=0 khiến trình duyệt phải hỏi lại server từng file mỗi lần vào
+    // trang. Ảnh/font trong public/ không có hash nên để 1 ngày rồi
+    // revalidate, còn index.html phải luôn tươi để trỏ đúng bundle mới.
+    app.use(
+      express.static(clientDistDir, {
+        index: false,
+        setHeaders: (response, filePath) => {
+          const relative = path.relative(clientDistDir, filePath).replace(/\\/g, '/');
+
+          if (relative.startsWith('assets/')) {
+            response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            return;
+          }
+
+          if (relative === 'index.html') {
+            response.setHeader('Cache-Control', 'no-cache');
+            return;
+          }
+
+          response.setHeader('Cache-Control', 'public, max-age=86400, must-revalidate');
+        },
+      })
+    );
+
     app.get('*', (_request, response) => {
+      response.setHeader('Cache-Control', 'no-cache');
       response.sendFile(path.join(clientDistDir, 'index.html'));
     });
     registerErrorHandler(app);

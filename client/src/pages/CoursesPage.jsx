@@ -12,6 +12,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { usePaymentStatusPolling } from '../hooks/usePaymentStatusPolling';
 import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
+import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { PaymentInstructions } from '../components/PaymentInstructions';
 
 const roleLabels = {
@@ -66,7 +67,15 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
     <article className={`course-card course-card--enterprise marketplace-card ${isOwned ? 'is-owned' : ''}`}>
       <div className={`marketplace-card__media ${mediaSrc ? 'has-banner' : 'is-placeholder'}`}>
         {mediaSrc ? (
-          <img src={mediaSrc} alt={course.title} loading="lazy" />
+          <img
+            src={supabaseImageUrl(mediaSrc, { width: 800 })}
+            srcSet={supabaseImageSrcSet(mediaSrc)}
+            sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 400px"
+            onError={handleRemoteImageError(mediaSrc)}
+            alt={course.title}
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="marketplace-card__fallback">
             <span>{course.category}</span>

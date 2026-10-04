@@ -20,6 +20,26 @@
   z-index: 1;
 }
 
+/* Footer là nguồn CLS lớn nhất còn lại: route tải theo chunk nên lúc React vẽ
+   lần đầu vùng nội dung gần như rỗng, footer nằm lưng chừng màn hình, rồi khi
+   dữ liệu khoá học về thì bị đẩy tụt xuống — đo được 0.509 chỉ riêng cú đó.
+   Chừa sẵn đúng một khung hình cho vùng nội dung thì footer ở dưới mép màn
+   ngay từ khung hình đầu tiên, nội dung về bao nhiêu cũng đẩy nó xuống tiếp
+   chứ không nhảy trong tầm nhìn nữa.
+
+   Không đụng tới trang thật: mọi trang có nội dung đều đã cao hơn một khung
+   hình, và các trang ngắn (404, /test, màn chờ) vốn đã dùng .page.centered
+   với min-height 100dvh. Chỉ trạng thái đang tải là đổi.
+
+   Dùng đúng 100dvh chứ không trừ chiều cao header: box-sizing là border-box
+   toàn cục nên padding-top 87px (phần chừa chỗ cho header dán trên) đã nằm
+   trong chiều cao này rồi. Trừ thêm một lần nữa thì footer hở lên trên mép
+   màn 87px và vẫn nhảy trong tầm nhìn. */
+.site-main {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .background-accent {
   position: fixed;
   inset: auto auto 4rem -8rem;

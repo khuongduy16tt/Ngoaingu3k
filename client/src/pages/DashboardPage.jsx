@@ -30,6 +30,7 @@ import {
   saveCourseToSupabase,
   writeTeacherManagedCourses
 } from '../lib/courseService';
+import { handleRemoteImageError, supabaseImageUrl } from '../lib/imageCdn';
 import { ListeningAudio } from '../components/ListeningAudio';
 import { AudioUploadField } from '../components/AudioUploadField';
 import { ImageUploadField } from '../components/ImageUploadField';
@@ -2666,7 +2667,14 @@ export function TeacherDashboardPage() {
               {bannerUploadError && <span className="error-message" style={{ color: 'var(--error)' }}>{bannerUploadError}</span>}
               {courseDraft.bannerUrl && (
                 <div style={{ marginTop: '0.5rem' }}>
-                  <img src={courseDraft.bannerUrl} alt="Banner Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: 'var(--radius)' }} />
+                  <img
+                    src={supabaseImageUrl(courseDraft.bannerUrl, { width: 800 })}
+                    onError={handleRemoteImageError(courseDraft.bannerUrl)}
+                    alt="Banner Preview"
+                    loading="lazy"
+                    decoding="async"
+                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: 'var(--radius)' }}
+                  />
                 </div>
               )}
             </label>
@@ -5331,8 +5339,11 @@ export function AdminDashboardPage() {
               {courseDraft.bannerUrl ? (
                 <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
                   <img
-                    src={courseDraft.bannerUrl}
+                    src={supabaseImageUrl(courseDraft.bannerUrl, { width: 800 })}
+                    onError={handleRemoteImageError(courseDraft.bannerUrl)}
                     alt="Banner Preview"
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: 'var(--radius)' }}
                   />
                   <button

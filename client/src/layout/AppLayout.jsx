@@ -709,7 +709,10 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
 // File logo-ngoaingu3k.png mà trang thật dùng là 678×369 nhưng hình thật cũng
 // chỉ 312×218 nằm giữa — 54% chiều cao là nền trong suốt, nên cùng một chiều
 // cao khung thì bản -clean hiện to hơn ~1.5×.
-const LOGO_SRC = '/images/imported/logo-ngoaingu3k-clean.png';
+// Bản .webp cùng kích thước 336×242, cùng nền trong suốt, nhưng 34KB thay vì
+// 75KB. Logo nằm ở header của MỌI trang và nạp ngay từ đầu nên 41KB này rơi
+// thẳng vào đường tải tới hạn.
+const LOGO_SRC = '/images/imported/logo-ngoaingu3k-clean.webp';
 
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();

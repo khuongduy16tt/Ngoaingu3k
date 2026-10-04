@@ -77,6 +77,7 @@ export function writeTeacherManagedCourses(teacherId = 'local', courses = []) {
   } catch {
     // ignore storage failures
   }
+  invalidateCourseCatalogCache();
   return courses;
 }
 
@@ -436,6 +437,7 @@ export async function saveCourseToSupabase(course, options = {}) {
       body: { course }
     });
 
+    invalidateCourseCatalogCache();
     return response?.data || null;
   }
 
@@ -460,6 +462,7 @@ export async function saveCourseToSupabase(course, options = {}) {
     throw error;
   }
 
+  invalidateCourseCatalogCache();
   return data;
 }
 
@@ -526,6 +529,7 @@ export async function deleteCourseFromSupabase(course) {
     throw error;
   }
 
+  invalidateCourseCatalogCache();
   return { removedRemotely: true };
 }
 
@@ -546,6 +550,7 @@ export async function setCourseStatusInSupabase(course, status) {
     throw error;
   }
 
+  invalidateCourseCatalogCache();
   return { updatedRemotely: true };
 }
 
@@ -696,7 +701,55 @@ export function addStoredPurchasedCourseId(courseId, userId = 'local') {
   return grantPurchasedCourseId(userId, courseId);
 }
 
+/*
+ * Danh mục khoá học bị gọi lại nguyên vẹn ở MỖI lần đổi route: đo thực tế một
+ * phiên đi qua home → courses → chi tiết → home rồi bấm qua lại vài nhịp là 12
+ * lần cùng một truy vấn Supabase, trả về đúng một kết quả như nhau. Mỗi lần
+ * như vậy tốn một vòng preflight + query trước khi trang vẽ được danh sách.
+ *
+ * Nên gói lại bằng hai lớp:
+ *   - Gộp lời gọi đang bay: nhiều chỗ hỏi cùng lúc thì dùng chung một promise.
+ *   - Giữ kết quả trong CATALOG_TTL_MS cho các lần hỏi liền sau.
+ *
+ * TTL để ngắn và quan trọng hơn: MỌI hàm ghi trong file này đều gọi
+ * invalidateCourseCatalogCache(), nên giảng viên/admin lưu, xoá hay ẩn khoá
+ * xong là lần đọc kế tiếp đi thẳng xuống server. Hành vi nhìn thấy được không
+ * đổi, chỉ bớt số request lặp.
+ */
+const CATALOG_TTL_MS = 30000;
+let catalogCache = null;
+let catalogCachedAt = 0;
+let catalogInFlight = null;
+
+export function invalidateCourseCatalogCache() {
+  catalogCache = null;
+  catalogCachedAt = 0;
+  catalogInFlight = null;
+}
+
 export async function getCourseCatalog() {
+  if (catalogCache && Date.now() - catalogCachedAt < CATALOG_TTL_MS) {
+    return catalogCache;
+  }
+
+  if (catalogInFlight) {
+    return catalogInFlight;
+  }
+
+  catalogInFlight = fetchCourseCatalog()
+    .then((courses) => {
+      catalogCache = courses;
+      catalogCachedAt = Date.now();
+      return courses;
+    })
+    .finally(() => {
+      catalogInFlight = null;
+    });
+
+  return catalogInFlight;
+}
+
+async function fetchCourseCatalog() {
   if (!isSupabaseReady()) {
     const localTeacherCourses = readAllTeacherManagedCourses();
     const normalizedLocalCourses = localTeacherCourses.map((course, index) => normalizeCourse(course, index));

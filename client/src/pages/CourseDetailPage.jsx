@@ -7,6 +7,7 @@ import {
   getPendingCoursePaymentOrder,
   purchaseCourse
 } from '../lib/courseService';
+import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { getLessonProgress } from '../lib/progressService';
 import { isLessonComplete } from '../lib/lessonStars';
 import { getEffectiveRole } from '../lib/permissions';
@@ -252,7 +253,18 @@ export default function CourseDetailPage() {
 
           {course.bannerUrl && (
             <div style={{ margin: '1.5rem 0' }}>
-              <img src={course.bannerUrl} alt={course.title} style={{ width: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: 'var(--radius)' }} />
+              {/* Banner này là LCP của trang chi tiết: không lazy, ưu tiên cao,
+                  nhưng vẫn lấy bản đã resize thay vì PNG gốc vài MB. */}
+              <img
+                src={supabaseImageUrl(course.bannerUrl, { width: 1200 })}
+                srcSet={supabaseImageSrcSet(course.bannerUrl, [800, 1200, 1600])}
+                sizes="(max-width: 900px) 100vw, 900px"
+                onError={handleRemoteImageError(course.bannerUrl)}
+                alt={course.title}
+                fetchPriority="high"
+                decoding="async"
+                style={{ width: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: 'var(--radius)' }}
+              />
             </div>
           )}
 

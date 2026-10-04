@@ -91,6 +91,16 @@ body,
   min-height: 100%;
 }
 
+/* Trang SPA bắt đầu ngắn (màn chờ route) rồi dài ra khi nội dung về, nên
+   thanh cuộn xuất hiện giữa chừng và bóp bề rộng khung nhìn ~15px — cả
+   header, menu, nút nổi và footer nhảy ngang một nhịp. Đo bằng layout-shift
+   attribution thì riêng cú này chiếm phần lớn CLS của /courses và
+   /courses/:slug. Chừa sẵn rãnh thanh cuộn thì bề rộng không đổi nữa.
+   Chỉ dành chỗ, không vẽ thêm gì: giao diện giữ nguyên. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   color: var(--text);

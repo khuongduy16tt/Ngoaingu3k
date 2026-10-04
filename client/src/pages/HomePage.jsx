@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFeaturedCourses } from '../lib/courseService';
+import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 // Khi khóa học chưa có bannerUrl (dữ liệu thật từ backend), dùng ảnh thật từ
@@ -109,13 +110,17 @@ const reasonColumns = [
 // tượng trưng cho giảng viên — không có công cụ tạo ảnh AI tích hợp trong
 // môi trường này nên lấy trực tiếp từ thispersondoesnotexist.com (ảnh tổng
 // hợp, miễn phí sử dụng, không gắn với danh tính người thật nào).
+// Ảnh gốc .jpg là 1024×1024 ~550KB/tấm trong khi avatar chỉ vẽ ở 88×88 — sáu
+// tấm kéo về 3.2MB để hiển thị sáu vòng tròn nhỏ. Bản .webp 256×256 (đủ cho
+// màn 2.9x DPR) còn ~10KB/tấm. File .jpg gốc vẫn giữ trong repo để lùi lại
+// được nếu cần.
 const instructorShowcase = [
-  { name: 'Cô Linh', subject: 'Kỹ năng cốt lõi', photo: '/images/team/teacher-linh.jpg' },
-  { name: 'Thầy David', subject: 'Công sở', photo: '/images/team/teacher-david.jpg' },
-  { name: 'Cô Hạnh', subject: 'Luyện thi IELTS', photo: '/images/team/teacher-hanh.jpg' },
-  { name: 'Cô Thảo', subject: 'Giao tiếp', photo: '/images/team/teacher-thao.jpg' },
-  { name: 'Cô Trang', subject: 'Viết chuyên nghiệp', photo: '/images/team/teacher-trang.jpg' },
-  { name: 'Thầy Khoa', subject: 'Luyện thi TOEIC', photo: '/images/team/teacher-khoa.jpg' },
+  { name: 'Cô Linh', subject: 'Kỹ năng cốt lõi', photo: '/images/team/teacher-linh.webp' },
+  { name: 'Thầy David', subject: 'Công sở', photo: '/images/team/teacher-david.webp' },
+  { name: 'Cô Hạnh', subject: 'Luyện thi IELTS', photo: '/images/team/teacher-hanh.webp' },
+  { name: 'Cô Thảo', subject: 'Giao tiếp', photo: '/images/team/teacher-thao.webp' },
+  { name: 'Cô Trang', subject: 'Viết chuyên nghiệp', photo: '/images/team/teacher-trang.webp' },
+  { name: 'Thầy Khoa', subject: 'Luyện thi TOEIC', photo: '/images/team/teacher-khoa.webp' },
 ];
 
 const testimonialCards = [
@@ -232,7 +237,15 @@ function HeroBannerSlideshow({ banners }) {
           aria-hidden={i === index ? undefined : true}
           tabIndex={i === index ? undefined : -1}
         >
-          <img src={banner.src} alt={banner.alt} />
+          {/* Slide đầu là phần tử LCP của trang chủ nên phải nạp sớm nhất có
+              thể; slide sau chỉ hiện sau 5s nên để trình duyệt tự xếp lịch
+              thay vì tranh băng thông với slide đang hiển thị. */}
+          <img
+            src={banner.src}
+            alt={banner.alt}
+            fetchPriority={i === 0 ? 'high' : 'low'}
+            decoding="async"
+          />
         </Link>
       ))}
       <div className="hero-slideshow__dots" role="tablist" aria-label="Chọn banner">
@@ -510,7 +523,15 @@ export default function HomePage() {
                 <article key={course.id} className="course-tile">
                   <div className="course-tile__media">
                     {course.bannerUrl ? (
-                      <img src={course.bannerUrl} alt={course.title} loading="lazy" />
+                      <img
+                        src={supabaseImageUrl(course.bannerUrl, { width: 800 })}
+                        srcSet={supabaseImageSrcSet(course.bannerUrl)}
+                        sizes="(max-width: 700px) 100vw, 380px"
+                        onError={handleRemoteImageError(course.bannerUrl)}
+                        alt={course.title}
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <CoursePlaceholderArt variant={index} title={course.title} />
                     )}
