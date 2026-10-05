@@ -777,15 +777,17 @@ async function fetchCourseCatalog() {
     return dedupeCourseList(normalizedLocalCourses);
   }
 
-  // Truy vấn thành công → server là nguồn thật. Cache local chỉ được bù thêm
-  // khóa CHƯA từng đồng bộ; khóa đã có trên server rồi bị xóa (hoặc bị ẩn) thì
-  // phải biến mất khỏi danh mục, không thì xóa trên Supabase xong vào web vẫn
-  // thấy vì bản local không bao giờ tự hết hạn.
+  // Truy vấn thành công → server là nguồn thật. Khóa đã có trên server rồi bị
+  // xóa (hoặc bị ẩn) phải biến mất khỏi danh mục, không thì xóa trên Supabase
+  // xong vào web vẫn thấy vì bản local không bao giờ tự hết hạn. Bản nháp CHƯA
+  // từng đồng bộ cũng không vào danh mục: nó chỉ nằm trong trình duyệt của người
+  // soạn, học viên không mở được — giảng viên vẫn thấy nó ở Phòng học/Bảng điều
+  // khiển vì hai trang đó đọc thẳng readAllTeacherManagedCourses().
   const remoteRows = data || [];
   const normalizedRemoteCourses = remoteRows.map((course, index) => normalizeCourse(course, index));
-  const normalizedLocalCourses = reconcileManagedCourses(localTeacherCourses, remoteRows).map(
-    (course, index) => normalizeCourse(course, index)
-  );
+  const normalizedLocalCourses = reconcileManagedCourses(localTeacherCourses, remoteRows)
+    .filter((course) => isUuid(String(course?.databaseId || '')))
+    .map((course, index) => normalizeCourse(course, index));
 
   return dedupeCourseList([...normalizedRemoteCourses, ...normalizedLocalCourses]);
 }
