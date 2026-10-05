@@ -6928,3 +6928,26 @@ button:disabled {
     text-align: center;
   }
 }
+
+/* Văn bản bài tập có định dạng (RichText): giữ xuống dòng của đề/đoạn văn. */
+.rich-text {
+  white-space: pre-line;
+}
+
+.rich-text a {
+  color: var(--accent);
+  word-break: break-all;
+}
+
+/* Bài đọc / đoạn văn điền từ / dàn ý bài viết của một tab bài tập. */
+.lesson-passage {
+  display: block;
+  max-height: 420px;
+  overflow: auto;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  line-height: 1.65;
+}

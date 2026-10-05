@@ -325,7 +325,8 @@ Với bài nghe **tua được**, học viên thấy thanh chọn tốc độ: *
 - Trong phòng học của **bất kỳ khóa tiếng Trung nào**, mục **"Luyện nét chữ"** được **ghim ở đầu cột trái**,
   nằm trên toàn bộ danh sách bài học.
 - Hệ thống nhận diện khóa tiếng Trung qua tên hoặc đường dẫn của khóa có chứa
-  `hsk`, `trung`, `hoa` hoặc `chinese`. Đặt tên khóa theo đó là chức năng tự bật.
+  `hsk`, `tiếng Trung`, `tiếng Hoa` hoặc `chinese`. Đặt tên khóa theo đó là chức năng tự bật.
+  (Chữ "Trung" đứng riêng như "Trung cấp" **không** được tính.)
 - Bài luyện có sẵn **24 nét chữ Hán**, mỗi nét kèm tên tiếng Việt, tên tiếng Trung, phiên âm, chữ ví dụ
   và mẹo viết. Hình nét được **vẽ bằng SVG ngay trong ứng dụng** — không cần upload ảnh, không bao giờ vỡ hình.
 
@@ -582,7 +583,7 @@ Bucket đã bật *Public* thì quyền **đọc** có sẵn, không cần thêm
 | Bài học viên làm xong nhưng **0 sao** | Bài không có câu chấm điểm được | Bình thường — bài không chấm được thì hoàn thành là đủ 3 sao. Nếu vẫn 0 sao, kiểm tra câu hỏi đã có đáp án đúng chưa |
 | Bài nghe **không có thanh tốc độ** | Đó là dạng click-to-listen | Đúng thiết kế, chỉ bài nghe tua được mới có |
 | Không thấy **Tạo flashcard** trong menu | Đang đăng nhập bằng tài khoản học viên | Đăng nhập lại bằng tài khoản giảng viên hoặc admin |
-| Không thấy mục **Luyện nét chữ** | Tên/slug khóa không chứa `hsk`, `trung`, `hoa`, `chinese` | Đổi tên khóa hoặc slug cho khớp |
+| Không thấy mục **Luyện nét chữ** | Tên/slug khóa không chứa `hsk`, `tiếng Trung`, `tiếng Hoa`, `chinese` | Đổi tên khóa hoặc slug cho khớp |
 
 ---
 

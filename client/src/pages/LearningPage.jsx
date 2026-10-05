@@ -48,6 +48,7 @@ import { CHINESE_STROKES, getStrokeById } from '../lib/strokes';
 import { isLessonComplete } from '../lib/lessonStars';
 import { CourseLessonList } from '../components/CourseLessonList';
 import { ListeningAudio } from '../components/ListeningAudio';
+import { RichText } from '../components/RichText';
 import { ReadingWordCards, speakChinese } from '../components/ReadingWordCards';
 import { StrokeGlyph } from '../components/StrokeGlyph';
 import { StrokePractice } from './learning/StrokePractice';
@@ -937,7 +938,7 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
             onClick={() => onChange(option.label)}
             disabled={disabled}
           >
-            {option.label}. {option.text}
+            {option.label}. <RichText text={option.text} />
           </button>
         );
       })}
@@ -952,7 +953,7 @@ function LessonQuestionFeedback({ question, answer }) {
     if (question.type === 'writing' && question.sampleAnswer) {
       return (
         <div className="exercise-feedback">
-          <strong>Đáp án mẫu:</strong> {question.sampleAnswer}
+          <strong>Đáp án mẫu:</strong> <RichText text={question.sampleAnswer} />
           {question.explanation ? <div className="exercise-feedback__note">{question.explanation}</div> : null}
         </div>
       );
@@ -972,16 +973,17 @@ function LessonQuestionFeedback({ question, answer }) {
   // Câu sai phải đỏ rõ, không để chung màu xám với các dòng thông tin khác.
   return (
     <div className={isCorrect ? 'exercise-feedback success' : 'exercise-feedback error'}>
-      {message}
+      <RichText text={message} />
       {question.explanation ? <div className="exercise-feedback__note">{question.explanation}</div> : null}
     </div>
   );
 }
 
 // Khóa HSK (tiếng Trung) mới có phần luyện nét chữ — nhận diện qua slug/tiêu đề
-// vì khóa được import không mang cờ ngôn ngữ riêng.
+// vì khóa được import không mang cờ ngôn ngữ riêng. Không bắt "trung"/"hoa" đứng
+// riêng: "IELTS Trung cấp" (slug ielts-trung-cap) sẽ bị nhận nhầm là khóa tiếng Trung.
 function isHskCourse(course) {
-  return /hsk|trung|hoa|chinese/i.test(
+  return /hsk|ti[eế]ng[\s-]*(trung|hoa)|chinese/i.test(
     [course?.slug, course?.id, course?.title].filter(Boolean).join(' ')
   );
 }
@@ -1138,6 +1140,13 @@ function LessonAssetStrip({ audioUrl, audioName, imageUrl, imageName, fallbackAl
   );
 }
 
+// Ghi chú tab ngắn nằm gọn dưới tiêu đề; dài hoặc nhiều dòng (bài đọc, đoạn văn
+// điền từ, dàn ý bài viết) thì cần khối riêng có cuộn, không thì đè lên nút số câu.
+function isPassageNote(note) {
+  const text = String(note || '');
+  return text.length > 160 || text.includes('\n');
+}
+
 // `tab` là một tab bài tập của chủ đề (model mới). Không truyền `tab` thì rơi về
 // danh sách câu hỏi phẳng trên lesson (model cũ) — giữ nguyên cách gọi cũ.
 export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
@@ -1183,11 +1192,16 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
           <span className="eyebrow">{tab ? 'Bài tập' : 'Câu hỏi của video'}</span>
           <h2>{tab?.title || lesson.exerciseType || 'Bài luyện sau video'}</h2>
           <p>
-            {tab?.note || `${questions.length} câu hỏi được giáo viên giao riêng cho bài học này.`}
+            {tab?.note && !isPassageNote(tab.note)
+              ? <RichText text={tab.note} />
+              : `${questions.length} câu hỏi được giáo viên giao riêng cho bài học này.`}
           </p>
         </div>
         <span className="pill">{questions.length} câu</span>
       </div>
+
+      {/* Ghi chú dài (bài đọc, đoạn văn có chỗ trống, dàn ý) hiện thành khối riêng, giữ xuống dòng. */}
+      {tab?.note && isPassageNote(tab.note) ? <RichText as="div" className="lesson-passage" text={tab.note} /> : null}
 
       <LessonAssetStrip
         audioUrl={audioUrl}
@@ -1202,7 +1216,7 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
           <article key={question.id} className="excel-exercise-row">
             <div className="excel-exercise-row__head">
               <span>Câu {index + 1}</span>
-              <strong>{question.prompt || `Mục ${index + 1}`}</strong>
+              <strong><RichText text={question.prompt || `Mục ${index + 1}`} /></strong>
               <span className="pill lesson-question__type">{getLessonQuestionTypeLabel(question.type)}</span>
             </div>
 
@@ -2229,7 +2243,7 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
         {questions.map((question, index) => (
           <article key={question.id} className="generated-question-preview__item">
             <div className="excel-exercise-row__head">
-              <strong>Câu {index + 1}. {question.prompt}</strong>
+              <strong>Câu {index + 1}. <RichText text={question.prompt} /></strong>
               <span className="pill lesson-question__type">{getLessonQuestionTypeLabel(question.type)}</span>
             </div>
 
@@ -3894,7 +3908,7 @@ export default function LearningPage() {
                             <div className="generated-question-preview">
                               {selectedGeneratedExercises.map((question, index) => (
                                 <article key={`${question.id}-preview`} className="generated-question-preview__item">
-                                  <strong>Câu {index + 1}. {question.prompt}</strong>
+                                  <strong>Câu {index + 1}. <RichText text={question.prompt} /></strong>
                                   <div className="exercise-options">
                                     {question.options.filter(Boolean).map((option) => (
                                       <span key={option} className="answer-pill">
