@@ -2475,11 +2475,13 @@ export default function LearningPage() {
         // Bản nháp local từng đồng bộ nhưng khóa đã bị xóa trên server: bỏ đi, không
         // thì phòng học mở mặc định vào một khóa ma (trùng tên, sửa không lưu được).
         // Danh mục rỗng (lỗi mạng) thì giữ nguyên để không giấu nhầm bản nháp thật.
+        // Bản nháp CHƯA từng đồng bộ (VD "Khóa học video từ Drive") cũng không được
+        // làm khóa mặc định: học viên không thấy nó, sửa ở đây không lưu lên server.
         if (catalog.length) {
           localManagedCourses = reconcileManagedCourses(
             localManagedCourses,
             catalog.map((course) => ({ id: course.databaseId || course.id }))
-          );
+          ).filter((course) => /^[0-9a-f-]{36}$/i.test(String(course?.databaseId || '')));
         }
 
         const ownedCourseKeySet = new Set(nextOwnedCourseIds.map((courseKey) => String(courseKey).toLowerCase()));
