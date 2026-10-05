@@ -938,7 +938,8 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
             onClick={() => onChange(option.label)}
             disabled={disabled}
           >
-            {option.label}. <RichText text={option.text} />
+            {/* Bọc chung một span: nút là flex nên dấu cách giữa nhãn và chữ có định dạng sẽ bị nuốt. */}
+            <span>{option.label}. <RichText text={option.text} /></span>
           </button>
         );
       })}
@@ -1273,7 +1274,7 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
 
             <div className="excel-exercise-row__meta">
               {isTeacher && formatLessonCorrectAnswer(question) ? (
-                <span className="pill">Đáp án: {formatLessonCorrectAnswer(question)}</span>
+                <span className="pill">Đáp án: <RichText text={formatLessonCorrectAnswer(question)} /></span>
               ) : null}
               {question.explanation && isTeacher ? <small>{question.explanation}</small> : null}
             </div>

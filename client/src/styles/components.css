@@ -6951,3 +6951,13 @@ button:disabled {
   color: var(--text);
   line-height: 1.65;
 }
+
+/* Ảnh đề trong khung bài tập (biểu đồ, bản đồ IELTS) cần đọc được số liệu:
+   chỉ có ảnh (không kèm file nghe) thì chiếm cả hàng, và cho cao hơn bản xem trước 220px. */
+.excel-lesson-panel .lesson-asset-strip:has(> :only-child) {
+  grid-template-columns: 1fr;
+}
+
+.excel-lesson-panel .lesson-image-preview {
+  max-height: 560px;
+}
