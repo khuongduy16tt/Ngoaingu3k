@@ -393,7 +393,25 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        const nextSession = data.session ?? null;
+        let nextSession = data.session ?? null;
+
+        // Phiên đọc từ storage có thể đã bị server thu hồi (VD storage từng đầy
+        // nên phiên mới không ghi được, máy giữ phiên cũ). Dùng phiên chết đó thì
+        // đọc hồ sơ bị từ chối → rơi về vai học viên: admin mất menu quản trị,
+        // không xem/sửa được khóa. Hỏi server một lần; bị từ chối thì đăng xuất
+        // hẳn trên máy này để người dùng đăng nhập lại cho đúng vai.
+        if (nextSession) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError && [401, 403].includes(userError.status)) {
+            await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+            nextSession = null;
+          }
+        }
+
+        if (!active) {
+          return;
+        }
+
         setSession(nextSession);
         loadedProfileUserIdRef.current = nextSession?.user?.id ?? null;
         if (nextSession?.user?.id) {
