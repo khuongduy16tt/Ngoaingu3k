@@ -1,0 +1,82 @@
+/* Tinh chỉnh trải nghiệm người dùng (đợt rà soát 10/2026).
+   Chỉ thêm quy tắc đè nhỏ, có chú thích lý do; không sửa các lớp CSS gốc. */
+
+/* ── Đăng nhập trên điện thoại ────────────────────────────────────────────
+   Form từng nằm sau khối giới thiệu + số liệu + bộ ảnh (~1.600px), phải cuộn
+   gần 2 màn hình mới thấy ô nhập. Đưa form lên đầu, bỏ bộ ảnh trang trí. */
+@media (max-width: 900px) {
+  .auth-shell > .auth-card {
+    order: -1;
+  }
+
+  .auth-shell .auth-gallery,
+  .auth-shell .auth-stat-grid {
+    display: none;
+  }
+}
+
+/* ── Phòng học ────────────────────────────────────────────────────────────
+   Chọn bài trên điện thoại sẽ tự cuộn tới khung nội dung; chừa chỗ cho thanh
+   menu dính đầu trang (64px) để tiêu đề bài không bị che. */
+.learning-stage {
+  scroll-margin-top: 76px;
+}
+
+/* ── Ô số liệu (bảng điều khiển học viên / giảng viên / admin) ─────────────
+   Trên điện thoại mỗi ô chiếm trọn một hàng cao ~120px: 4 ô đẩy nội dung
+   chính xuống gần 2 màn hình. Xếp 2 cột, thu gọn đệm và cỡ số. */
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .stat-grid .stat-card {
+    padding: 0.8rem 0.85rem;
+    min-height: 0;
+  }
+
+  .stat-grid .stat-card strong {
+    font-size: 1.45rem;
+  }
+}
+
+/* ── Màn chờ tải trang ─────────────────────────────────────────────────── */
+.page-loading {
+  align-content: center;
+  gap: 0.75rem;
+  color: var(--muted, #64748b);
+}
+
+.page-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid rgba(56, 87, 145, 0.18);
+  border-top-color: var(--brand, #385791);
+  animation: page-loading-spin 0.8s linear infinite;
+}
+
+@keyframes page-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading__spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* ── Bài tập trên điện thoại ──────────────────────────────────────────────
+   Danh sách câu hỏi (max-height 680px) và đoạn văn (420px) có thanh cuộn riêng
+   lồng trong trang: vuốt bằng ngón tay rất dễ kẹt. Màn nhỏ thì cho dài theo
+   nội dung, cuộn cả trang. */
+@media (max-width: 900px) {
+  .excel-exercise-list,
+  .lesson-passage {
+    max-height: none;
+    overflow: visible;
+  }
+}

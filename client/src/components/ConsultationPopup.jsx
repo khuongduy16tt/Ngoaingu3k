@@ -23,16 +23,23 @@ const BOTTOM_THRESHOLD_PX = 600;
 //   - đang có modal .consult-popup khác mở (nút "Tư vấn" nổi ở góc phải) — bật
 //     chồng lên sẽ cướp focus form họ đang gõ dở, nên bỏ qua nhịp đó. Mốc chưa
 //     bị tiêu, cuộn qua lại vẫn còn cơ hội bắn.
-export function ConsultationPopup() {
+export function ConsultationPopup({ isSignedIn = false }) {
   const [open, setOpen] = useState(false);
   const openRef = useRef(false);
   const firedRef = useRef(new Set());
+  // Người đã đăng nhập (học viên, giảng viên, admin) đã là người dùng của trung
+  // tâm — popup mời tư vấn chỉ dành cho khách, không che màn hình họ nữa.
 
   useEffect(() => {
     openRef.current = open;
   }, [open]);
 
   useEffect(() => {
+    if (isSignedIn) {
+      setOpen(false);
+      return undefined;
+    }
+
     if (hasSubmittedConsultation()) {
       return undefined;
     }
@@ -80,7 +87,7 @@ export function ConsultationPopup() {
       observer?.disconnect();
       window.removeEventListener('scroll', onScroll);
     };
-  }, []);
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!open) {

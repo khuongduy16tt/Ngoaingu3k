@@ -202,18 +202,6 @@ function formatPrice(value) {
   return formatVnd(value);
 }
 
-function defaultLevel(index) {
-  return ['Nền tảng', 'Trung cấp', 'Nâng cao'][index % 3];
-}
-
-function defaultCategory(index) {
-  return ['Kỹ năng cốt lõi', 'Công sở', 'Luyện thi', 'Giao tiếp'][index % 4];
-}
-
-function defaultBadge(index) {
-  return ['Phổ biến', 'Đề xuất', 'Sẵn sàng công việc', 'Tăng tốc'][index % 4];
-}
-
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     String(value || '')
@@ -336,10 +324,32 @@ function getTeacherIdForCourseStorage(teacherId) {
 
 function defaultWhatYouGet(course) {
   return [
-    `${course.lessonsCount} bài học có cấu trúc`,
-    `Lộ trình học ${course.duration}`,
+    course.lessonsCount
+      ? `${course.lessonsCount} bài học có video bài giảng và bài tập`
+      : course.topicsCount
+        ? `${course.topicsCount} chủ đề học có video bài giảng và bài tập`
+        : 'Video bài giảng kèm bài tập sau mỗi bài',
+    course.duration ? `Lộ trình học ${course.duration}` : 'Học theo tốc độ của bạn, xem lại không giới hạn',
     'Kích hoạt quyền học ngay sau khi mua'
   ];
+}
+
+// Khóa trên server không lưu trình độ/nhóm riêng: suy từ tên khóa thay vì gán
+// theo thứ tự (trước đây "IELTS 3.5 Mất gốc" bị dán nhãn "Nâng cao · Luyện thi").
+export function inferCourseLevel(title = '') {
+  const text = String(title).toLowerCase();
+  if (/nền tảng|mất gốc|vỡ lòng|hsk\s*1\b/.test(text)) return 'Nền tảng';
+  if (/cơ bản|hsk\s*2\b/.test(text)) return 'Cơ bản';
+  if (/trung cấp|hsk\s*[34]\b/.test(text)) return 'Trung cấp';
+  if (/nâng cao|chuyên sâu|hsk\s*[56]\b/.test(text)) return 'Nâng cao';
+  return '';
+}
+
+export function inferCourseCategory(title = '') {
+  const text = String(title).toLowerCase();
+  if (/ielts/.test(text)) return 'IELTS';
+  if (/hsk|tiếng trung/.test(text)) return 'HSK';
+  return '';
 }
 
 function defaultHero(course) {
@@ -350,28 +360,34 @@ function normalizeCourse(course, fallbackIndex = 0) {
   const priceValue = normalizeVndAmount(course.priceValue ?? course.price);
   const slug = course.slug || course.id || `course-${fallbackIndex + 1}`;
   const sections = Array.isArray(course.sections) ? course.sections : [];
+  // Số liệu hiển thị cho học viên phải là số thật: không có thì để null và giao
+  // diện ẩn đi, không tự bịa (trước đây 12+4i bài, 320+110i học viên, 4.5–4.8 sao).
+  const declaredLessons = Number(course.lessonsCount);
   const lessonsCount = sections.length
     ? sections.reduce((total, section) => total + ((Array.isArray(section.lessons) ? section.lessons.length : 0) || 0), 0)
-    : course.lessonsCount ?? 12 + fallbackIndex * 4;
+    : course.lessonsCount != null && course.lessonsCount !== '' && Number.isFinite(declaredLessons) && declaredLessons > 0
+      ? declaredLessons
+      : null;
 
   const normalized = {
     id: slug,
     databaseId: course.databaseId || course.id || slug,
     slug,
     title: formatCourseTitle(course.title || 'Khóa học chưa đặt tên'),
-    level: course.level || defaultLevel(fallbackIndex),
+    level: course.level || inferCourseLevel(course.title),
     priceValue,
     price: formatPrice(priceValue),
     progress: course.progress ?? 0,
     instructor: course.instructor || 'Giảng viên trung tâm',
     summary: course.description || course.summary || 'Khóa học được đồng bộ từ hệ thống.',
-    category: course.category || defaultCategory(fallbackIndex),
+    category: course.category || inferCourseCategory(course.title),
     bannerUrl: course.banner_url || course.bannerUrl || null,
-    duration: course.duration || `${6 + fallbackIndex} tuần`,
+    duration: course.duration || null,
     lessonsCount,
-    rating: typeof course.rating === 'number' ? course.rating : 4.5 + ((fallbackIndex % 4) * 0.1),
-    studentsCount: course.studentsCount ?? 320 + fallbackIndex * 110,
-    badge: course.badge || defaultBadge(fallbackIndex),
+    topicsCount: Number.isFinite(Number(course.topicsCount)) && Number(course.topicsCount) > 0 ? Number(course.topicsCount) : null,
+    rating: typeof course.rating === 'number' ? course.rating : null,
+    studentsCount: typeof course.studentsCount === 'number' ? course.studentsCount : null,
+    badge: course.badge || null,
     hero: course.hero || course.description || 'Hành trình học chuyên nghiệp với bài học, thực hành và quyền truy cập sau khi mua.',
     language: course.language || 'Tiếng Anh',
     certificate: course.certificate ?? true,
@@ -784,7 +800,24 @@ async function fetchCourseCatalog() {
   // soạn, học viên không mở được — giảng viên vẫn thấy nó ở Phòng học/Bảng điều
   // khiển vì hai trang đó đọc thẳng readAllTeacherManagedCourses().
   const remoteRows = data || [];
-  const normalizedRemoteCourses = remoteRows.map((course, index) => normalizeCourse(course, index));
+
+  // Số chủ đề thật của từng khóa (bảng chapters đọc công khai được; đếm bài thì
+  // không vì khách chỉ thấy bài xem thử). Truy vấn riêng, lỗi thì bỏ qua để
+  // danh mục vẫn hiện.
+  const topicCounts = new Map();
+  if (remoteRows.length) {
+    const { data: countRows, error: countError } = await supabase
+      .from('courses')
+      .select('id, chapters(count)')
+      .in('id', remoteRows.map((course) => course.id));
+    if (!countError) {
+      (countRows || []).forEach((row) => topicCounts.set(row.id, row.chapters?.[0]?.count ?? null));
+    }
+  }
+
+  const normalizedRemoteCourses = remoteRows.map((course, index) =>
+    normalizeCourse({ ...course, topicsCount: topicCounts.get(course.id) ?? null }, index)
+  );
   const normalizedLocalCourses = reconcileManagedCourses(localTeacherCourses, remoteRows)
     .filter((course) => isUuid(String(course?.databaseId || '')))
     .map((course, index) => normalizeCourse(course, index));

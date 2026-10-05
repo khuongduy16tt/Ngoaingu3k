@@ -22,6 +22,7 @@ export function AppLayout({ children }) {
   // người dùng đang học/thi/thao tác, bị cắt ngang mỗi 10s là hỏng việc.
   // ('/' chỉ tồn tại 1 nhịp trước khi redirect sang /home.)
   const onHomePage = location.pathname === '/home' || location.pathname === '/';
+  const isSignedIn = Boolean(useAuth().session);
 
   useEffect(() => {
     setContactOpen(false);
@@ -64,7 +65,7 @@ export function AppLayout({ children }) {
       <Footer />
       <FloatingTestButton />
       <ConsultationFab />
-      {onHomePage ? <ConsultationPopup /> : null}
+      {onHomePage ? <ConsultationPopup isSignedIn={isSignedIn} /> : null}
       <FloatingContactButtons isOpen={contactOpen} setIsOpen={setContactOpen} />
       <MobileTabBar contactOpen={contactOpen} setContactOpen={setContactOpen} />
       <div className="background-accent background-accent--blue" aria-hidden="true" />
@@ -759,7 +760,7 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
           >
             {course.title}
             <span>
-              {course.category} · {course.level}
+              {[course.category, course.level].filter(Boolean).join(' · ')}
             </span>
           </Link>
         ))}
@@ -823,7 +824,7 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
               >
                 {course.title}
                 <span>
-                  {course.category} · {course.level}
+                  {[course.category, course.level].filter(Boolean).join(' · ')}
                 </span>
               </Link>
             ))

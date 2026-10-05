@@ -34,3 +34,6 @@
 /* 8. Lớp mobile chung: vùng an toàn, dvh, độ trễ chạm, cỡ chữ ô nhập, vùng
       chạm tối thiểu. Nạp cuối để đè được các quy tắc theo màn hình lớn. */
 @import './mobile.css';
+
+/* 9. Tinh chỉnh trải nghiệm (UX) theo đợt rà soát 10/2026 — nạp sau cùng. */
+@import './ux.css';

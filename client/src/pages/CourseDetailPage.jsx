@@ -269,9 +269,13 @@ export default function CourseDetailPage() {
           )}
 
           <div className="marketplace-card__facts course-detail__facts">
-            <span>{course.level}</span>
+            {course.level ? <span>{course.level}</span> : null}
             <span>{course.duration || 'Lịch học linh hoạt'}</span>
-            <span>{course.lessonsCount || 0} bài học</span>
+            {course.lessonsCount ? (
+              <span>{course.lessonsCount} bài học</span>
+            ) : course.topicsCount ? (
+              <span>{course.topicsCount} chủ đề</span>
+            ) : null}
             <span>{course.instructor}</span>
           </div>
         </div>

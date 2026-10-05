@@ -8,6 +8,7 @@ export const ui = {
   signUp: 'Đăng ký',
   signOut: 'Đăng xuất',
   loadingSession: 'Đang tải phiên...',
+  loadingPage: 'Đang tải trang...',
 
   // Navigation
   home: 'Trang chủ',

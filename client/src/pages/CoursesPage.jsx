@@ -53,7 +53,8 @@ function MarketplaceStat({ label, value, note }) {
 // thành 1 control cho người dùng chỉnh.
 function sortCoursesDefault(courses) {
   return [...courses].sort(
-    (left, right) => right.rating - left.rating || right.studentsCount - left.studentsCount
+    (left, right) =>
+      (right.rating ?? 0) - (left.rating ?? 0) || (right.studentsCount ?? 0) - (left.studentsCount ?? 0)
   );
 }
 
@@ -85,35 +86,45 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
         )}
 
         <div className="marketplace-card__badges">
-          <span className="pill">{course.level}</span>
-          <span className="pill marketplace-pill">{course.category}</span>
+          {course.level ? <span className="pill">{course.level}</span> : null}
+          {course.category ? <span className="pill marketplace-pill">{course.category}</span> : null}
           {isOwned ? <span className="marketplace-owned-tag">Đã sở hữu</span> : null}
         </div>
       </div>
 
+      {/* Chỉ hiện số liệu có thật: khóa trên server không có điểm đánh giá, số
+          học viên hay số tuần thì ẩn, không tự điền số đẹp cho đủ chỗ. */}
       <div className="marketplace-card__body">
         <div className="marketplace-card__headline">
           <div>
-            <span className="marketplace-card__badge">{course.badge}</span>
+            {course.badge ? <span className="marketplace-card__badge">{course.badge}</span> : null}
             <h3>{course.title}</h3>
           </div>
-          <span className="marketplace-card__rating">{course.rating.toFixed(1)}</span>
+          {typeof course.rating === 'number' ? (
+            <span className="marketplace-card__rating">{course.rating.toFixed(1)}</span>
+          ) : null}
         </div>
 
         <p>{course.summary}</p>
 
         <div className="marketplace-card__facts">
-          <span>{course.duration}</span>
-          <span>{course.lessonsCount} bài học</span>
-          <span>{course.instructor}</span>
+          {course.duration ? <span>{course.duration}</span> : null}
+          {course.lessonsCount ? (
+            <span>{course.lessonsCount} bài học</span>
+          ) : course.topicsCount ? (
+            <span>{course.topicsCount} chủ đề</span>
+          ) : null}
+          <span>Video bài giảng + bài tập</span>
         </div>
 
-        <div className="marketplace-card__audience">
-          <div className="meter">
-            <span style={{ width: `${course.progress}%` }} />
+        {typeof course.studentsCount === 'number' && course.studentsCount > 0 ? (
+          <div className="marketplace-card__audience">
+            <div className="meter">
+              <span style={{ width: `${course.progress}%` }} />
+            </div>
+            <small>{course.studentsCount.toLocaleString('vi-VN')} học viên đã đăng ký</small>
           </div>
-          <small>{course.studentsCount.toLocaleString('vi-VN')} học viên đã đăng ký</small>
-        </div>
+        ) : null}
 
         <div className="marketplace-card__footer">
           <div className="marketplace-card__price">
@@ -414,7 +425,7 @@ export default function CoursesPage() {
                 <Link key={course.id} className="marketplace-owned-tile" to={`/learn/${course.id}`}>
                   <strong>{course.title}</strong>
                   <span>
-                    {course.category} · {course.level}
+                    {[course.category, course.level].filter(Boolean).join(' · ')}
                   </span>
                 </Link>
               ))}

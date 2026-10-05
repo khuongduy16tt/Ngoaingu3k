@@ -71,7 +71,9 @@ function readStoredMockAuth(fallbackRole) {
       email: parsed.session.user.email,
       fullName: parsed.profile?.full_name || parsed.session.user.user_metadata?.full_name,
       phone: parsed.profile?.phone || parsed.session.user.user_metadata?.phone,
-      role: fallbackRole
+      // Chế độ mock (chạy local không có Supabase): giữ vai đã lưu để thử được
+      // giao diện giảng viên/admin; không ảnh hưởng chế độ thật.
+      role: validRoles.includes(parsed.profile?.role) ? parsed.profile.role : fallbackRole
     });
   } catch {
     return null;
@@ -400,7 +402,10 @@ export function AuthProvider({ children }) {
         // đọc hồ sơ bị từ chối → rơi về vai học viên: admin mất menu quản trị,
         // không xem/sửa được khóa. Hỏi server một lần; bị từ chối thì đăng xuất
         // hẳn trên máy này để người dùng đăng nhập lại cho đúng vai.
-        if (nextSession) {
+        // Chỉ hỏi khi access token đã hết hạn: supabase-js tự làm mới token còn
+        // dùng được, nên phiên còn hạn không cần thêm một vòng mạng lúc mở trang.
+        const sessionExpired = nextSession?.expires_at && nextSession.expires_at * 1000 <= Date.now();
+        if (nextSession && sessionExpired) {
           const { error: userError } = await supabase.auth.getUser();
           if (userError && [401, 403].includes(userError.status)) {
             await supabase.auth.signOut({ scope: 'local' }).catch(() => {});

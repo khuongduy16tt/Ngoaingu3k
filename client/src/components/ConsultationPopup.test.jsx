@@ -67,6 +67,15 @@ describe('ConsultationPopup — 3 mốc thay cho hẹn giờ lặp', () => {
     expect(dangMo()).toBeInTheDocument();
   });
 
+  it('người đã đăng nhập: không bật ở mốc nào', () => {
+    render(<ConsultationPopup isSignedIn />);
+    act(() => vi.advanceTimersByTime(600));
+    expect(dangMo()).not.toBeInTheDocument();
+
+    act(() => batQuanSat?.([{ isIntersecting: true }]));
+    expect(dangMo()).not.toBeInTheDocument();
+  });
+
   it('đóng rồi KHÔNG tự bật lại theo thời gian', () => {
     render(<ConsultationPopup />);
     act(() => vi.advanceTimersByTime(600));

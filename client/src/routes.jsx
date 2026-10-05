@@ -33,6 +33,17 @@ function LoadingScreen() {
   );
 }
 
+// Màn chờ khi đang tải mã của trang (lazy chunk) — khác màn chờ phiên đăng
+// nhập: khách vào trang chủ không nên thấy chữ "Đang tải phiên".
+function PageLoadingScreen() {
+  return (
+    <div className="page centered page-loading" role="status" aria-live="polite">
+      <span className="page-loading__spinner" aria-hidden="true" />
+      <p>{ui.loadingPage}</p>
+    </div>
+  );
+}
+
 function ProtectedRoute({ children, allowedRoles, requireSession = true }) {
   const auth = useAuth();
   const location = useLocation();
@@ -100,7 +111,7 @@ function TestPage() {
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<PageLoadingScreen />}>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<HomePage />} />

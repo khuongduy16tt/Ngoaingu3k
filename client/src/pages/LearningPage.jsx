@@ -2426,6 +2426,9 @@ export default function LearningPage() {
 
   const lastLoadedUserIdRef = useRef(null);
   const lastLoadedRoleRef = useRef(null);
+  // Khung nội dung bài học: trên điện thoại danh sách bài nằm phía trên, chọn
+  // bài xong phải cuộn xuống đây, không thì người học tưởng bấm không ăn.
+  const learningStageRef = useRef(null);
   const availableCoursesRef = useRef(availableCourses);
   const purchasedCoursesRef = useRef(purchasedCourses);
   const cacheWriteTimerRef = useRef(null);
@@ -3381,6 +3384,9 @@ export default function LearningPage() {
     setShowStrokePractice(false);
     setSelectedLessonId(nextLessonId);
     navigate(`/learn/${currentCourseId}/${nextLessonId}`);
+    if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)').matches) {
+      requestAnimationFrame(() => learningStageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
   }, [auth.user?.id, currentCourseId, lessons, navigate]);
 
   const handleGoToNextLesson = useCallback(() => {
@@ -3576,7 +3582,7 @@ export default function LearningPage() {
           ) : null}
         </aside>
 
-        <div className="learning-stage">
+        <div className="learning-stage" ref={learningStageRef}>
           {showStrokePractice ? (
             <StrokePractice />
           ) : hasLessonAccess ? (
