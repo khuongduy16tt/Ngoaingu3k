@@ -130,12 +130,23 @@ function readLearningRoomCache(courseKey, scope = 'global') {
   }
 }
 
+// Bộ đệm chỉ để mở phòng học nhanh hơn; khóa lớn (HSK 1 từng ~3,4MB/bản) mà
+// lưu thì vài khóa đã lấp đầy localStorage và chặn luôn việc lưu phiên đăng
+// nhập. Quá ngưỡng thì bỏ lưu đệm, phòng học vẫn tải từ server như thường.
+const LEARNING_ROOM_CACHE_MAX_CHARS = 1_000_000;
+
 function writeLearningRoomCache(courseKey, scope = 'global', snapshot) {
+  const key = getLearningRoomCacheKey(courseKey, scope);
   try {
-    localStorage.setItem(getLearningRoomCacheKey(courseKey, scope), JSON.stringify({
+    const value = JSON.stringify({
       ...snapshot,
       savedAt: new Date().toISOString()
-    }));
+    });
+    if (value.length > LEARNING_ROOM_CACHE_MAX_CHARS) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, value);
   } catch {
     // ignore storage failures
   }
