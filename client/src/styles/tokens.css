@@ -29,6 +29,10 @@
   --brand-primary-700: #253c63;
   --brand-primary-300: #8fb0e6;
   --brand-ink: #0f2140; /* chữ đặt trên nền blue/green */
+  /* Xanh hoàng gia của nút "Bắt đầu học ngay" trong ảnh banner trang chủ —
+     nút thật đè lên phải cùng tông ảnh, không phải màu UI. Chữ trắng 4.8–7.2:1. */
+  --banner-cta-from: #0a4fc4;
+  --banner-cta-to: #1f6ee0;
   --avatar-blue-deep: #1f6f9c; /* cùng sắc độ #59B3E1, đủ tối cho chữ trắng */
   --avatar-green-deep: #1f7a50; /* cùng sắc độ #52BD87, đủ tối cho chữ trắng */
 

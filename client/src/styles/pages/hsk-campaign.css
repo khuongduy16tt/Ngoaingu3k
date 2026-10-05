@@ -776,7 +776,8 @@
 .hero-slideshow {
   position: relative;
   width: 100%;
-  aspect-ratio: 1920 / 720;
+  /* Đúng tỉ lệ file banner (1903×826) để ảnh hiện trọn, không bị cắt mép. */
+  aspect-ratio: 1903 / 826;
   background: var(--bg-alt);
 }
 
@@ -828,6 +829,175 @@
 .hero-slideshow__dot.is-active {
   background: #ffffff;
   transform: scale(1.25);
+}
+
+/* ── Nút "Bắt đầu học ngay" động, đè khít lên nút in sẵn trong ảnh banner ──
+   Chỉ có trên PC (≥1024px). Trên mobile/tablet banner thu nhỏ quá, nút trong
+   ảnh chỉ còn ~25px cao — hành động chính đã có ở khối .hero-mobile-intro.
+   Toạ độ đo trên file gốc 1903×826: nút in sẵn nằm ở x 247→619, y 679→757.
+   Quy ra % khung + nới ~0.2% mỗi phía để phủ kín viền khử răng cưa của ảnh.
+   Mọi kích thước trong nút tính bằng cqw (1% bề rộng banner) để nút co giãn
+   đúng theo ảnh ở mọi bề rộng màn hình. Hiệu ứng chỉ dùng transform/opacity. */
+.hero-slideshow__cta {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .hero-slideshow {
+    container-type: inline-size;
+  }
+
+  .hero-slideshow__cta {
+    position: absolute;
+    left: 12.8%;
+    top: 81.9%;
+    width: 19.9%;
+    height: 9.9%;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.1cqw;
+    padding: 0 0.6cqw 0 1.6cqw;
+    border-radius: 999px;
+    overflow: hidden;
+    isolation: isolate;
+    color: #ffffff;
+    background: linear-gradient(90deg, var(--banner-cta-from), var(--banner-cta-to));
+    box-shadow:
+      0 0.5cqw 1.4cqw rgba(15, 33, 64, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    font-size: 1.42cqw;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      transform var(--duration-base, 200ms) ease,
+      box-shadow var(--duration-base, 200ms) ease;
+    animation: heroCtaFloat 3.2s ease-in-out infinite;
+  }
+
+  /* Vệt sáng lướt ngang thân nút mỗi ~3.2s. */
+  .hero-slideshow__cta::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.38) 48%, transparent 66%);
+    transform: translateX(-120%);
+    animation: heroCtaShine 3.2s ease-in-out infinite;
+  }
+
+  .hero-slideshow__cta-label {
+    position: relative;
+  }
+
+  .hero-slideshow__cta-icon {
+    position: relative;
+    flex: none;
+    width: 2.45cqw;
+    height: 2.45cqw;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--banner-cta-from);
+    background: #ffffff;
+    animation: heroCtaArrow 1.6s ease-in-out infinite;
+  }
+
+  /* Vòng sóng lan từ biểu tượng mũi tên. */
+  .hero-slideshow__cta-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    animation: heroCtaPulse 1.6s ease-out infinite;
+  }
+
+  .hero-slideshow__cta-icon svg {
+    width: 60%;
+    height: 60%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hero-slideshow__cta:hover,
+  .hero-slideshow__cta:focus-visible {
+    animation-play-state: paused;
+    transform: translateY(-0.2cqw) scale(1.04);
+    box-shadow:
+      0 0.9cqw 2cqw rgba(15, 33, 64, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  }
+
+  .hero-slideshow__cta:focus-visible {
+    outline: 3px solid var(--color-focus, #59b3e1);
+    outline-offset: 3px;
+  }
+
+  .hero-slideshow__cta:active {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+@keyframes heroCtaFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-0.15cqw) scale(1.025);
+  }
+}
+
+@keyframes heroCtaShine {
+  0%,
+  55% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes heroCtaArrow {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(0.3cqw);
+  }
+}
+
+@keyframes heroCtaPulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slideshow__cta,
+  .hero-slideshow__cta::before,
+  .hero-slideshow__cta-icon,
+  .hero-slideshow__cta-icon::after {
+    animation: none;
+  }
 }
 
 /* ── Nút nổi "Đăng ký tư vấn" — góc dưới phải, ngay TRÊN cụm nút liên hệ/Zalo.

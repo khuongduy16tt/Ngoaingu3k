@@ -158,13 +158,13 @@ const testimonialCards = [
 // trong 1 section (slider) thay vì tách 2 section riêng.
 const heroBanners = [
   {
-    src: '/images/imported/1_Trang-chu_Hero-banner.webp',
-    alt: 'Khoá học Tiếng Anh tại Ngoaingu3k',
+    src: '/images/imported/hero-banner-tieng-anh.webp',
+    alt: 'Học tiếng Anh dễ dàng, hiệu quả cùng Ngoại ngữ 3K',
     to: '/courses#khoa-hoc-ielts',
   },
   {
-    src: '/images/imported/2_Trang-chu_Hero-banner.webp',
-    alt: 'Khoá học Tiếng Trung tại Ngoaingu3k',
+    src: '/images/imported/hero-banner-tieng-trung.webp',
+    alt: 'Học tiếng Trung dễ dàng, hiệu quả cùng Ngoại ngữ 3K',
     to: '/courses#khoa-hoc-hsk',
   },
 ];
@@ -248,6 +248,17 @@ function HeroBannerSlideshow({ banners }) {
           />
         </Link>
       ))}
+      {/* Nút thật đè khít lên nút "Bắt đầu học ngay" in sẵn trong ảnh banner
+          (chỉ hiện trên PC ≥1024px — xem .hero-slideshow__cta). Dẫn tới đúng
+          nhóm khoá của banner đang hiển thị. */}
+      <Link to={banners[index].to} className="hero-slideshow__cta">
+        <span className="hero-slideshow__cta-label">Bắt đầu học ngay</span>
+        <span className="hero-slideshow__cta-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="m9.5 6 6 6-6 6" />
+          </svg>
+        </span>
+      </Link>
       <div className="hero-slideshow__dots" role="tablist" aria-label="Chọn banner">
         {banners.map((banner, i) => (
           <button
@@ -333,7 +344,7 @@ export default function HomePage() {
           nói lại thông điệp chính và đưa nút hành động lên ngay màn đầu. */}
       <section className="hero-mobile-intro" aria-label="Giới thiệu Ngoaingu3k">
         <span className="section-eyebrow">Tiếng Anh · Tiếng Trung</span>
-        <h1>Học ngoại ngữ để dùng được</h1>
+        <h1>Học ngoại ngữ dễ dàng, hiệu quả</h1>
         <p>Lộ trình cá nhân hoá, giảng viên đồng hành và tiến độ minh bạch từ buổi đầu.</p>
         <div className="hero-mobile-intro__actions">
           <Link to="/courses" className="button">
