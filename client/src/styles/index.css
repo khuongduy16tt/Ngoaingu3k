@@ -3,6 +3,9 @@
 /* 1. Variables, resets, body defaults */
 @import './base.css';
 
+/* 1b. Design tokens: brand primitive → semantic → alias (nguồn màu duy nhất) */
+@import './tokens.css';
+
 /* 2. App shell, topbar, footer, nav, buttons, theme */
 @import './layout.css';
 
@@ -24,6 +27,9 @@
 
 /* 7. Danh sách bài học dùng chung (nạp sau enterprise.css để override h2/button) */
 @import './components/lesson-list.css';
+
+/* 7b. Brand layer: bộ nhận diện 2026 cho button/form/card/heading/nút nổi */
+@import './brand.css';
 
 /* 8. Lớp mobile chung: vùng an toàn, dvh, độ trễ chạm, cỡ chữ ô nhập, vùng
       chạm tối thiểu. Nạp cuối để đè được các quy tắc theo màn hình lớn. */

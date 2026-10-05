@@ -2,21 +2,24 @@
    Elementor, theme Zilom). Mọi con số ở đây là giá trị computed đo trực tiếp
    trên trang thật, không phải ước lượng:
 
-     thanh    fixed, cao 87px, nền #6BCF49, container 1250px
+     thanh    fixed, cao 87px, nền brand primary, container 1250px
      nav link Nunito 700/16px uppercase trắng, padding 12px 0, li padding 0 11px
-     hover    li nền #07403F, bo 10px
-     dropdown 250px, nền #6BCF49, bo 6px, padding 20px, lật rotateX từ trên xuống
-     CTA      #EC6E23, 16px/800, letter-spacing 2px, padding 12px 24px, bo 30px
+     hover    li nền trắng 14%, mục đang chọn nền secondary, bo 10px
+     dropdown 250px, nền brand primary, bo 6px, padding 20px, lật rotateX từ trên xuống
+     CTA      secondary blue, 16px/800, letter-spacing 2px, padding 12px 24px, bo 30px
      mobile   thanh 80px + drawer off-canvas 350px trượt từ trái (trang thật
               chốt ở 1024px, bản này hạ xuống 1240px — lý do ghi ở khối media)
 
-   Header luôn xanh ở cả 2 theme (trang thật không có dark mode) nên các màu ở
-   đây cố ý viết cứng, không dùng biến theme. */
+   Bộ nhận diện mới (2026): nền header là brand primary #385791 ở cả 2 theme,
+   mục đang chọn là viên #59B3E1 chữ navy, nút chính dùng màu secondary. Màu
+   lấy từ tokens.css — không viết cứng HEX ở đây nữa. */
 
 .site-header {
-  --header-green: #6bcf49;
-  --header-ink: #07403f;
-  --header-orange: #ec6e23;
+  /* Tên biến giữ nguyên để không phải sửa hàng chục quy tắc bên dưới;
+     giá trị trỏ về semantic token của brand mới. */
+  --header-green: var(--color-header-bg);
+  --header-ink: var(--color-text-primary);
+  --header-orange: var(--color-link);
   --header-height: 87px;
 
   position: fixed;
@@ -93,21 +96,26 @@
 .site-menu__item:hover,
 .site-menu__item:focus-within,
 .site-menu__item.is-open {
-  background: var(--header-ink);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Trang thật không đánh dấu mục đang mở (mọi link đều trắng phẳng). App này
    có nhiều khu vực hơn nên giữ lại chỉ báo bằng đúng viên pill của hover —
    xoá selector .is-active dưới đây là trở về y hệt bản gốc. */
 .site-menu__item:has(> .site-menu__link.is-active) {
-  background: var(--header-ink);
+  background: var(--color-header-active-bg);
+}
+
+/* Chữ trắng trên #59B3E1 chỉ 2.34:1 — mục đang chọn dùng chữ navy (6.8:1). */
+.site-menu__item:has(> .site-menu__link.is-active) > .site-menu__link {
+  color: var(--color-header-active-text);
 }
 
 .site-menu__link {
   display: inline-flex;
   align-items: center;
   padding: 12px 0;
-  color: #ffffff;
+  color: var(--color-header-text);
   font-size: 18px;
   font-weight: 700;
   line-height: 1.8;
@@ -121,7 +129,7 @@
 
 .site-menu__link:hover,
 .site-menu__link:focus-visible {
-  color: #ffffff;
+  color: var(--color-header-text);
 }
 
 .site-menu__caret {
@@ -154,7 +162,7 @@
   padding: 20px;
   background: var(--header-green);
   border-radius: 6px;
-  box-shadow: 0 0 20px 0 rgba(62, 28, 131, 0.1);
+  box-shadow: 0 8px 24px rgba(15, 33, 64, 0.18);
   opacity: 0;
   visibility: hidden;
   transform: perspective(600px) rotateX(-90deg);
@@ -185,7 +193,7 @@
 .site-menu__sub-link {
   display: block;
   padding: 12px 0;
-  color: #ffffff;
+  color: var(--color-header-text);
   font-size: 18px;
   font-weight: 400;
   line-height: 1.4;
@@ -214,7 +222,7 @@
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
+  color: var(--color-header-text);
   font-family: inherit;
   font-size: 16px;
 }
@@ -242,7 +250,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 0;
-  color: #ffffff;
+  color: var(--color-header-text);
   font-size: 18px;
   font-weight: 400;
   line-height: 1.4;
@@ -300,7 +308,7 @@
 .site-menu__flyout-link {
   display: block;
   padding: 10px 0;
-  color: #ffffff;
+  color: var(--color-header-text);
   font-size: 16px;
   font-weight: 400;
   text-decoration: none;
@@ -342,8 +350,8 @@
   padding: 15px 32px;
   border: 0;
   border-radius: 30px;
-  background: var(--header-orange);
-  color: #ffffff;
+  background: var(--color-secondary);
+  color: var(--color-on-secondary);
   font-family: inherit;
   font-size: 20px;
   font-weight: 800;
@@ -355,7 +363,7 @@
 }
 
 .site-header__login:hover {
-  background: #d55f19;
+  background: var(--color-secondary-hover);
   transform: translateY(-1px);
 }
 
@@ -367,7 +375,7 @@
   border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 30px;
   background: transparent;
-  color: #ffffff;
+  color: var(--color-header-text);
   font-family: inherit;
   font-size: 18px;
   font-weight: 800;
@@ -382,7 +390,7 @@
 }
 
 /* Nút gạt theme dùng chung style cũ, chỉ ép về cặp trắng cố định vì nền dưới
-   nó giờ luôn là xanh lá, không còn là mặt kính đổi theo theme. */
+   nó luôn là nền brand primary, không còn là mặt kính đổi theo theme. */
 .site-header .theme-toggle__track,
 :root[data-theme='light'] .site-header .theme-toggle__track {
   background: rgba(255, 255, 255, 0.2);
@@ -395,8 +403,8 @@
 }
 
 .site-header .theme-toggle.is-dark .theme-toggle__track {
-  background: rgba(7, 64, 63, 0.55);
-  border-color: rgba(7, 64, 63, 0.75);
+  background: rgba(15, 33, 64, 0.55);
+  border-color: rgba(15, 33, 64, 0.75);
 }
 
 .site-header .theme-toggle.is-dark .theme-toggle__thumb {
@@ -413,7 +421,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #ffffff;
+  color: var(--color-header-text);
   cursor: pointer;
 }
 
@@ -624,7 +632,7 @@
     /* huỷ căn giữa của thanh ngang: trong drawer, menu phải bám mép trên */
     justify-content: flex-start;
     padding-left: 0;
-    background: #ffffff;
+    background: var(--color-surface);
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
     transform: translateX(100%);
     transition: transform 0.35s ease;
@@ -660,7 +668,7 @@
     border: 0;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.18);
-    color: #ffffff;
+    color: var(--color-header-text);
     cursor: pointer;
   }
 
@@ -688,7 +696,7 @@
     padding: 0;
     border-radius: 0;
     background: transparent;
-    border-bottom: 1px solid rgba(7, 64, 63, 0.08);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   }
 
   .site-menu__link {
@@ -704,7 +712,7 @@
   .site-menu__link:hover,
   .site-menu__link:focus-visible {
     color: var(--header-orange);
-    background: rgba(107, 207, 73, 0.14);
+    background: color-mix(in srgb, var(--color-secondary) 14%, transparent);
   }
 
   .site-menu__item:has(> .site-menu__link.is-active) > .site-menu__link {
@@ -723,7 +731,7 @@
     width: auto;
     padding: 0 20px 12px 34px;
     border-radius: 0;
-    background: rgba(107, 207, 73, 0.1);
+    background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
     box-shadow: none;
     transform: none;
     transition: none;
@@ -748,21 +756,21 @@
   }
 
   .site-menu__sub-link span {
-    color: rgba(7, 64, 63, 0.62);
+    color: color-mix(in srgb, var(--color-text-primary) 62%, transparent);
   }
 
   .site-menu__search {
-    border-color: rgba(7, 64, 63, 0.25);
-    background: #ffffff;
+    border-color: color-mix(in srgb, var(--color-text-primary) 25%, transparent);
+    background: var(--color-surface);
     color: var(--header-ink);
   }
 
   .site-menu__search::placeholder {
-    color: rgba(7, 64, 63, 0.55);
+    color: color-mix(in srgb, var(--color-text-primary) 55%, transparent);
   }
 
   .site-menu__empty {
-    color: rgba(7, 64, 63, 0.7);
+    color: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
   }
 
   .site-nav__auth {
@@ -778,7 +786,7 @@
   }
 
   .site-nav__auth .site-header__signup:hover {
-    background: rgba(7, 64, 63, 0.08);
+    background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   }
 
   .site-nav__overlay {

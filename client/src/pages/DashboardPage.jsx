@@ -4686,7 +4686,7 @@ export function AdminDashboardPage() {
                 <strong> {confirmationCourseTitle} </strong> cho học viên
                 <strong> {confirmationStudentName} </strong> không?
               </p>
-              <p style={{ marginTop: '0.75rem', color: '#b03a2e' }}>
+              <p style={{ marginTop: '0.75rem', color: 'var(--color-error)' }}>
                 Hành động này là vĩnh viễn và sẽ {confirmationAction === 'revoke' ? 'xóa quyền truy cập khoá học' : 'cấp quyền truy cập khoá học'}.
               </p>
               <div style={{ marginTop: '1rem' }}>

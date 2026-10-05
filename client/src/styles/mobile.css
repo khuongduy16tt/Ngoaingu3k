@@ -154,19 +154,23 @@ summary,
   padding-right: env(safe-area-inset-right);
 }
 
+/* Ba nút nổi xếp thành một cột 48px ở mép phải (xem brand.css §12): liên hệ
+   dưới cùng, tư vấn ở giữa, test trên cùng. Trên mobile cả ba được thay bằng
+   thanh điều hướng dưới đáy (§7.5) nên các vị trí này chỉ có hiệu lực ≥768px. */
 .floating-contact {
-  right: calc(18px + env(safe-area-inset-right));
-  bottom: calc(18px + env(safe-area-inset-bottom));
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 .consult-fab {
-  right: calc(18px + env(safe-area-inset-right));
-  bottom: calc(98px + env(safe-area-inset-bottom));
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + 48px + 12px + env(safe-area-inset-bottom));
 }
 
 .floating-test-button {
-  left: calc(18px + env(safe-area-inset-left));
-  bottom: calc(18px + env(safe-area-inset-bottom));
+  left: auto;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + 2 * (48px + 12px) + env(safe-area-inset-bottom));
 }
 
 .skip-link {
@@ -184,12 +188,6 @@ summary,
     width: 48px;
     height: 48px;
     border-width: 2px;
-  }
-
-  .consult-fab {
-    height: 44px;
-    bottom: calc(72px + env(safe-area-inset-bottom));
-    padding: 0 14px 0 12px;
   }
 
   .floating-contact {
@@ -222,39 +220,7 @@ summary,
    bố cục chỉ áp ≤767px để desktop giữ nguyên.
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── 7.1 Design token cho lớp mobile ─────────────────────────────────────────
-   Thang khoảng cách 4-8-12-16-20-24-32-40-48 và thang chữ cố định: các quy
-   tắc mới bên dưới chỉ lấy giá trị từ đây, không tự đặt số lẻ. */
-:root {
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-
-  --fs-display: clamp(32px, 8vw, 40px);
-  --fs-h1: clamp(26px, 7vw, 32px);
-  --fs-h2: clamp(22px, 5.6vw, 26px);
-  --fs-h3: clamp(17px, 4.6vw, 20px);
-  --fs-body: 16px;
-  --fs-small: 13px;
-  --fs-micro: 12px;
-
-  --lh-tight: 1.2;
-  --lh-snug: 1.35;
-  --lh-body: 1.6;
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-
-  --tabbar-height: 60px;
-  --mobile-header-height: 64px;
-}
+/* ── 7.1 Token: định nghĩa ở tokens.css. Mobile chỉ đổi thang chữ (bên dưới). */
 
 /* ── 7.2 Lưới an toàn chống tràn chữ (mọi bề rộng) ───────────────────────────
    Chữ luôn được phép xuống dòng; từ quá dài (email, URL, tên dính liền) được
@@ -328,6 +294,11 @@ summary,
   :root {
     --page-gutter: 32px; /* 16px mỗi bên */
     --site-header-height: var(--mobile-header-height);
+    /* Thang chữ mobile */
+    --fs-display: clamp(30px, 8vw, 36px);
+    --fs-h1: clamp(26px, 7vw, 32px);
+    --fs-h2: clamp(22px, 5.6vw, 26px);
+    --fs-h3: clamp(17px, 4.6vw, 20px);
   }
 
   /* ── 7.4 Header gọn: logo · hành động chính · menu ─────────────────────── */
@@ -726,5 +697,35 @@ summary,
 @media (prefers-reduced-motion: reduce) {
   .mobile-tabbar__item {
     transition: none;
+  }
+}
+
+/* ── 7.14 Bảng điều khiển giảng viên: rail bị bóp về 0px ─────────────────────
+   Dưới 760px lưới .teacher-console-layout đã về 1 cột, nhưng các khối nội dung
+   vẫn mang grid-column: 2 (bản desktop đặt chúng cạnh rail). Gán cột 2 trong
+   lưới 1 cột làm trình duyệt sinh thêm một cột ngầm — rail rơi vào cột 1 rộng
+   0px, chữ "Đăng khóa học mới" vỡ từng từ và thẻ nội dung đè lên rail.
+   Đưa mọi khối về cột 1 để rail (chip cuộn ngang) nằm trên, nội dung bên dưới.
+   Áp từ 1180px: ở mốc này rail đã thành hàng chip (enterprise.css) nhưng vẫn
+   bị nhốt trong cột 220px — đo ở 768px rail chỉ còn 109px, tên giảng viên vỡ
+   thành từng chữ. */
+@media (max-width: 1180px) {
+  .teacher-console-layout--single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacher-console-layout--single .teacher-console-main > *,
+  .teacher-course-overview--full,
+  .teacher-console-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── 7.15 Bước nhập khoá học: 4 cột ép mỗi bước còn 55px ở 320px ─────────────
+   Quy tắc 2 cột cho mobile (.import-stepper) thua độ đặc hiệu của bản desktop
+   .teacher-course-publisher .import-stepper nên vẫn 4 cột, chữ tràn khỏi ô. */
+@media (max-width: 760px) {
+  .teacher-course-publisher .import-stepper {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

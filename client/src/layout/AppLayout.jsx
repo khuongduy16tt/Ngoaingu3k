@@ -187,7 +187,7 @@ function MobileTabBar({ contactOpen, setContactOpen }) {
 // ─── Floating Test Button ─────────────────────────────────────────────────────
 function FloatingTestButton() {
   return (
-    <Link className="floating-test-button" to="/test" aria-label={ui.testButtonAria}>
+    <Link className="floating-test-button" to="/test" aria-label={ui.testButtonAria} title={ui.testButtonAria}>
       <span className="floating-test-button__badge">1</span>
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="m3 8.5 9-4 9 4-9 4-9-4Z" />
@@ -281,6 +281,7 @@ function FloatingContactButtons({ isOpen, setIsOpen }) {
         className="floating-contact__toggle"
         type="button"
         aria-label={isOpen ? ui.closeContactChannels : ui.openContactChannels}
+        title={isOpen ? ui.closeContactChannels : ui.openContactChannels}
         aria-expanded={isOpen}
         aria-controls="floating-contact-list"
         onClick={() => setIsOpen((current) => !current)}

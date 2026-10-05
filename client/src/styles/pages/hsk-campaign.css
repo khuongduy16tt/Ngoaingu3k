@@ -45,7 +45,7 @@
    nên overlay không còn phải gánh hết trách nhiệm tương phản cho label. */
 :root[data-theme='light'] .landing-hero::after {
   background:
-    linear-gradient(180deg, rgba(32, 26, 12, 0.26) 0%, rgba(32, 26, 12, 0.46) 22%, rgba(32, 26, 12, 0.4) 100%),
+    linear-gradient(180deg, rgba(15, 33, 64, 0.26) 0%, rgba(15, 33, 64, 0.46) 22%, rgba(15, 33, 64, 0.4) 100%),
     linear-gradient(100deg, rgba(28, 22, 10, 0.55) 0%, rgba(28, 22, 10, 0.28) 36%, rgba(28, 22, 10, 0) 66%);
 }
 
@@ -155,14 +155,14 @@
 .landing-hero__form .auth-submit {
   width: 100%;
   min-height: 2.85rem;
-  background: linear-gradient(135deg, oklch(80% 0.15 130), oklch(72% 0.16 130)) !important;
+  background: var(--color-secondary) !important;
   border: none !important;
-  color: oklch(16% 0.02 115) !important;
+  color: var(--color-on-secondary) !important;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35) !important;
 }
 
 .landing-hero__form .auth-submit:hover {
-  background: linear-gradient(135deg, oklch(84% 0.15 130), oklch(76% 0.16 130)) !important;
+  background: var(--color-secondary-hover) !important;
 }
 
 @media (max-width: 1024px) {
@@ -1607,9 +1607,9 @@
   place-content: center;
   gap: 8px;
   padding: 18px;
-  border: 1.5px dashed rgba(72, 241, 206, 0.48);
+  border: 1.5px dashed color-mix(in srgb, var(--color-secondary) 48%, transparent);
   border-radius: var(--radius);
-  background: rgba(72, 241, 206, 0.08);
+  background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
   color: var(--text);
   cursor: pointer;
   text-align: center;
@@ -1655,8 +1655,8 @@
 }
 
 .ocr-step.is-active {
-  border-color: rgba(72, 241, 206, 0.55);
-  background: rgba(72, 241, 206, 0.12);
+  border-color: color-mix(in srgb, var(--color-secondary) 55%, transparent);
+  background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
   color: var(--text);
 }
 
@@ -1710,8 +1710,8 @@
 }
 
 .ocr-option.is-correct {
-  border-color: rgba(72, 241, 206, 0.65);
-  background: rgba(72, 241, 206, 0.1);
+  border-color: color-mix(in srgb, var(--color-success) 65%, transparent);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
 }
 
 .ocr-option input[type='text'] {

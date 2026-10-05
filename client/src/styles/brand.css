@@ -1,0 +1,413 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   BRAND LAYER — áp bộ nhận diện 2026 lên các thành phần dùng chung.
+   Chỉ dùng token trong tokens.css; không viết HEX ở đây.
+   Nạp sau các file trang/thành phần và TRƯỚC mobile.css (mobile chỉ đổi bố cục).
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Logo trên nền brand ──────────────────────────────────────────────────
+   File logo hiện có là bản màu cũ (xanh lá, chữ teal đậm) — đặt lên nền navy
+   #385791 thì chữ "ngoaingu3k" gần như chìm (tương phản < 2:1). Chưa có file
+   logo mới nên hiển thị bản đơn sắc trắng: sạch, đúng quy chuẩn dùng logo trên
+   nền màu, và tự hết khi thay file logo mới (bỏ filter ở đây). */
+.site-header__logo img,
+.site-nav__head img {
+  filter: brightness(0) invert(1);
+}
+
+/* ── 2. Tiêu đề: navy brand ở theme sáng ─────────────────────────────────────
+   Độ đặc hiệu (0,1,1) — đủ thắng các quy tắc tiêu đề cũ (vd. .x h2) vốn đặt
+   màu chữ thường, nhưng CTA band (!important) vẫn giữ chữ trắng. Loại trừ các
+   khối nền đậm nơi tiêu đề kế thừa chữ trắng. */
+:is(.page, .consult-popup__card) :is(h1, h2):not(:where(.home-band--cta *, .landing-hero *, .auth-hero *, .media-card__fallback *, .marketplace-card__fallback *)) {
+  color: var(--color-heading);
+}
+
+:where(.page) :where(h3) {
+  color: var(--color-text-primary);
+}
+
+/* Nhãn nhỏ phía trên tiêu đề: dùng primary/link thay cho olive cũ. */
+.section-eyebrow,
+.eyebrow {
+  color: var(--color-link);
+}
+
+/* ── 3. Hệ BUTTON ────────────────────────────────────────────────────────────
+   Primary   .button                       nền #385791, chữ trắng (7.14:1)
+   Secondary .button.button--secondary     nền #59B3E1, chữ navy  (6.8:1)
+   Success   .button.button--success       nền #52BD87, chữ navy  (6.8:1)
+   Outline   .button.button--outline       viền + chữ primary
+   Ghost     .button-ghost                 nền surface, viền trung tính
+   Danger    .button.button--danger / .button-ghost.danger
+   Mỗi loại có đủ hover · active · focus-visible · disabled.
+   !important vì .button gốc (enterprise.css) khai báo màu bằng !important. */
+.button,
+.button-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  font-size: var(--fs-button);
+  font-weight: var(--fw-heavy);
+  line-height: var(--lh-snug);
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+
+.button:active,
+.button-ghost:active {
+  transform: translateY(0) !important;
+}
+
+.button:active {
+  background: var(--color-primary-active) !important;
+}
+
+.button--secondary {
+  color: var(--color-on-secondary) !important;
+  background: var(--color-secondary) !important;
+  border-color: var(--color-secondary) !important;
+}
+
+.button--secondary:hover,
+.button--secondary:active {
+  background: var(--color-secondary-hover) !important;
+  border-color: var(--color-secondary-hover) !important;
+}
+
+.button--success {
+  color: var(--color-on-accent) !important;
+  background: var(--color-success) !important;
+  border-color: var(--color-success) !important;
+}
+
+.button--success:hover,
+.button--success:active {
+  background: color-mix(in srgb, var(--color-success) 88%, black) !important;
+}
+
+.button--outline {
+  color: var(--color-link) !important;
+  background: transparent !important;
+  border-color: var(--color-link) !important;
+}
+
+.button--outline:hover,
+.button--outline:active {
+  background: color-mix(in srgb, var(--color-link) 10%, transparent) !important;
+}
+
+.button--danger,
+.button-ghost.danger {
+  color: var(--color-error) !important;
+  background: transparent !important;
+  border-color: color-mix(in srgb, var(--color-error) 55%, transparent) !important;
+}
+
+.button--danger:hover,
+.button-ghost.danger:hover {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent) !important;
+}
+
+.button:disabled,
+.button[disabled],
+.button[aria-disabled='true'],
+.button-ghost:disabled,
+.button-ghost[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+/* Viền focus: secondary blue, đủ nổi trên cả nền trắng lẫn navy. */
+:where(button, a, select, input, textarea, summary, [role='button'], [role='tab'], [tabindex]):focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* CTA band cuối trang chủ: nền primary → nút secondary để nổi bật. */
+.cta-band__button {
+  min-height: 48px;
+  color: var(--color-on-secondary);
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.cta-band__button:hover {
+  color: var(--color-on-secondary);
+  background: var(--color-secondary-hover);
+}
+
+/* ── 4. Hệ FORM ──────────────────────────────────────────────────────────────
+   Trạng thái: default · hover · focus · error (aria-invalid / .is-invalid) ·
+   success (.is-valid) · disabled. Error đỏ và success xanh lá luôn khác nhau
+   cả về màu lẫn biểu tượng viền (đỏ dày hơn) để không chỉ dựa vào màu. */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea) {
+  border-color: var(--color-border-strong);
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+}
+
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea):hover:not(:disabled, :focus) {
+  border-color: var(--color-text-muted);
+}
+
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea):focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-secondary) 35%, transparent);
+}
+
+:root[data-theme='dark'] :where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea):focus {
+  border-color: var(--color-secondary);
+}
+
+:where(input, select, textarea)[aria-invalid='true'],
+:where(input, select, textarea).is-invalid {
+  border-color: var(--color-error) !important;
+  box-shadow: 0 0 0 1px var(--color-error);
+}
+
+:where(input, select, textarea).is-valid {
+  border-color: var(--color-success) !important;
+}
+
+:where(input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: var(--color-surface-muted);
+}
+
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'],
+progress {
+  accent-color: var(--color-primary);
+}
+
+:root[data-theme='dark'] :is(input[type='checkbox'], input[type='radio'], input[type='range'], progress) {
+  accent-color: var(--color-secondary);
+}
+
+/* ── 5. Card: viền, bo góc, bóng thống nhất ──────────────────────────────────
+   Bóng nhẹ (--shadow-sm) thay vì bóng 36px cũ; nổi khối bằng viền. */
+:root {
+  --radius: 12px;
+}
+
+.home-stat,
+.program-tile,
+.marketplace-card,
+.exam-card,
+.profile-card,
+.course-tile {
+  border-radius: var(--radius-md);
+}
+
+/* ── 6. Số liệu: số màu brand, nhãn chữ phụ ─────────────────────────────── */
+.home-stat strong {
+  color: var(--color-heading);
+}
+
+.home-stat--accent strong {
+  color: var(--color-info-text) !important;
+}
+
+/* ── 7. Tiến độ & trạng thái tích cực: xanh lá brand ───────────────────────── */
+.meter span,
+.progress-bar__fill,
+.lesson-sidebar__progress .meter span {
+  background: var(--color-success);
+}
+
+/* ── 8. Nút nổi (desktop) ───────────────────────────────────────────────────
+   Chấm đỏ "1" trên nút test/liên hệ không phải thông báo thật — chỉ tạo cảm
+   giác có việc chưa xử lý và thêm nhiễu. Ẩn đi; nút vẫn giữ nguyên chức năng. */
+.floating-test-button__badge,
+.floating-contact__toggle-badge {
+  display: none;
+}
+
+.floating-test-button,
+.floating-contact__toggle {
+  border-color: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.consult-fab {
+  color: var(--color-on-secondary);
+  background: var(--color-secondary);
+  box-shadow: var(--shadow-md);
+}
+
+.consult-fab:hover {
+  background: var(--color-secondary-hover);
+}
+
+.floating-contact__item--zalo {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.floating-contact__item--messenger {
+  background: var(--color-info-text);
+  color: #ffffff;
+}
+
+.floating-contact__item--phone {
+  background: var(--avatar-green-deep);
+  color: #ffffff;
+}
+
+.floating-contact__item .floating-contact__copy strong,
+.floating-contact__item .floating-contact__copy span,
+.floating-contact__item .floating-contact__icon {
+  color: #ffffff;
+}
+
+/* ── 9. Số thứ tự lộ trình: từng dùng màu viền làm màu chữ (1.78:1) ─────────── */
+.path-list__number {
+  color: var(--color-link);
+}
+
+/* ── 10. Bảng tiến độ học viên: thẻ xếp dọc trên điện thoại ──────────────────
+   Bảng có min-width 760px nên ở màn hẹp người dùng phải vuốt ngang mới thấy
+   cột "Hạn gói". Dưới 640px mỗi hàng thành một thẻ, nhãn cột lấy từ
+   data-label. Dữ liệu và thứ tự cột giữ nguyên. */
+@media (max-width: 640px) {
+  .teacher-student-table-wrap {
+    overflow-x: visible;
+  }
+
+  .teacher-student-table {
+    min-width: 0;
+  }
+
+  .teacher-student-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .teacher-student-table,
+  .teacher-student-table tbody,
+  .teacher-student-table tr {
+    display: block;
+  }
+
+  .teacher-student-table tr {
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .teacher-student-table td,
+  .teacher-student-table td:first-child,
+  .teacher-student-table td:nth-child(4),
+  .teacher-student-table td:nth-child(5) {
+    display: grid;
+    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+    gap: var(--space-1) var(--space-3);
+    align-items: start;
+    padding: 0;
+    border: 0;
+  }
+
+  .teacher-student-table td::before {
+    content: attr(data-label);
+    grid-row: 1 / span 4;
+    color: var(--color-text-muted);
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+  }
+
+  .teacher-student-table td > * {
+    grid-column: 2;
+    min-width: 0;
+  }
+}
+
+/* ── 11. Bảng quản trị (cuộn ngang trong .admin-table-wrap) ───────────────────
+   Bảng nhiều cột co cột đầu — thường là tên đề/khoá/người dùng — xuống ~68px,
+   tên dài vỡ thành 5–6 dòng. Giữ cột định danh đủ rộng để đọc được; phần dư
+   vẫn cuộn ngang trong khung như trước. */
+.admin-table th:first-child,
+.admin-table td:first-child {
+  min-width: 160px;
+}
+
+/* ── 12. Nút nổi trên tablet/desktop (≥768px): một cột gọn ở mép phải ────────
+   Trước: nút test 68px góc trái + nút "Tư vấn" dạng viên dài + nút liên hệ
+   68px góc phải — 3 cụm ở 2 góc, đè lên nội dung cả hai bên.
+   Sau: 3 nút tròn 48px xếp dọc ở mép phải, cách nhau 12px. Ở ≥1440px cả cột
+   nằm gọn trong lề ngoài khung nội dung 1240px nên không che chữ nào; ở màn
+   nhỏ hơn chỉ còn một dải hẹp 48px ở mép phải thay vì 2 góc. Nhãn chữ vẫn có
+   cho trình đọc màn hình qua aria-label và hiện khi rê chuột (title). */
+@media (min-width: 768px) {
+  .floating-test-button,
+  .consult-fab,
+  .floating-contact__toggle {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-width: 2px;
+    border-radius: var(--radius-pill);
+    display: grid;
+    place-items: center;
+  }
+
+  .floating-test-button svg,
+  .consult-fab svg,
+  .floating-contact__toggle svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .floating-contact {
+    right: calc(var(--space-4) + env(safe-area-inset-right));
+    bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  }
+
+  .consult-fab {
+    right: calc(var(--space-4) + env(safe-area-inset-right));
+    bottom: calc(var(--space-4) + 48px + var(--space-3) + env(safe-area-inset-bottom));
+    border: 2px solid var(--color-surface);
+  }
+
+  .consult-fab__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .floating-test-button {
+    left: auto;
+    right: calc(var(--space-4) + env(safe-area-inset-right));
+    bottom: calc(var(--space-4) + 2 * (48px + var(--space-3)) + env(safe-area-inset-bottom));
+  }
+
+  /* Khi mở danh sách kênh liên hệ, nó bung lên trên nút liên hệ và sẽ phủ
+     2 nút kia — ẩn tạm 2 nút để không chồng lên danh sách. */
+  .app-shell:has(.floating-contact.is-open) .consult-fab,
+  .app-shell:has(.floating-contact.is-open) .floating-test-button {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* ── 13. Trang đăng nhập: thẻ giới thiệu nền trắng ở theme sáng ──────────── */
+:root[data-theme='light'] .auth-hero h1 {
+  color: var(--color-heading);
+}

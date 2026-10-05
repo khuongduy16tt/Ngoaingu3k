@@ -98,7 +98,7 @@
 
 /* Dòng thiếu định nghĩa: viền đứt để giảng viên thấy mà sửa trước khi lưu. */
 .fc-import__row.is-incomplete {
-  border: 1px dashed color-mix(in srgb, #d1483c 45%, var(--border));
+  border: 1px dashed color-mix(in srgb, var(--color-error) 45%, var(--border));
 }
 
 .fc-import__row span:last-child {
@@ -140,7 +140,7 @@
 }
 
 .fc-set-card__course {
-  color: var(--accent, #2563eb);
+  color: var(--accent);
   font-size: 14px;
 }
 
@@ -239,7 +239,7 @@
 
 .fc-card--back {
   transform: rotateY(180deg);
-  background: color-mix(in srgb, var(--brand, #2563eb) 8%, var(--surface));
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
 }
 
 .fc-card-inner:hover .fc-card {
@@ -309,13 +309,13 @@
 }
 
 .fc-progress__chip.is-mastered {
-  color: #2f9e5f;
-  border-color: color-mix(in srgb, #2f9e5f 40%, var(--border));
+  color: var(--color-success-text);
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--border));
 }
 
 .fc-progress__chip.is-learning {
-  color: #c98a2e;
-  border-color: color-mix(in srgb, #c98a2e 40%, var(--border));
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--border));
 }
 
 .fc-question {
@@ -363,13 +363,13 @@
 }
 
 .fc-option.is-correct {
-  border-color: #2f9e5f;
-  background: color-mix(in srgb, #2f9e5f 14%, var(--surface));
+  border-color: var(--color-success-text);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--surface));
 }
 
 .fc-option.is-wrong {
-  border-color: #d1483c;
-  background: color-mix(in srgb, #d1483c 12%, var(--surface));
+  border-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, var(--surface));
 }
 
 .fc-written {
@@ -544,8 +544,8 @@
 }
 
 .fc-tile.is-wrong {
-  border-color: #d1483c;
-  background: color-mix(in srgb, #d1483c 14%, var(--surface));
+  border-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, var(--surface));
 }
 
 /* Ghép đúng thì ô mờ dần rồi mất, chừa chỗ trống để thấy tiến độ. */

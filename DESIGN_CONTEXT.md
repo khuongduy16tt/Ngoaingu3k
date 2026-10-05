@@ -16,10 +16,17 @@
 - Soft
 - Balanced and modern
 
+## Brand identity (2026)
+- Primary `#385791` — header, navigation, primary CTA, headings, links. The dominant brand color.
+- Secondary blue `#59B3E1` — secondary CTA, selected/active state, info, highlights.
+- Secondary green `#52BD87` — success, progress, completion, achievement.
+- Never change these HEX values. White text only on `#385791` (7.14:1); on blue/green fills use navy ink `#0f2140` (6.8:1).
+- All colors live in `client/src/styles/tokens.css` (primitive → semantic `--color-*` → legacy aliases). Components must use tokens, never raw HEX.
+- Keep neutral surfaces and whitespace dominant; brand colors are accents, not backgrounds everywhere.
+
 ## Visual direction
-- Prefer a calm, modern visual system with warm accents rather than a flat gray or overly neutral palette.
+- Calm, modern, trustworthy educational UI: navy brand header, light cool-neutral surfaces, blue for interaction, green for progress.
 - Use color strategically to highlight calls to action, course importance, and progress states.
-- Keep the interface polished and professional, with enough warmth to feel human and encouraging.
 - Strong hierarchy, generous spacing, and crisp content structure are more important than decorative effects.
 
 ## Design principles
@@ -30,8 +37,8 @@
 5. Support accessibility through strong contrast, readable typography, and reduced-motion behavior.
 
 ## Visual language guidance
-- Good directions: warm coral/amber accents, soft gradients, rounded surfaces, subtle elevation, gentle transitions.
-- Avoid: monotone gray UI, overly saturated or neon colors, heavy animation, cluttered hero sections, generic enterprise styling.
+- Good directions: brand navy/blue/green accents, rounded surfaces (12px cards), subtle elevation, gentle transitions. Gradients only between brand colors and sparingly.
+- Avoid: the retired green/orange brand (#6bcf49, #ec6e23), monotone gray UI, overly saturated or neon colors, heavy animation, cluttered hero sections, generic enterprise styling.
 
 ## Content and tone
 - Copy should feel concise, encouraging, and educational.

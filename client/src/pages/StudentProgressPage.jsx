@@ -388,14 +388,14 @@ export default function StudentProgressPage() {
                 <tbody>
                   {pagination.pageItems.map((row) => (
                     <tr key={`${row.studentId}-${row.courseId}`}>
-                      <td>
+                      <td data-label="Học sinh">
                         <strong>{row.fullName || 'Học sinh'}</strong>
                         <span>{row.phone}</span>
                         <span>{row.email}</span>
                       </td>
-                      <td>{row.courseTitle}</td>
-                      <td>{formatDate(row.enrolledAt)}</td>
-                      <td>
+                      <td data-label="Khóa học">{row.courseTitle}</td>
+                      <td data-label="Ngày vào học">{formatDate(row.enrolledAt)}</td>
+                      <td data-label="Buổi học">
                         {row.sessionsTotal === null || row.sessionsTotal === undefined ? (
                           <span>{row.sessionsUsed} buổi (không giới hạn)</span>
                         ) : (
@@ -413,7 +413,7 @@ export default function StudentProgressPage() {
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Hạn gói">
                         <span className={`package-status-badge package-status-badge--${row.packageStatus}`}>
                           {getPackageStatusLabel(row.packageStatus)}
                         </span>

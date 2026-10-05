@@ -15,9 +15,9 @@ function FallbackUI({ error, onReset }) {
         justifyContent: 'center',
         minHeight: '60vh',
         padding: '2rem',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: 'var(--font-sans)',
         textAlign: 'center',
-        color: 'var(--text, #edf4ff)',
+        color: 'var(--color-text-primary)',
       }}
     >
       <div
@@ -49,8 +49,8 @@ function FallbackUI({ error, onReset }) {
             maxWidth: '36rem',
             padding: '1rem',
             borderRadius: '0.5rem',
-            background: 'rgba(255,80,80,0.08)',
-            border: '1px solid rgba(255,80,80,0.2)',
+            background: 'color-mix(in srgb, var(--color-error) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--color-error) 24%, transparent)',
             fontSize: '0.75rem',
             textAlign: 'left',
             overflow: 'auto',
@@ -66,11 +66,12 @@ function FallbackUI({ error, onReset }) {
         type="button"
         onClick={onReset}
         style={{
+          minHeight: '44px',
           padding: '0.6rem 1.6rem',
           borderRadius: '0.5rem',
           border: 'none',
-          background: 'linear-gradient(135deg, #5cf0dc, #8ec2ff)',
-          color: '#08101d',
+          background: 'var(--color-primary)',
+          color: 'var(--color-on-primary)',
           fontWeight: 600,
           fontSize: '0.95rem',
           cursor: 'pointer',

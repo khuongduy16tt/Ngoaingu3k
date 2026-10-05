@@ -48,6 +48,7 @@ export function ConsultationFab() {
         className="consult-fab"
         onClick={() => setOpen(true)}
         aria-label="Đăng ký nhận tư vấn lộ trình học"
+        title="Đăng ký nhận tư vấn lộ trình học"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 5.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-4.5 3.2V17.5H4A1.5 1.5 0 0 1 2.5 16V7A1.5 1.5 0 0 1 4 5.5Z" />

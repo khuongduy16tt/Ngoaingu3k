@@ -7,13 +7,15 @@ import { supabase } from '../lib/supabase';
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #f97316, #ef4444)',
-  'linear-gradient(135deg, #8b5cf6, #6366f1)',
-  'linear-gradient(135deg, #06b6d4, #3b82f6)',
-  'linear-gradient(135deg, #10b981, #059669)',
-  'linear-gradient(135deg, #f59e0b, #f97316)',
-  'linear-gradient(135deg, #ec4899, #8b5cf6)',
-  'linear-gradient(135deg, #14b8a6, #06b6d4)',
+  // Biến thể đậm của 3 màu brand (tokens.css) — chữ cái trắng trên avatar
+  // luôn đạt ≥ 5:1, không dùng thẳng #59B3E1/#52BD87 vì chỉ 2.34:1.
+  'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-700))',
+  'linear-gradient(135deg, var(--brand-primary), var(--avatar-blue-deep))',
+  'linear-gradient(135deg, var(--avatar-blue-deep), var(--brand-primary-600))',
+  'linear-gradient(135deg, var(--avatar-green-deep), var(--avatar-blue-deep))',
+  'linear-gradient(135deg, var(--brand-primary-600), var(--avatar-green-deep))',
+  'linear-gradient(135deg, var(--brand-primary-700), var(--avatar-blue-deep))',
+  'linear-gradient(135deg, var(--avatar-green-deep), var(--brand-primary))',
 ];
 
 function getAvatarGradient(seed) {
