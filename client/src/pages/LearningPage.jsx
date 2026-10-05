@@ -16,6 +16,7 @@ import {
   getCourseCatalog,
   getOwnedCourseIds,
   readAllTeacherManagedCourses,
+  reconcileManagedCourses,
   PURCHASED_COURSES_STORAGE_KEY,
   reorderCourseChapters,
   reorderCourseLessons,
@@ -2450,7 +2451,7 @@ export default function LearningPage() {
       try {
         const canBrowseAllCourses = currentRole === 'teacher' || currentRole === 'admin';
         const userChanged = auth.user?.id !== lastLoadedUserIdRef.current || currentRole !== lastLoadedRoleRef.current;
-        const localManagedCourses = canBrowseAllCourses ? readAllTeacherManagedCourses() : [];
+        let localManagedCourses = canBrowseAllCourses ? readAllTeacherManagedCourses() : [];
 
         let catalog = availableCoursesRef.current;
         let nextOwnedCourseIds = purchasedCoursesRef.current;
@@ -2469,6 +2470,16 @@ export default function LearningPage() {
           lastLoadedRoleRef.current = currentRole;
         } else {
           routeCourse = routeCourseKey ? await getCourseBySlug(routeCourseKey) : null;
+        }
+
+        // Bản nháp local từng đồng bộ nhưng khóa đã bị xóa trên server: bỏ đi, không
+        // thì phòng học mở mặc định vào một khóa ma (trùng tên, sửa không lưu được).
+        // Danh mục rỗng (lỗi mạng) thì giữ nguyên để không giấu nhầm bản nháp thật.
+        if (catalog.length) {
+          localManagedCourses = reconcileManagedCourses(
+            localManagedCourses,
+            catalog.map((course) => ({ id: course.databaseId || course.id }))
+          );
         }
 
         const ownedCourseKeySet = new Set(nextOwnedCourseIds.map((courseKey) => String(courseKey).toLowerCase()));
