@@ -328,6 +328,23 @@ export default function HomePage() {
         <HeroBannerSlideshow banners={heroBanners} />
       </section>
 
+      {/* Chỉ hiện ≤767px: banner là ảnh ngang có chữ in sẵn, thu về bề ngang
+          điện thoại thì chữ trong ảnh chỉ còn ~6px, không đọc được. Khối này
+          nói lại thông điệp chính và đưa nút hành động lên ngay màn đầu. */}
+      <section className="hero-mobile-intro" aria-label="Giới thiệu Ngoaingu3k">
+        <span className="section-eyebrow">Tiếng Anh · Tiếng Trung</span>
+        <h1>Học ngoại ngữ để dùng được</h1>
+        <p>Lộ trình cá nhân hoá, giảng viên đồng hành và tiến độ minh bạch từ buổi đầu.</p>
+        <div className="hero-mobile-intro__actions">
+          <Link to="/courses" className="button">
+            Xem khóa học
+          </Link>
+          <Link to="/test" className="button-ghost">
+            Test trình độ miễn phí
+          </Link>
+        </div>
+      </section>
+
       <div className="page home-page home-page--new">
         <section className="hero-metrics">
           <StatPill value="15.000+" label="Số lượng học viên" />

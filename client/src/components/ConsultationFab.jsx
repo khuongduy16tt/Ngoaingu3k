@@ -3,11 +3,24 @@ import { ConsultationForm } from './ConsultationForm';
 
 const AUTO_CLOSE_AFTER_SUCCESS_MS = 1500;
 
+// Thanh điều hướng dưới đáy trên mobile (AppLayout) mở form qua sự kiện này
+// thay vì nút nổi — nút nổi bị ẩn ở màn hẹp nhưng modal vẫn do đây quản lý.
+export const OPEN_CONSULTATION_EVENT = 'ngoaingu3k:open-consultation';
+
 // Nút nổi "Đăng ký tư vấn" ở góc dưới bên phải (ngay trên cụm nút liên hệ/Zalo).
 // Thay cho popup tư vấn tự bật trước đây: form chỉ mở khi người dùng bấm nút,
 // hiển thị trong cùng modal .consult-popup dùng chung toàn site.
 export function ConsultationFab() {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    function onOpenRequest() {
+      setOpen(true);
+    }
+
+    window.addEventListener(OPEN_CONSULTATION_EVENT, onOpenRequest);
+    return () => window.removeEventListener(OPEN_CONSULTATION_EVENT, onOpenRequest);
+  }, []);
 
   useEffect(() => {
     if (!open) {

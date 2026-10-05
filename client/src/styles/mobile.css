@@ -46,10 +46,12 @@ summary,
   /* ── 4. Vùng chạm tối thiểu ──────────────────────────────────────────────
      Nới bằng pseudo-element để không phải phóng to phần nhìn thấy — giữ nguyên
      bố cục dày của header và footer. Cùng cách làm đã dùng cho nút hamburger
-     và nút gạt theme. */
+     và nút gạt theme.
+     .consult-popup__close KHÔNG nằm trong danh sách position:relative: nó vốn
+     là position:absolute (đã đủ làm khung cho ::after). Ép relative làm nút rơi
+     về luồng thường, nằm đè lên nhãn và tiêu đề của popup. */
   .site-nav__close,
   .user-avatar-btn,
-  .consult-popup__close,
   .hero-slideshow__dot,
   .site-footer__link,
   .site-footer__contact-value,
@@ -204,4 +206,525 @@ summary,
   padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   padding-left: calc(1rem + env(safe-area-inset-left));
   padding-right: calc(1rem + env(safe-area-inset-right));
+}
+
+/* Quy tắc trên bỏ mất phần padding-top chừa cho header, trong khi popup chỉ có
+   z-index 300 < header 1000 — nên đầu thẻ (nhãn, nút đóng) chui dưới header,
+   thấy rõ trên mobile. Modal phải nằm trên header (vẫn dưới drawer 9998). */
+.consult-popup {
+  z-index: 1100;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   7. HỆ THỐNG MOBILE-FIRST: token · chống tràn chữ · điều hướng · thẻ
+   Mọi thứ bên dưới chỉ đổi giao diện, không đụng tới chức năng. Phần áp cho
+   mọi bề rộng nằm ngoài media query (chỉ là lưới an toàn chống tràn); phần đổi
+   bố cục chỉ áp ≤767px để desktop giữ nguyên.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 7.1 Design token cho lớp mobile ─────────────────────────────────────────
+   Thang khoảng cách 4-8-12-16-20-24-32-40-48 và thang chữ cố định: các quy
+   tắc mới bên dưới chỉ lấy giá trị từ đây, không tự đặt số lẻ. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --fs-display: clamp(32px, 8vw, 40px);
+  --fs-h1: clamp(26px, 7vw, 32px);
+  --fs-h2: clamp(22px, 5.6vw, 26px);
+  --fs-h3: clamp(17px, 4.6vw, 20px);
+  --fs-body: 16px;
+  --fs-small: 13px;
+  --fs-micro: 12px;
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-body: 1.6;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --tabbar-height: 60px;
+  --mobile-header-height: 64px;
+}
+
+/* ── 7.2 Lưới an toàn chống tràn chữ (mọi bề rộng) ───────────────────────────
+   Chữ luôn được phép xuống dòng; từ quá dài (email, URL, tên dính liền) được
+   bẻ thay vì đẩy khung rộng ra. break-word không làm co min-content nên không
+   đổi bố cục nào đang đúng. :where() giữ độ đặc hiệu bằng 0 để quy tắc riêng
+   của từng thành phần vẫn thắng. */
+:where(h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, figcaption, label, legend, th, td, small, strong, a) {
+  overflow-wrap: break-word;
+}
+
+/* Cột ngầm của lưới .page là `auto`: một con có chuỗi không bẻ được (email
+   dài, nút nowrap) kéo cả cột rộng hơn màn hình — đúng lỗi ở trang Hồ sơ
+   (rộng 362px trên màn 320px, bị .app-shell{overflow-x:hidden} cắt mất mép
+   phải form). minmax(0, 1fr) buộc cột không bao giờ vượt khung. */
+:where(.page) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:where(.page) > *,
+:where(.profile-hero__content) > *,
+:where(.profile-body) > *,
+:where(.marketplace-hero__copy) > *,
+:where(.marketplace-card__footer) > * {
+  min-width: 0;
+}
+
+/* Chuỗi không có khoảng trắng: phải bẻ ở bất kỳ ký tự nào. */
+.profile-hero__email,
+.profile-form__readonly,
+.profile-security-row__value,
+.site-footer__contact-value {
+  overflow-wrap: anywhere;
+}
+
+/* Thẻ khoá học ở 641–1024px: hai nút min-width 136px + giá tiền không vừa
+   một hàng trong cột ~350px nên tràn 26px khỏi thẻ. Cho xuống hàng và để
+   nút co theo chỗ trống. Dưới 761px footer thẻ đã chuyển sang cột dọc với
+   nút rộng 100% (enterprise.css) nên không áp ở đó. */
+@media (min-width: 761px) and (max-width: 1024px) {
+  .marketplace-card__footer {
+    flex-wrap: wrap;
+  }
+
+  .marketplace-card__actions {
+    flex: 1 1 100%;
+  }
+
+  .marketplace-card__actions .button,
+  .marketplace-card__actions .button-ghost {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* Lưới đề thi: dưới 760px quy tắc cũ chỉ thêm flex-wrap (vô tác dụng với
+   grid) nên vẫn 2 cột — mỗi thẻ còn ~140px ở màn 320px, nút "Vào phòng thi"
+   và mô tả lòi ra ngoài thẻ. */
+@media (max-width: 640px) {
+  .exam-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── 7.3 Thành phần chỉ có trên mobile: ẩn ở màn lớn ─────────────────────── */
+.mobile-tabbar,
+.hero-mobile-intro {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --page-gutter: 32px; /* 16px mỗi bên */
+    --site-header-height: var(--mobile-header-height);
+  }
+
+  /* ── 7.4 Header gọn: logo · hành động chính · menu ─────────────────────── */
+  .site-header {
+    --header-height: var(--mobile-header-height);
+  }
+
+  .site-header__inner {
+    padding: 0 var(--space-3) 0 var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .site-header__logo img {
+    height: 44px;
+  }
+
+  .site-header__actions {
+    gap: var(--space-2);
+  }
+
+  /* Khách chưa đăng nhập: "Đăng nhập" là hành động chính nên đưa ra header
+     dạng nút nhỏ thay vì chỉ giấu trong drawer. */
+  .site-header__actions > .site-header__login {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    font-size: var(--fs-small);
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  /* Nút gạt theme chỉ cao 25px: nới vùng chạm lên 44px mà không phóng to. */
+  .site-header .theme-toggle {
+    position: relative;
+  }
+
+  .site-header .theme-toggle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Drawer: chừa tai thỏ và vạch home khi mở toàn chiều cao. */
+  .site-nav {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom));
+  }
+
+  .site-nav__head img {
+    height: 44px;
+  }
+
+  .site-nav__close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .site-menu__link {
+    min-height: 48px;
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--fs-body);
+  }
+
+  .site-menu__sub-link {
+    font-size: 15px;
+  }
+
+  /* Hai nút trong drawer từng lệch chiều cao (Đăng nhập thấp hơn Đăng ký). */
+  .site-nav__auth .site-header__login,
+  .site-nav__auth .site-header__signup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    font-size: var(--fs-body);
+  }
+
+  /* ── 7.5 Thanh điều hướng dưới đáy ────────────────────────────────────── */
+  .mobile-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900; /* dưới header (1000), popup (1100) và drawer (9998) */
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-tabbar__item {
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: var(--space-1) 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 150ms ease;
+  }
+
+  .mobile-tabbar__item span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-tabbar__icon {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Ở dark mode --accent và --muted gần cùng độ sáng, chỉ đổi màu chữ thì gần
+     như không phân biệt được — thêm nền viên thuốc sau icon và chữ đậm hơn. */
+  .mobile-tabbar__item.is-active {
+    color: var(--text);
+  }
+
+  .mobile-tabbar__item.is-active .mobile-tabbar__icon {
+    width: 52px;
+    height: 28px;
+    padding: 2px 14px;
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent) 26%, transparent);
+    color: var(--accent);
+    stroke-width: 2.2;
+  }
+
+  /* Vạch chỉ báo mục đang ở — người dùng luôn biết mình đang ở trang nào. */
+  .mobile-tabbar__item.is-active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 28px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--accent);
+    transform: translateX(-50%);
+  }
+
+  .mobile-tabbar__item:focus-visible {
+    outline-offset: -3px;
+  }
+
+  /* Chừa chỗ cho thanh: dòng cuối footer (copyright, mạng xã hội) trước đây
+     bị 3 nút nổi che vĩnh viễn. */
+  .app-shell:not(.app-shell--immersive) {
+    padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  }
+
+  /* Ba nút nổi đã gộp vào thanh → ẩn trên mobile. Danh sách kênh liên hệ vẫn
+     giữ, giờ bung ra ngay trên thanh như một bảng chọn nhỏ. */
+  .floating-test-button,
+  .consult-fab,
+  .floating-contact__toggle {
+    display: none !important;
+  }
+
+  .floating-contact {
+    right: calc(var(--space-3) + env(safe-area-inset-right));
+    bottom: calc(var(--tabbar-height) + var(--space-3) + env(safe-area-inset-bottom));
+    width: min(280px, calc(100vw - 2 * var(--space-3)));
+  }
+
+  /* ── 7.6 Popup tư vấn: nút đóng không đè chữ ───────────────────────────── */
+  .consult-popup__card .eyebrow {
+    margin-right: 52px; /* chừa chỗ cho nút đóng 44px ở góc phải */
+  }
+
+  .consult-popup__card h2 {
+    padding-right: 0;
+    font-size: var(--fs-h2);
+    line-height: var(--lh-tight);
+  }
+
+  .consult-popup__close {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* ── 7.7 Thang chữ thống nhất trong nội dung trang ─────────────────────── */
+  .page h1 {
+    font-size: var(--fs-h1);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.01em;
+  }
+
+  .page h2 {
+    font-size: var(--fs-h2);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.005em;
+  }
+
+  .page h3 {
+    font-size: var(--fs-h3);
+    line-height: var(--lh-snug);
+  }
+
+  /* h2 nằm trong thẻ là tiêu đề thẻ, không phải tiêu đề mục: một bậc nhỏ hơn
+     để thẻ không bị chữ chiếm hết bề ngang. */
+  .page [class*='card'] h2 {
+    font-size: clamp(19px, 5vw, 22px);
+    line-height: var(--lh-snug);
+  }
+
+  /* ── 7.8 Hero trang chủ: thông điệp + CTA ngay màn đầu ─────────────────── */
+  .hero-mobile-intro {
+    display: grid;
+    gap: var(--space-3);
+    width: min(var(--page-max), calc(100% - var(--page-gutter)));
+    margin: 0 auto;
+    padding: var(--space-6) 0 0;
+  }
+
+  .hero-mobile-intro h1 {
+    margin: 0;
+    font-size: var(--fs-h1);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .hero-mobile-intro p {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+  }
+
+  .hero-mobile-intro__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+  }
+
+  .hero-mobile-intro__actions .button,
+  .hero-mobile-intro__actions .button-ghost {
+    min-height: 48px;
+    padding: var(--space-2) var(--space-4);
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+  }
+
+  /* Banner chừa 56px dưới đáy cho chấm chuyển ảnh kiểu desktop; chấm giờ nằm
+     đè trong ảnh nên khoảng này chỉ còn là một dải trống giữa ảnh và chữ. */
+  .landing-hero--banner {
+    padding-bottom: 0;
+  }
+
+  .page.home-page--new {
+    gap: var(--space-12);
+    padding-top: var(--space-6);
+  }
+
+  /* ── 7.9 Thẻ số liệu: 3 cột gọn, cao theo nội dung ─────────────────────── */
+  .hero-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .home-stat {
+    min-height: 0;
+    height: auto;
+    display: grid;
+    align-content: start;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-2) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: none !important;
+    text-align: center;
+  }
+
+  .home-stat strong {
+    font-size: clamp(20px, 6vw, 26px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+
+  .home-stat span {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  /* ── 7.10 Hero trang Khoá học: nút được xuống dòng ─────────────────────── */
+  .marketplace-hero--compact .marketplace-hero__actions {
+    flex-wrap: wrap;
+  }
+
+  .marketplace-hero--compact .marketplace-hero__actions .button,
+  .marketplace-hero--compact .marketplace-hero__actions .button-ghost {
+    flex: 1 1 140px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* ── 7.11 Nút chung: không bao giờ rộng hơn khung chứa ─────────────────── */
+  .button,
+  .button-ghost {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* ── 7.12 Hồ sơ: tên dài, email dài ────────────────────────────────────── */
+  .profile-hero {
+    padding: var(--space-8) var(--space-4) var(--space-6);
+  }
+
+  .profile-hero__content {
+    width: 100%;
+    gap: var(--space-5);
+  }
+
+  .profile-hero__info {
+    flex: 1 1 100%;
+  }
+
+  /* ── 7.13 Footer gọn: liên hệ toàn dòng, các nhóm link chia 2 cột ──────── */
+  .site-footer__columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-8) var(--space-4);
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-8);
+  }
+
+  .site-footer__columns > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .site-footer__heading {
+    margin-bottom: var(--space-3);
+    font-size: var(--fs-body);
+  }
+
+  .site-footer__list li + li {
+    margin-top: 0;
+  }
+
+  .site-footer__link,
+  .site-footer__plain {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .site-footer__link,
+  .site-footer__plain {
+    padding-block: 10px;
+  }
+}
+
+/* Màn rất hẹp (≤359px): 5 nhãn vẫn vừa nhưng sát; thu chữ nhẹ. */
+@media (max-width: 359px) {
+  .mobile-tabbar__item {
+    font-size: 10px;
+  }
+
+  .site-header__actions > .site-header__login {
+    padding: 0 var(--space-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-tabbar__item {
+    transition: none;
+  }
 }

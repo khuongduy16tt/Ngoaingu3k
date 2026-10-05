@@ -5,12 +5,15 @@ import { useAuth } from '../providers/AuthProvider';
 import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
-import { ConsultationFab } from '../components/ConsultationFab';
+import { ConsultationFab, OPEN_CONSULTATION_EVENT } from '../components/ConsultationFab';
 import { ConsultationPopup } from '../components/ConsultationPopup';
 import { getCourseCatalog, isHskCourse, getHskLevel, groupHskCourses } from '../lib/courseService';
 
 export function AppLayout({ children }) {
   const [theme, setTheme] = useState(() => readStoredTheme());
+  // Mở/đóng cụm kênh liên hệ: nút nổi (desktop) và thanh điều hướng dưới đáy
+  // (mobile) cùng điều khiển một danh sách nên state nằm ở đây.
+  const [contactOpen, setContactOpen] = useState(false);
   const location = useLocation();
   // The exam room needs full focus: hide the topbar/footer/floating widgets
   // while a student is inside /exam/:examId.
@@ -19,6 +22,10 @@ export function AppLayout({ children }) {
   // người dùng đang học/thi/thao tác, bị cắt ngang mỗi 10s là hỏng việc.
   // ('/' chỉ tồn tại 1 nhịp trước khi redirect sang /home.)
   const onHomePage = location.pathname === '/home' || location.pathname === '/';
+
+  useEffect(() => {
+    setContactOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -58,10 +65,122 @@ export function AppLayout({ children }) {
       <FloatingTestButton />
       <ConsultationFab />
       {onHomePage ? <ConsultationPopup /> : null}
-      <FloatingContactButtons />
+      <FloatingContactButtons isOpen={contactOpen} setIsOpen={setContactOpen} />
+      <MobileTabBar contactOpen={contactOpen} setContactOpen={setContactOpen} />
       <div className="background-accent background-accent--blue" aria-hidden="true" />
       <div className="background-accent background-accent--violet" aria-hidden="true" />
     </div>
+  );
+}
+
+// ─── Thanh điều hướng dưới đáy (chỉ hiện ≤767px) ──────────────────────────────
+// Trên điện thoại, 3 nút nổi (test · tư vấn · liên hệ) đè lên nội dung suốt
+// trang và che luôn dòng cuối footer. Gom chúng cùng các trang chính vào một
+// thanh cố định dưới đáy; .app-shell chừa đúng chiều cao thanh này nên không
+// còn gì bị che. Desktop vẫn dùng các nút nổi như cũ (CSS ẩn thanh này đi).
+const tabIcons = {
+  home: (
+    <>
+      <path d="M3.5 10.5 12 4l8.5 6.5" />
+      <path d="M5.5 9v10.5h13V9" />
+      <path d="M10 19.5v-5h4v5" />
+    </>
+  ),
+  courses: (
+    <>
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v14H5.5A1.5 1.5 0 0 0 4 19.5v-14Z" />
+      <path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19v-3" />
+      <path d="M8.5 8h6" />
+    </>
+  ),
+  learn: (
+    <>
+      <rect x="3" y="4.5" width="18" height="12" rx="2" />
+      <path d="m10.5 8.25 4 2.25-4 2.25v-4.5Z" />
+      <path d="M8 20h8" />
+    </>
+  ),
+  test: (
+    <>
+      <path d="m3 8.5 9-4 9 4-9 4-9-4Z" />
+      <path d="M6.5 10.2v4.2c0 1.7 2.45 3.1 5.5 3.1s5.5-1.4 5.5-3.1v-4.2" />
+      <path d="M21 8.5v5.25" />
+    </>
+  ),
+  consult: (
+    <>
+      <path d="M4 5.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-4.5 3.2V17.5H4A1.5 1.5 0 0 1 2.5 16V7A1.5 1.5 0 0 1 4 5.5Z" />
+      <path d="M7.5 10.5h9M7.5 13.5h6" />
+    </>
+  ),
+  contact: (
+    <>
+      <path d="M4 13v-1a8 8 0 0 1 16 0v1" />
+      <path d="M5.5 12.5h2.2v5H5.5a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2Z" />
+      <path d="M16.3 12.5h2.2a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-2.2v-5Z" />
+      <path d="M18.5 17.5c-.6 1.85-2.18 2.75-4.75 2.75H12" />
+    </>
+  )
+};
+
+function TabIcon({ name }) {
+  return (
+    <svg className="mobile-tabbar__icon" viewBox="0 0 24 24" aria-hidden="true">
+      {tabIcons[name]}
+    </svg>
+  );
+}
+
+function MobileTabBar({ contactOpen, setContactOpen }) {
+  const auth = useAuth();
+  const signedIn = Boolean(auth.session);
+  const tabClass = ({ isActive }) => `mobile-tabbar__item ${isActive ? 'is-active' : ''}`;
+
+  return (
+    <nav className="mobile-tabbar" aria-label="Điều hướng nhanh">
+      <NavLink to="/home" className={tabClass} onClick={() => setContactOpen(false)}>
+        <TabIcon name="home" />
+        <span>Trang chủ</span>
+      </NavLink>
+      {signedIn ? (
+        <NavLink to="/learn" className={tabClass} onClick={() => setContactOpen(false)}>
+          <TabIcon name="learn" />
+          <span>Phòng học</span>
+        </NavLink>
+      ) : (
+        <NavLink to="/courses" className={tabClass} onClick={() => setContactOpen(false)}>
+          <TabIcon name="courses" />
+          <span>Khóa học</span>
+        </NavLink>
+      )}
+      <NavLink to="/test" className={tabClass} aria-label={ui.testButtonAria} onClick={() => setContactOpen(false)}>
+        <TabIcon name="test" />
+        <span>Làm test</span>
+      </NavLink>
+      <button
+        type="button"
+        className="mobile-tabbar__item"
+        aria-label="Đăng ký nhận tư vấn lộ trình học"
+        onClick={() => {
+          setContactOpen(false);
+          window.dispatchEvent(new Event(OPEN_CONSULTATION_EVENT));
+        }}
+      >
+        <TabIcon name="consult" />
+        <span>Tư vấn</span>
+      </button>
+      <button
+        type="button"
+        className={`mobile-tabbar__item ${contactOpen ? 'is-active' : ''}`}
+        aria-label={contactOpen ? ui.closeContactChannels : ui.openContactChannels}
+        aria-expanded={contactOpen}
+        aria-controls="floating-contact-list"
+        onClick={() => setContactOpen((current) => !current)}
+      >
+        <TabIcon name="contact" />
+        <span>Liên hệ</span>
+      </button>
+    </nav>
   );
 }
 
@@ -118,8 +237,24 @@ const floatingContactActions = [
   }
 ];
 
-function FloatingContactButtons() {
-  const [isOpen, setIsOpen] = useState(false);
+function FloatingContactButtons({ isOpen, setIsOpen }) {
+  // Chạm ra ngoài hoặc Esc thì đóng — trên mobile danh sách nằm đè nội dung.
+  // Bỏ qua chạm vào chính cụm này và thanh đáy (nút "Liên hệ" tự lật trạng thái).
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    function onOutside(event) {
+      if (!event.target.closest('.floating-contact, .mobile-tabbar')) setIsOpen(false);
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') setIsOpen(false);
+    }
+    document.addEventListener('pointerdown', onOutside);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen, setIsOpen]);
 
   return (
     <div className={`floating-contact ${isOpen ? 'is-open' : ''}`} aria-label={ui.contactChannelsAria}>
