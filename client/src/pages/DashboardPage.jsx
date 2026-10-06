@@ -474,7 +474,7 @@ function normalizeManagedCourse(course, index = 0) {
   return {
     id: course.id || course.slug || `course-${index + 1}`,
     title: course.title || 'Khóa học chưa đặt tên',
-    summary: course.summary || course.description || 'Khóa học được giảng viên đăng lên hệ thống.',
+    summary: course.summary || course.description || '',
     category: course.category || 'Kỹ năng cốt lõi',
     level: course.level || 'Nền tảng',
     duration: course.duration || '6 tuần',
@@ -2092,7 +2092,7 @@ export function TeacherDashboardPage() {
           ...previous,
           title: file.name.replace(/\.[^/.]+$/, ''),
           lessonsCount: sections.reduce((count, section) => count + ((section.lessons || []).length), 0) || previous.lessonsCount,
-          summary: previous.summary || `Khóa học được tạo tự động từ ${file.name}.`
+          summary: previous.summary || ''
         }));
       }
       const lessonsCount = sections.reduce((count, section) => count + ((section.lessons || []).length), 0);

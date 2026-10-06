@@ -18,7 +18,7 @@ const gallery = [
   {
     src: '/images/imported/8.4_Trang-chu_GT-TT.webp',
     title: 'Được học viên tin chọn',
-    meta: 'Sẵn sàng cho tư vấn và vận hành'
+    meta: 'Tiếng Anh · Tiếng Trung'
   }
 ];
 
@@ -170,7 +170,7 @@ export default function AuthPage() {
           return;
         }
 
-        setMessage('Tài khoản đã được tạo. Vui lòng kiểm tra email nếu hệ thống yêu cầu xác nhận.');
+        setMessage('Tài khoản đã được tạo. Vui lòng kiểm tra email để xác nhận tài khoản.');
       } else {
         const result = await auth.signInWithEmail(email, password);
 

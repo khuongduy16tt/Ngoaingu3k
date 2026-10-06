@@ -203,8 +203,8 @@ export default function CourseDetailPage() {
       }
       setFeedback(
         result.requiresPayment
-          ? 'Đã tạo đơn thanh toán. Vui lòng chuyển khoản và chờ admin xác nhận để mở khóa học.'
-          : `${course.title} đã được ghi nhận.`
+          ? 'Đã tạo đơn thanh toán. Vui lòng chuyển khoản theo hướng dẫn để mở khóa học.'
+          : `Bạn đã sở hữu ${course.title}.`
       );
     } catch (error) {
       setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
@@ -230,7 +230,7 @@ export default function CourseDetailPage() {
     return (
       <div className="page">
         <section className="content-card content-card--enterprise marketplace-empty">
-          <span className="eyebrow">Lỗi tải dữ liệu</span>
+          <span className="eyebrow">Lỗi tải trang</span>
           <h3>Chưa tải được thông tin khóa học</h3>
           <p role="alert">{loadError}</p>
           <div className="marketplace-hero__actions">
@@ -252,7 +252,6 @@ export default function CourseDetailPage() {
         <section className="content-card content-card--enterprise marketplace-empty">
           <span className="eyebrow">Không tìm thấy</span>
           <h3>Khóa học này không tồn tại hoặc chưa được xuất bản.</h3>
-          <p>Danh mục chỉ hiển thị các khóa học đang có trong Supabase.</p>
           <Link className="button" to="/courses">
             Quay lại danh mục
           </Link>
@@ -267,7 +266,7 @@ export default function CourseDetailPage() {
         <div style={{ flex: 1 }}>
           <span className="eyebrow">{course.category || 'Thông tin khóa học'}</span>
           <h1>{course.title}</h1>
-          <p>{loading ? 'Đang tải thông tin khóa học...' : course.hero}</p>
+          {course.hero ? <p>{course.hero}</p> : null}
 
           {course.bannerUrl && (
             <div style={{ margin: '1.5rem 0' }}>
@@ -311,7 +310,7 @@ export default function CourseDetailPage() {
         </div>
 
         <div className="price-box course-detail__sidebar">
-          <span className="pill">{isOwned ? (hasTutoring ? 'Đã sở hữu · có dạy kèm' : 'Đã sở hữu') : 'Thanh toán một lần'}</span>
+          {isOwned ? <span className="pill">{hasTutoring ? 'Đã sở hữu · có dạy kèm' : 'Đã sở hữu'}</span> : null}
           {!isOwned ? (
             <PackagePicker
               price={course.priceValue}
@@ -321,11 +320,6 @@ export default function CourseDetailPage() {
             />
           ) : null}
           <strong>{withTutoring && !isOwned ? formatVnd(course.tutoringPriceValue) : course.price}</strong>
-          <p>
-            {isOwned
-              ? 'Khóa học này đã thuộc thư viện của tài khoản học viên hiện tại.'
-              : 'Mua một lần, chuyển khoản qua QR và chờ admin mở khóa sau khi kế toán kiểm tra.'}
-          </p>
 
           {isOwned ? (
             <>
@@ -399,21 +393,19 @@ export default function CourseDetailPage() {
         />
 
         <div className="content-card content-card--enterprise">
-          <h2>Quyền lợi học viên</h2>
-          <ul className="plain-list">
-            {(course.whatYouGet || []).map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          {course.whatYouGet?.length ? (
+            <>
+              <h2>Quyền lợi học viên</h2>
+              <ul className="plain-list">
+                {course.whatYouGet.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </>
+          ) : null}
 
           <h3>Giảng viên</h3>
           <p>{course.instructor}</p>
-
-          <h3>Quyền sở hữu</h3>
-          <p>
-            Khóa học đã mua được ghi nhận trong thư viện học viên, giúp đội ngũ vận hành dễ kiểm tra
-            quyền truy cập và trạng thái sở hữu trong danh mục.
-          </p>
         </div>
       </section>
     </div>

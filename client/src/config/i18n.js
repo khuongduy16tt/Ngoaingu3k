@@ -7,7 +7,7 @@ export const ui = {
   signIn: 'Đăng nhập',
   signUp: 'Đăng ký',
   signOut: 'Đăng xuất',
-  loadingSession: 'Đang tải phiên...',
+  loadingSession: 'Đang tải...',
   loadingPage: 'Đang tải trang...',
 
   // Navigation

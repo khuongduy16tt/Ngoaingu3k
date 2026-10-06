@@ -19,12 +19,6 @@ import { ComboSection } from '../components/ComboSection';
 import { PackagePicker } from '../components/PackagePicker';
 import { getPublishedCombos, purchaseCombo } from '../lib/comboService';
 
-const roleLabels = {
-  student: 'học viên',
-  teacher: 'giảng viên',
-  admin: 'quản trị viên'
-};
-
 // Ảnh khoá học từ brief "Check ảnh web" (#11 Tiếng Anh, #12 Tiếng Trung) — dùng
 // làm ảnh minh hoạ cho khoá chưa có bannerUrl riêng, luân phiên theo vị trí thẻ
 // để các thẻ trong cùng nhóm không lặp lại một ảnh.
@@ -117,7 +111,7 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
           ) : null}
         </div>
 
-        <p>{course.summary}</p>
+        {course.summary ? <p>{course.summary}</p> : null}
 
         <div className="marketplace-card__facts">
           {course.duration ? <span>{course.duration}</span> : null}
@@ -150,7 +144,6 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
         <div className="marketplace-card__footer">
           <div className="marketplace-card__price">
             <strong>{withTutoring ? formatVnd(course.tutoringPriceValue) : course.price}</strong>
-            <span>{withTutoring ? 'Khóa học + dạy kèm' : 'Thanh toán một lần · truy cập dài hạn'}</span>
           </div>
 
           <div className="marketplace-card__actions">
@@ -391,8 +384,8 @@ export default function CoursesPage() {
       setFeedback({
         courseId: course.id,
         text: result.requiresPayment
-          ? `Đã tạo đơn thanh toán cho ${course.title}. Vui lòng chuyển khoản và chờ admin xác nhận để mở khóa học.`
-          : `${course.title} đã được ghi nhận.`
+          ? `Đã tạo đơn thanh toán cho ${course.title}. Vui lòng chuyển khoản theo hướng dẫn để mở khóa học.`
+          : `Bạn đã sở hữu ${course.title}.`
       });
     } catch (error) {
       setFeedback({ courseId: course.id, text: error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.' });
@@ -428,7 +421,7 @@ export default function CoursesPage() {
       setFeedback({
         courseId: combo.id,
         text: result.requiresPayment
-          ? `Đã tạo đơn thanh toán cho ${combo.title}. Chuyển khoản xong là tất cả khóa trong combo được mở.`
+          ? `Đã tạo đơn thanh toán cho ${combo.title}. Vui lòng chuyển khoản theo hướng dẫn để mở khóa học.`
           : `Bạn đã sở hữu toàn bộ khóa trong ${combo.title}.`
       });
     } catch (error) {
@@ -455,7 +448,7 @@ export default function CoursesPage() {
             <span className="eyebrow">Danh mục đào tạo</span>
             <h1>Khóa học</h1>
           </div>
-          <p>Chọn khóa học IELTS hoặc HSK phù hợp — hoặc gõ nhanh tên khóa ở menu "Khóa học" trên thanh điều hướng.</p>
+          <p>Chọn khóa học IELTS hoặc HSK phù hợp với bạn.</p>
 
           <div className="marketplace-hero__actions">
             <a className="button" href="#khoa-hoc-ielts">
@@ -473,10 +466,10 @@ export default function CoursesPage() {
         </div>
 
         <div className="marketplace-hero__stats">
-          <MarketplaceStat label="Khóa học" value={courses.length || '0'} note="công khai" />
+          <MarketplaceStat label="Khóa học" value={courses.length || '0'} note="đang mở" />
           {/* Khách chưa đăng nhập không có thư viện — "0 đã sở hữu" chỉ gây nhiễu. */}
           {auth.session ? (
-            <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="trong thư viện" />
+            <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="khóa học" />
           ) : null}
         </div>
       </section>
@@ -486,7 +479,7 @@ export default function CoursesPage() {
           <section className="content-card content-card--enterprise marketplace-owned-strip">
             <div className="marketplace-owned-strip__head">
               <div>
-                <span className="eyebrow">Thư viện sở hữu</span>
+                <span className="eyebrow">Của bạn</span>
                 <h3>Khóa học đã mua</h3>
               </div>
               <span className="pill">{ownedCourses.length} khóa</span>
@@ -505,15 +498,11 @@ export default function CoursesPage() {
           </section>
         ) : null}
 
-        {!loading && auth.session ? (
-          <p className="marketplace-results__meta">Vai trò hiện tại: {roleLabels[currentRole] || currentRole}</p>
-        ) : null}
-
         {loading ? (
           <p className="empty-state">Đang tải danh mục khóa học...</p>
         ) : loadError ? (
           <section className="content-card content-card--enterprise marketplace-empty">
-            <span className="eyebrow">Lỗi tải dữ liệu</span>
+            <span className="eyebrow">Lỗi tải trang</span>
             <h3>Chưa tải được danh mục khóa học</h3>
             <p role="alert">{loadError}</p>
             <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>

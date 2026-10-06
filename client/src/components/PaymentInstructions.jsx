@@ -20,9 +20,9 @@ const BANK_INFO = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const statusText = {
-  pending_payment: 'Chờ admin xác nhận',
-  pending: 'Chờ admin xác nhận',
-  awaiting_admin: 'Chờ admin xác nhận',
+  pending_payment: 'Chờ thanh toán',
+  pending: 'Chờ thanh toán',
+  awaiting_admin: 'Chờ xác nhận thanh toán',
   paid: 'Đã thanh toán — khóa học đã mở',
   failed: 'Thanh toán thất bại',
   cancelled: 'Đơn đã hủy',
@@ -105,7 +105,7 @@ export function PaymentInstructions({
         <div>
           <span className="eyebrow">Thanh toán chuyển khoản</span>
           <h3>{order.courseTitle}</h3>
-          <p>{statusText[order.status] || 'Chờ admin xác nhận'}</p>
+          <p>{statusText[order.status] || 'Chờ thanh toán'}</p>
         </div>
         {onClose ? (
           <button
@@ -187,19 +187,9 @@ export function PaymentInstructions({
           <div className="payment-instructions__waiting-row">
             <span className="payment-waiting-dot" aria-hidden="true" />
             <span>
-              Sau khi chuyển khoản, vui lòng chờ admin xác nhận
-              (thường trong vài phút – vài giờ).
+              Khóa học sẽ được mở sau khi trung tâm nhận được tiền, thường trong vài phút.
             </span>
           </div>
-          <p
-            style={{
-              marginTop: '0.75rem',
-              fontSize: '0.85rem',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            Khi admin xác nhận, khóa học sẽ tự động mở trong lần đăng nhập tiếp theo.
-          </p>
         </div>
       )}
     </section>

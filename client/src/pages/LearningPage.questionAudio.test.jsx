@@ -53,7 +53,7 @@ describe('VideoQuestionEditor — file nghe của câu hỏi', () => {
     fireEvent.change(container.querySelector('.audio-upload-field input[type="url"]'), {
       target: { value: 'https://cdn.example.com/cau-1.mp3' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu vào Supabase' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu câu hỏi' }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     const [savedQuestions] = onSave.mock.calls[0];

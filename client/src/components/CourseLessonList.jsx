@@ -120,7 +120,7 @@ export function CourseLessonList({
   onSelectLesson,
   expandedSections,
   onToggleSection,
-  emptyMessage = 'Danh sách bài học sẽ hiển thị khi chương được đồng bộ.',
+  emptyMessage = 'Khóa học chưa có bài học.',
   footer = null,
   // Kéo thả sắp xếp bài. Mặc định TẮT: danh sách này còn dùng ở trang khóa
   // học công khai, nơi người xem không được sắp xếp gì.

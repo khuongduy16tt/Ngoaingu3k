@@ -63,11 +63,7 @@ function ComboCard({ combo, ownedCourseIdSet, authSession, currentRole, purchasi
           <small>
             Bạn đã có {ownedIds.length} khóa trong combo — chỉ cần trả <b>{formatVnd(payable)}</b> cho phần còn lại.
           </small>
-        ) : (
-          <small>
-            Thanh toán một lần · mở tất cả khóa trong combo{withTutoring ? ' · kèm lịch dạy kèm' : ''}
-          </small>
-        )}
+        ) : null}
       </div>
 
       <div className="combo-card__actions">
@@ -120,7 +116,6 @@ export function ComboSection({ combos, ...cardProps }) {
         <div className="section-head__copy">
           <span className="eyebrow">Lộ trình</span>
           <h2>Combo khóa học</h2>
-          <p>Mua trọn lộ trình nhiều cấp độ trong một lần thanh toán, mở tất cả khóa ngay khi nhận tiền.</p>
         </div>
         <span className="pill">{combos.length} combo</span>
       </div>

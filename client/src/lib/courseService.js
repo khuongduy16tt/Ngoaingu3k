@@ -146,7 +146,7 @@ function normalizeManagedCourse(course, fallbackIndex = 0) {
     rating: typeof course.rating === 'number' ? course.rating : 4.7,
     studentsCount: course.studentsCount ?? 0,
     badge: course.badge || 'Tự tạo',
-    hero: course.hero || course.summary || 'Lộ trình học do giảng viên nhập liệu trực tiếp.',
+    hero: course.hero || course.summary || '',
     language: course.language || 'Tiếng Anh',
     certificate: course.certificate ?? false,
     whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : [],
@@ -353,7 +353,7 @@ export function inferCourseCategory(title = '') {
 }
 
 function defaultHero(course) {
-  return course.summary || 'Lộ trình học có cấu trúc với bài học thực hành, nhiệm vụ và theo dõi tiến độ rõ ràng.';
+  return course.summary || '';
 }
 
 function normalizeCourse(course, fallbackIndex = 0) {
@@ -380,7 +380,7 @@ function normalizeCourse(course, fallbackIndex = 0) {
     tutoringPriceValue: normalizeVndAmount(course.tutoring_price ?? course.tutoringPriceValue) || null,
     progress: course.progress ?? 0,
     instructor: course.instructor || 'Giảng viên trung tâm',
-    summary: course.description || course.summary || 'Khóa học được đồng bộ từ hệ thống.',
+    summary: course.description || course.summary || '',
     category: course.category || inferCourseCategory(course.title),
     bannerUrl: course.banner_url || course.bannerUrl || null,
     duration: course.duration || null,
@@ -389,7 +389,7 @@ function normalizeCourse(course, fallbackIndex = 0) {
     rating: typeof course.rating === 'number' ? course.rating : null,
     studentsCount: typeof course.studentsCount === 'number' ? course.studentsCount : null,
     badge: course.badge || null,
-    hero: course.hero || course.description || 'Hành trình học chuyên nghiệp với bài học, thực hành và quyền truy cập sau khi mua.',
+    hero: course.hero || course.description || '',
     language: course.language || 'Tiếng Anh',
     certificate: course.certificate ?? true,
     whatYouGet: Array.isArray(course.whatYouGet) ? course.whatYouGet : [],
@@ -1096,7 +1096,7 @@ export async function getCourseBySlug(courseSlug, { summaryOnly = false } = {}) 
   let courseQuery = supabase
     .from('courses')
     .select(
-      'id, slug, title, description, price, status, banner_url, updated_at, package_total_sessions, package_duration_months,' +
+      '*,' +
         'chapters(id, title, position, lessons(id, chapter_id, title, video_url, content, position, is_preview))'
     );
 

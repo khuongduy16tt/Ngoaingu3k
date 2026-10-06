@@ -1679,7 +1679,7 @@ export function VideoQuestionEditor({ lesson, saving, status, onSave }) {
         <div>
           <span className="eyebrow">Giao bài cho video</span>
           <h2>Câu hỏi dưới video này</h2>
-          <p>Giảng viên có thể thêm, dán, sửa hoặc xóa toàn bộ câu hỏi. Khi lưu, dữ liệu được cập nhật vào Supabase cho riêng bài học hiện tại.</p>
+          <p>Thêm, dán, sửa hoặc xóa câu hỏi của bài học này.</p>
         </div>
         <div className="video-question-panel__toolbar">
           <label className="button-ghost video-question-file-button">
@@ -1697,7 +1697,7 @@ export function VideoQuestionEditor({ lesson, saving, status, onSave }) {
             Thêm câu hỏi
           </button>
           <button type="button" className="button" onClick={handleSave} disabled={saving}>
-            {saving ? 'Đang lưu...' : 'Lưu vào Supabase'}
+            {saving ? 'Đang lưu...' : 'Lưu câu hỏi'}
           </button>
         </div>
       </div>
@@ -2307,14 +2307,14 @@ function LearningEmptyState({ role, loading }) {
   const eyebrowLabel = loading ? 'Đang kiểm tra' : role === 'student' ? 'Phòng học trống' : 'Phòng học quản lý';
   const titleLabel =
     loading
-      ? 'Đang tải dữ liệu phòng học'
+      ? 'Đang tải phòng học'
       : role === 'student'
         ? 'Chưa có khóa học nào trong phòng học'
         : 'Khóa học này chưa có bài học nào được xuất bản';
   const descriptionLabel = loading
-    ? 'Hệ thống đang đồng bộ khóa học, bài học và quyền truy cập từ Supabase.'
+    ? ''
     : role === 'student'
-      ? 'Khi có khóa học được xuất bản hoặc bạn được cấp quyền học, nội dung bài học sẽ xuất hiện tại đây.'
+      ? 'Khóa học bạn đã mua sẽ hiện tại đây.'
       : 'Bạn vẫn có thể mở bảng điều khiển để tạo bài học đầu tiên, gắn video và giao bài tập cho học viên.';
 
   return (
@@ -2323,7 +2323,7 @@ function LearningEmptyState({ role, loading }) {
         <div className="learning-empty-screen__copy">
           <span className="eyebrow">{eyebrowLabel}</span>
           <h1>{titleLabel}</h1>
-          <p>{descriptionLabel}</p>
+          {descriptionLabel ? <p>{descriptionLabel}</p> : null}
 
           {!loading ? (
             <div className="learning-empty-screen__actions">
@@ -3148,7 +3148,7 @@ export default function LearningPage() {
       const exerciseTabCount = getExerciseTabs(nextTabs).length;
       setLessonQuestionStatus({
         type: 'success',
-        text: `Đã lưu ${exerciseTabCount} tab bài tập (${flattenedExercises.length} câu) vào Supabase.`
+        text: `Đã lưu ${exerciseTabCount} tab bài tập (${flattenedExercises.length} câu).`
       });
     } catch (error) {
       setLessonQuestionStatus({
