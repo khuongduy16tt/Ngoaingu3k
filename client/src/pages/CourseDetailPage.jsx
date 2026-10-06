@@ -261,9 +261,20 @@ export default function CourseDetailPage() {
                 sizes="(max-width: 900px) 100vw, 900px"
                 onError={handleRemoteImageError(course.bannerUrl)}
                 alt={course.title}
-                fetchPriority="high"
+                fetchpriority="high"
                 decoding="async"
-                style={{ width: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: 'var(--radius)' }}
+                // Banner khóa học đều là 2:1 — giữ chỗ trước khi ảnh tải xong, không
+                // thì khối thông tin và cột giá bị đẩy xuống (CLS 0.12).
+                width={1200}
+                height={600}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  aspectRatio: '2 / 1',
+                  maxHeight: '400px',
+                  objectFit: 'cover',
+                  borderRadius: 'var(--radius)'
+                }}
               />
             </div>
           )}
@@ -271,11 +282,12 @@ export default function CourseDetailPage() {
           <div className="marketplace-card__facts course-detail__facts">
             {course.level ? <span>{course.level}</span> : null}
             <span>{course.duration || 'Lịch học linh hoạt'}</span>
-            {course.lessonsCount ? (
-              <span>{course.lessonsCount} bài học</span>
-            ) : course.topicsCount ? (
-              <span>{course.topicsCount} chủ đề</span>
+            {/* Trang chi tiết có sẵn danh sách chương (= chủ đề) nên đếm thật
+                thay vì chỉ dựa vào số đếm của danh mục. */}
+            {courseSections.length || course.topicsCount ? (
+              <span>{courseSections.length || course.topicsCount} chủ đề</span>
             ) : null}
+            {course.lessonsCount ? <span>{course.lessonsCount} bài học</span> : null}
             <span>{course.instructor}</span>
           </div>
         </div>

@@ -48,8 +48,10 @@
 
     <!-- favicon.svg chỉ là chính favicon.png bọc trong thẻ <image> base64 (so
          byte đã xác nhận trùng khít), nên khai báo cả hai làm trình duyệt tải
-         về 175KB cho một cái icon 128px. Giữ lại bản PNG: icon hiện ra y hệt. -->
-    <link rel="icon" href="/favicon.png" />
+         về 175KB cho một cái icon 128px. Giữ lại bản PNG: icon hiện ra y hệt.
+         favicon.png gốc là logo 336×242 nặng 75KB; favicon-64.png là cùng logo
+         đặt giữa khung vuông 64×64 (~5KB). -->
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
   </head>
   <body>
     <div id="root"></div>

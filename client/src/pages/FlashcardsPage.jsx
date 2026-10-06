@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
 import { getCourseCatalog, getMyCourses, getOwnedCourseIds } from '../lib/courseService';
@@ -121,7 +121,7 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
   const canSave = Boolean(courseId) && Boolean(title.trim()) && parsed.cards.length > 0 && !parsed.error;
 
   return (
-    <section className="content-card content-card--enterprise fc-import" ref={panelRef}>
+    <section id="fc-import" className="content-card content-card--enterprise fc-import" ref={panelRef}>
       <div className="section-head">
         <div>
           <span className="eyebrow">Chỉ giảng viên</span>
@@ -270,7 +270,8 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
         </>
       ) : (
         <p className="empty-state">
-          Bạn chưa phụ trách khóa học nào. Hãy tạo khóa học trước khi nhập bộ thẻ.
+          Bạn chưa phụ trách khóa học nào. Hãy tạo khóa học trước khi nhập bộ thẻ.{' '}
+          <Link to="/dashboard">Mở bảng điều khiển</Link>
         </p>
       )}
     </section>
@@ -291,6 +292,7 @@ export default function FlashcardsPage() {
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
   const [deleteError, setDeleteError] = useState('');
+  const [ownedCourseCount, setOwnedCourseCount] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -315,7 +317,8 @@ export default function FlashcardsPage() {
           // rồi ăn nguyên lỗi RLS thô lúc bấm lưu.
           // null = không hỏi được server; coi như chưa phụ trách khóa nào để
           // không rơi về cả danh mục và cho chọn nhầm khóa của người khác.
-          ownCourses = (await getMyCourses({ accessToken: auth.session?.access_token })) || [];
+          // Chỉ cần tên/ID khóa → bản summary (không kèm nội dung bài, nhẹ hơn hàng MB).
+          ownCourses = (await getMyCourses({ accessToken: auth.session?.access_token, summaryOnly: true })) || [];
         }
 
         const visibleCourseIds = canImport
@@ -327,6 +330,7 @@ export default function FlashcardsPage() {
         if (active) {
           setTeacherCourses(ownCourses);
           setSets(nextSets);
+          setOwnedCourseCount(visibleCourseIds.length);
         }
       } finally {
         if (active) setLoading(false);
@@ -338,6 +342,13 @@ export default function FlashcardsPage() {
       active = false;
     };
   }, [auth.user?.id, auth.session?.access_token, canImport, role, reloadKey]);
+
+  function focusImportPanel() {
+    const panel = document.getElementById('fc-import');
+    if (!panel) return;
+    scrollIntoViewRespectingMotion(panel, { block: 'start' });
+    panel.querySelector('textarea')?.focus({ preventScroll: true });
+  }
 
   async function openSet(setId) {
     const full = await getFlashcardSetById(setId);
@@ -445,11 +456,32 @@ export default function FlashcardsPage() {
           ))}
         </div>
       ) : (
-        <p className="empty-state">
-          {canImport
-            ? 'Chưa có bộ thẻ nào. Dùng panel bên trên để nhập bộ đầu tiên.'
-            : 'Khóa học của bạn chưa có bộ thẻ nào. Hãy chờ giảng viên nhập.'}
-        </p>
+        <div className="empty-state fc-empty">
+          {canImport ? (
+            <>
+              <p>Chưa có bộ thẻ nào. Dán danh sách từ vựng vào panel bên trên để tạo bộ đầu tiên.</p>
+              {teacherCourses.length ? (
+                <button type="button" className="button" onClick={focusImportPanel}>
+                  Nhập bộ thẻ đầu tiên
+                </button>
+              ) : null}
+            </>
+          ) : ownedCourseCount ? (
+            <>
+              <p>Khóa học của bạn chưa có bộ thẻ nào. Trong lúc chờ giảng viên nhập, hãy tiếp tục bài học.</p>
+              <Link className="button" to="/learn">
+                Vào phòng học
+              </Link>
+            </>
+          ) : (
+            <>
+              <p>Bộ thẻ đi kèm từng khóa học. Đăng ký một khóa để mở các bộ thẻ ghi nhớ.</p>
+              <Link className="button" to="/courses">
+                Xem khóa học
+              </Link>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

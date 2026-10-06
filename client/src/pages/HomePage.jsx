@@ -159,11 +159,13 @@ const testimonialCards = [
 const heroBanners = [
   {
     src: '/images/imported/hero-banner-tieng-anh.webp',
+    mobileSrc: '/images/imported/hero-banner-tieng-anh-mobile.webp',
     alt: 'Học tiếng Anh dễ dàng, hiệu quả cùng Ngoại ngữ 3K',
     to: '/courses#khoa-hoc-ielts',
   },
   {
     src: '/images/imported/hero-banner-tieng-trung.webp',
+    mobileSrc: '/images/imported/hero-banner-tieng-trung-mobile.webp',
     alt: 'Học tiếng Trung dễ dàng, hiệu quả cùng Ngoại ngữ 3K',
     to: '/courses#khoa-hoc-hsk',
   },
@@ -240,12 +242,17 @@ function HeroBannerSlideshow({ banners }) {
           {/* Slide đầu là phần tử LCP của trang chủ nên phải nạp sớm nhất có
               thể; slide sau chỉ hiện sau 5s nên để trình duyệt tự xếp lịch
               thay vì tranh băng thông với slide đang hiển thị. */}
-          <img
-            src={banner.src}
-            alt={banner.alt}
-            fetchPriority={i === 0 ? 'high' : 'low'}
-            decoding="async"
-          />
+          {/* Điện thoại nhận bản cắt sẵn nửa trái (828×633, ~75KB) thay vì
+              ảnh gốc 1903px ~200KB rồi CSS cắt bớt — xem mobile.css §7.8. */}
+          <picture>
+            <source media="(max-width: 767px)" srcSet={banner.mobileSrc} />
+            <img
+              src={banner.src}
+              alt={banner.alt}
+              fetchpriority={i === 0 ? 'high' : 'low'}
+              decoding="async"
+            />
+          </picture>
         </Link>
       ))}
       {/* Nút thật đè khít lên nút "Bắt đầu học ngay" in sẵn trong ảnh banner

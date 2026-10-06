@@ -578,6 +578,18 @@ summary,
     padding-bottom: 0;
   }
 
+  /* Banner hiện trọn 1903×826 thì ở 375px chỉ cao ~160px, chữ in trong ảnh
+     không đọc được. Trên điện thoại chỉ cắt lấy 57% bên trái (logo + tiêu đề
+     lớn, x 0→1080) nên khung cao gấp ~1.8 lần và chữ to tương ứng; phần
+     laptop/sách bên phải chỉ là minh hoạ. */
+  .hero-slideshow {
+    aspect-ratio: 1080 / 826;
+  }
+
+  .hero-slideshow__slide img {
+    object-position: 0% 50%;
+  }
+
   .page.home-page--new {
     gap: var(--space-12);
     padding-top: var(--space-6);

@@ -725,7 +725,15 @@ function parsePastedVideoQuestions(text) {
     .filter((question) => question.prompt);
 }
 
-function LessonVideoPlayer({ lesson, isTeacher, dashboardPath }) {
+function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', pageNote = '' }) {
+  // Tên bài và ghi chú đã in ở đầu Phòng học (h1) — khung video chỉ nhắc lại
+  // khi video có tiêu đề/ghi chú riêng khác với bài.
+  const videoHeading = pageTitle
+    ? lesson?.videoTitle && lesson.videoTitle !== pageTitle
+      ? lesson.videoTitle
+      : ''
+    : lesson?.videoTitle || lesson?.title || 'Bài học';
+  const videoNote = lesson?.note && lesson.note !== pageNote ? lesson.note : '';
   const rawVideoUrl = lesson?.videoUrl || lesson?.videoEmbedUrl || '';
   const videoUrl = getEmbeddableVideoUrl(rawVideoUrl);
   const videoIssue = getVideoEmbedIssue(rawVideoUrl);
@@ -737,7 +745,7 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath }) {
     return (
       <section className="content-card content-card--enterprise lesson-video-empty">
         <span className="eyebrow">Video bài học</span>
-        <h2>{lesson?.title || 'Bài học'}</h2>
+        {pageTitle ? null : <h2>{lesson?.title || 'Bài học'}</h2>}
         <p>
           {videoIssue ||
             (isTeacher
@@ -762,8 +770,8 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath }) {
       <div className="section-head">
         <div>
           <span className="eyebrow">Video bài học</span>
-          <h2>{lesson?.videoTitle || lesson?.title || 'Bài học'}</h2>
-          <p>{lesson?.note || 'Xem video trước, sau đó làm bài tập bên dưới.'}</p>
+          {videoHeading ? <h2>{videoHeading}</h2> : null}
+          <p>{videoNote || 'Xem video trước, sau đó làm bài tập bên dưới.'}</p>
         </div>
         <span className="pill">{getVideoSourceLabel(rawVideoUrl)}</span>
       </div>
@@ -1417,6 +1425,8 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
             }}
             isTeacher={isTeacher}
             dashboardPath={dashboardPath}
+            pageTitle={lesson?.title}
+            pageNote={lesson?.note}
           />
           {hasReadingContent ? <LessonReadingPanel lesson={readingLesson} /> : null}
 

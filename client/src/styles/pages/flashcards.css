@@ -569,3 +569,14 @@
     gap: 2px;
   }
 }
+
+/* Trang trống: luôn chỉ ra bước tiếp theo thay vì chỉ một dòng chữ. */
+.fc-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.fc-empty p {
+  margin: 0;
+}

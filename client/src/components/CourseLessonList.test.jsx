@@ -30,8 +30,8 @@ describe('CourseLessonList', () => {
   it('shows learned units, section counters and stars', () => {
     const { container } = render(<CourseLessonList sections={sections} progressMap={progressMap} />);
 
-    expect(container.querySelector('.lesson-list__units').textContent).toBe('Đã học 3/5 Units');
-    expect(screen.getByText('2/3 Sections')).toBeInTheDocument();
+    expect(container.querySelector('.lesson-list__units').textContent).toBe('Đã học 3/5 bài');
+    expect(screen.getByText('2/3 bài')).toBeInTheDocument();
     // Chương 1: 2 bài xong không có điểm → 3 sao mỗi bài.
     expect(screen.getByText('6/9')).toBeInTheDocument();
     // Chương 2: 1 bài đạt 6/10 điểm → 2 sao.

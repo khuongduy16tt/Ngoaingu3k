@@ -957,20 +957,20 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
                 {attemptRows.length ? (
                   attemptsPagination.pageItems.map((attempt) => (
                     <tr key={attempt.id}>
-                      <td>{attempt.studentEmail || attempt.studentId}</td>
-                      <td>{attempt.examTitle}</td>
-                      <td>
+                      <td data-label="Học viên">{attempt.studentEmail || attempt.studentId}</td>
+                      <td data-label="Đề thi">{attempt.examTitle}</td>
+                      <td data-label="Điểm">
                         <strong>
                           {attempt.score}/{attempt.maxScore}
                         </strong>
                       </td>
-                      <td>
+                      <td data-label="Từng phần">
                         {attempt.sectionScores
                           .map((section) => `${section.title || section.type}: ${section.score}/${section.maxScore}`)
                           .join(' · ')}
                       </td>
-                      <td>{attempt.status === 'auto_submitted' ? 'Hết giờ (tự nộp)' : 'Nộp đúng giờ'}</td>
-                      <td>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString('vi-VN') : ''}</td>
+                      <td data-label="Trạng thái">{attempt.status === 'auto_submitted' ? 'Hết giờ (tự nộp)' : 'Nộp đúng giờ'}</td>
+                      <td data-label="Nộp lúc">{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString('vi-VN') : ''}</td>
                     </tr>
                   ))
                 ) : (

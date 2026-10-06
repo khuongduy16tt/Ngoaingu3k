@@ -90,9 +90,15 @@ export async function getFlashcardSets({ courseIds = [] } = {}) {
     return [];
   }
 
-  return (data || []).map((row, index) =>
-    normalizeFlashcardSet({ ...row, courseTitle: row.courses?.title }, index)
-  );
+  // Xếp theo khóa rồi theo tên tự nhiên ("Chủ đề 2" trước "Chủ đề 10") — theo
+  // created_at giảm dần thì học viên thấy Chủ đề 20 đứng đầu, Chủ đề 1 cuối.
+  return (data || [])
+    .map((row, index) => normalizeFlashcardSet({ ...row, courseTitle: row.courses?.title }, index))
+    .sort(
+      (a, b) =>
+        String(a.courseTitle || '').localeCompare(String(b.courseTitle || ''), 'vi', { numeric: true }) ||
+        String(a.title || '').localeCompare(String(b.title || ''), 'vi', { numeric: true })
+    );
 }
 
 export async function getFlashcardSetById(setId) {

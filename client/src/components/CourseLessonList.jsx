@@ -223,7 +223,7 @@ export function CourseLessonList({
           <strong>
             {doneUnits}/{totalUnits}
           </strong>{' '}
-          Units
+          bài
         </span>
       </header>
 
@@ -314,14 +314,14 @@ export function CourseLessonList({
                 >
                   <span className="lesson-list-section__badge" aria-hidden="true">
                     <strong>{String(sectionIndex + 1).padStart(2, '0')}</strong>
-                    <small>LESSON</small>
+                    <small>CHỦ ĐỀ</small>
                   </span>
 
                   <span className="lesson-list-section__copy">
                     <strong>{section?.title || `Chủ đề ${sectionIndex + 1}`}</strong>
                     <span className="lesson-list-section__meta">
                       <span className="lesson-list-section__count">
-                        {doneCount}/{lessons.length} Sections
+                        {doneCount}/{lessons.length} bài
                       </span>
                       <span className="lesson-list-section__score">
                         <StarIcon className="lesson-list__star is-earned" />

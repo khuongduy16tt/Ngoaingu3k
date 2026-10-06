@@ -24,7 +24,7 @@
       ]
     },
     {
-      "source": "/(favicon.png|favicon.svg|payment-qr.png)",
+      "source": "/(favicon.png|favicon-64.png|favicon.svg|payment-qr.png)",
       "headers": [
         {
           "key": "Cache-Control",

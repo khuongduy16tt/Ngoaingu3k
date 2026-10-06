@@ -148,9 +148,9 @@
 }
 
 .lesson-list-section__badge small {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   line-height: 1;
   opacity: 0.78;
 }
@@ -413,7 +413,7 @@ button.lesson-list-item:focus-visible {
 }
 
 .lesson-list--sidebar .lesson-list-section__badge small {
-  font-size: 7px;
+  font-size: 8px;
 }
 
 .lesson-list--sidebar .lesson-list-section__copy strong {

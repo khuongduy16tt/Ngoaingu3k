@@ -113,11 +113,11 @@ export function AdminExamResultsPanel() {
                 {examSummaries.length ? (
                   examSummaries.map((exam) => (
                     <tr key={exam.id}>
-                      <td>{exam.title}</td>
-                      <td>{exam.sections.map((section) => getSectionTypeLabel(section.type)).join(' + ')}</td>
-                      <td>{exam.status === 'published' ? 'Đang mở' : exam.status === 'archived' ? 'Lưu trữ' : 'Bản nháp'}</td>
-                      <td>{exam.attemptsCount}</td>
-                      <td>{exam.attemptsCount ? `${exam.averagePercent}%` : '—'}</td>
+                      <td data-label="Đề thi">{exam.title}</td>
+                      <td data-label="Cấu trúc">{exam.sections.map((section) => getSectionTypeLabel(section.type)).join(' + ')}</td>
+                      <td data-label="Trạng thái">{exam.status === 'published' ? 'Đang mở' : exam.status === 'archived' ? 'Lưu trữ' : 'Bản nháp'}</td>
+                      <td data-label="Lượt nộp">{exam.attemptsCount}</td>
+                      <td data-label="Điểm TB">{exam.attemptsCount ? `${exam.averagePercent}%` : '—'}</td>
                     </tr>
                   ))
                 ) : (
@@ -163,20 +163,20 @@ export function AdminExamResultsPanel() {
                 {filteredAttempts.length ? (
                   attemptsPagination.pageItems.map((attempt) => (
                     <tr key={attempt.id}>
-                      <td>{attempt.studentEmail || attempt.studentId}</td>
-                      <td>{attempt.examTitle}</td>
-                      <td>
+                      <td data-label="Học viên">{attempt.studentEmail || attempt.studentId}</td>
+                      <td data-label="Đề thi">{attempt.examTitle}</td>
+                      <td data-label="Điểm">
                         <strong>
                           {attempt.score}/{attempt.maxScore}
                         </strong>
                       </td>
-                      <td>
+                      <td data-label="Từng phần">
                         {attempt.sectionScores
                           .map((section) => `${section.title || section.type}: ${section.score}/${section.maxScore}`)
                           .join(' · ')}
                       </td>
-                      <td>{attempt.status === 'auto_submitted' ? 'Hết giờ (tự nộp)' : 'Nộp đúng giờ'}</td>
-                      <td>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString('vi-VN') : ''}</td>
+                      <td data-label="Trạng thái">{attempt.status === 'auto_submitted' ? 'Hết giờ (tự nộp)' : 'Nộp đúng giờ'}</td>
+                      <td data-label="Nộp lúc">{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString('vi-VN') : ''}</td>
                     </tr>
                   ))
                 ) : (

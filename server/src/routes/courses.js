@@ -788,59 +788,35 @@ router.get('/mine', requireAuth, requireRole('teacher', 'admin'), async (req, re
     return res.json({ data: [], mode: 'mock' });
   }
 
+  // ?view=summary bỏ cột content (ngân hàng câu hỏi) của bài: cả danh sách
+  // khóa của một giảng viên nặng ~5.7MB chủ yếu vì cột này, trong khi trang
+  // chỉ cần tên/ID khóa (vd. Flashcard) không dùng tới.
+  const summaryOnly = String(req.query.view || '') === 'summary';
+  const lessonColumns = summaryOnly
+    ? 'id, chapter_id, title, video_url, position, is_preview'
+    : 'id, chapter_id, title, video_url, content, position, is_preview';
+
   try {
+    // Một truy vấn lồng thay cho ba lượt nối đuôi; trước đây lượt lấy bài đưa
+    // cả trăm UUID chương vào URL (.in('chapter_id', ...)).
     const { data: courses, error: coursesError } = await supabaseAdmin
       .from('courses')
       .select(
-        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months'
+        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months,' +
+          `chapters(id, title, position, lessons(${lessonColumns}))`
       )
       .eq('teacher_id', req.user.id)
       .order('updated_at', { ascending: false });
 
     if (coursesError) throw coursesError;
 
-    const courseIds = (courses || []).map((course) => course.id);
-
-    let chapters = [];
-    if (courseIds.length) {
-      const { data, error } = await supabaseAdmin
-        .from('chapters')
-        .select('id, course_id, title, position')
-        .in('course_id', courseIds)
-        .order('position', { ascending: true });
-      if (error) throw error;
-      chapters = data || [];
-    }
-
-    const chapterIds = chapters.map((chapter) => chapter.id);
-    let lessons = [];
-    if (chapterIds.length) {
-      const { data, error } = await supabaseAdmin
-        .from('lessons')
-        .select('id, chapter_id, title, video_url, content, position, is_preview')
-        .in('chapter_id', chapterIds)
-        .order('position', { ascending: true });
-      if (error) throw error;
-      lessons = data || [];
-    }
-
-    const lessonsByChapter = new Map();
-    lessons.forEach((lesson) => {
-      const bucket = lessonsByChapter.get(lesson.chapter_id) || [];
-      bucket.push(lesson);
-      lessonsByChapter.set(lesson.chapter_id, bucket);
-    });
-
-    const chaptersByCourse = new Map();
-    chapters.forEach((chapter) => {
-      const bucket = chaptersByCourse.get(chapter.course_id) || [];
-      bucket.push({ title: chapter.title, lessons: lessonsByChapter.get(chapter.id) || [] });
-      chaptersByCourse.set(chapter.course_id, bucket);
-    });
-
-    const data = (courses || []).map((course) => ({
+    const byPosition = (a, b) => (a.position ?? 0) - (b.position ?? 0);
+    const data = (courses || []).map(({ chapters, ...course }) => ({
       ...course,
-      sections: chaptersByCourse.get(course.id) || []
+      sections: [...(chapters || [])].sort(byPosition).map((chapter) => ({
+        title: chapter.title,
+        lessons: [...(chapter.lessons || [])].sort(byPosition)
+      }))
     }));
 
     return res.json({ data, mode: 'supabase' });

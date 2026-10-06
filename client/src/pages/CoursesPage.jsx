@@ -405,7 +405,10 @@ export default function CoursesPage() {
 
         <div className="marketplace-hero__stats">
           <MarketplaceStat label="Khóa học" value={courses.length || '0'} note="công khai" />
-          <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="trong thư viện" />
+          {/* Khách chưa đăng nhập không có thư viện — "0 đã sở hữu" chỉ gây nhiễu. */}
+          {auth.session ? (
+            <MarketplaceStat label="Đã sở hữu" value={ownedCourses.length} note="trong thư viện" />
+          ) : null}
         </div>
       </section>
 

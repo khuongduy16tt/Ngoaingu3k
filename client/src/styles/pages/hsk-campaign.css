@@ -796,6 +796,12 @@
   pointer-events: auto;
 }
 
+.hero-slideshow__slide picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .hero-slideshow__slide img {
   width: 100%;
   height: 100%;

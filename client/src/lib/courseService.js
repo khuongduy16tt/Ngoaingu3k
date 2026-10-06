@@ -493,13 +493,18 @@ export async function saveCourseToSupabase(course, options = {}) {
  *   (chưa cấu hình Supabase, hết phiên, lỗi mạng). Phía gọi cần phân biệt hai
  *   trường hợp này: chỉ khi có danh sách thật mới được phép dọn cache local.
  */
-export async function getMyCourses({ accessToken } = {}) {
+export async function getMyCourses({ accessToken, summaryOnly = false } = {}) {
   if (!isSupabaseReady() || !accessToken) {
     return null;
   }
 
   try {
-    const response = await apiFetch('/api/courses/mine', { token: accessToken, timeoutMs: 10000 });
+    const response = await apiFetch(`/api/courses/mine${summaryOnly ? '?view=summary' : ''}`, {
+      token: accessToken,
+      // Bản đầy đủ kèm nội dung mọi bài (~500KB nén, 7s trên production):
+      // 10s cắt ngang thì bảng giảng viên báo nhầm "chưa có khóa học nào".
+      timeoutMs: summaryOnly ? 10000 : 30000
+    });
     const rows = Array.isArray(response?.data) ? response.data : [];
 
     return rows.map((course) => {

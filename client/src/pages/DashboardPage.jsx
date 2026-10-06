@@ -77,7 +77,8 @@ import {
   buildStudentProgressRows,
   getPackageStatus,
   getPackageStatusLabel,
-  getStudentRoster
+  getStudentRoster,
+  isDemoRoster
 } from '../lib/studentProgressService';
 import { formatVnd, normalizeVndAmount } from '../lib/money';
 import { parseExcelCourseFile, parseExcelQuestionFile } from '../lib/excelCourseParser';
@@ -310,6 +311,7 @@ export function StudentDashboardPage() {
   const auth = useAuth();
   const email = auth.user?.email || '';
   const [assignments, setAssignments] = useState([]);
+  const [ownedCourses, setOwnedCourses] = useState([]);
   const [ownedCount, setOwnedCount] = useState(0);
   const [stats, setStats] = useState({ averageScore: null, streakDays: 0 });
   const [loading, setLoading] = useState(true);
@@ -334,7 +336,16 @@ export function StudentDashboardPage() {
 
         if (active) {
           setAssignments(nextAssignments);
-          setOwnedCount(nextOwnedIds.length);
+          // getOwnedCourseIds trả cả UUID lẫn slug của CÙNG một khóa — đếm thẳng
+          // độ dài mảng thì 1 khóa thành 2. Quy về khóa trong danh mục trước.
+          const ownedKeys = new Set(nextOwnedIds.map(String));
+          const matched = courses.filter(
+            (course) => ownedKeys.has(String(course.id)) || ownedKeys.has(String(course.databaseId))
+          );
+          const matchedKeys = new Set(matched.flatMap((course) => [String(course.id), String(course.databaseId)]));
+          const unmatchedCount = [...ownedKeys].filter((key) => !matchedKeys.has(key)).length;
+          setOwnedCourses(matched);
+          setOwnedCount(matched.length + unmatchedCount);
           setStats(buildStudentStats({ lessonProgress, examAttempts }));
         }
       } catch (error) {
@@ -413,7 +424,30 @@ export function StudentDashboardPage() {
         </div>
 
         <div className="content-card content-card--enterprise">
-          <h2>Quy tắc truy cập</h2>
+          {/* Lối vào học chính của học viên — trước đây bảng điều khiển chỉ có
+              con số "Khóa đã sở hữu" mà không có đường bấm vào khóa. */}
+          <h2>Khóa học của tôi</h2>
+          {loading ? null : ownedCourses.length ? (
+            <ul className="student-course-links">
+              {ownedCourses.map((course) => (
+                <li key={course.id}>
+                  <span>{course.title}</span>
+                  <Link className="button" to={`/learn/${course.id}`}>
+                    Vào học
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state student-course-links__empty">
+              <p>Bạn chưa sở hữu khóa học nào.</p>
+              <Link className="button" to="/courses">
+                Xem khóa học
+              </Link>
+            </div>
+          )}
+
+          <h3 className="student-course-links__rules">Quy tắc truy cập</h3>
           <ul className="plain-list">
             <li>Học viên chỉ thấy bài học được giao đúng email tài khoản.</li>
             <li>Người đã mua khóa sẽ thấy học liệu dành riêng khi giảng viên bật quyền.</li>
@@ -936,6 +970,21 @@ export function TeacherDashboardPage() {
     };
   }, [teacherId, auth.session?.access_token]);
 
+  // Số học sinh thật của các khóa mình dạy (server lọc theo teacher_id). Roster
+  // demo (không gọi được server) thì bỏ qua — không đưa số bịa lên chỉ số.
+  const [teacherRoster, setTeacherRoster] = useState(null);
+  useEffect(() => {
+    let active = true;
+    void getStudentRoster({ accessToken: auth.session?.access_token }).then((rows) => {
+      if (active) {
+        setTeacherRoster(isDemoRoster(rows) ? null : rows);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [auth.session?.access_token]);
+
   useEffect(() => {
     setDraftHydratedTeacherId('');
     const savedDraft = readTeacherCourseDraft(teacherId);
@@ -1039,15 +1088,21 @@ export function TeacherDashboardPage() {
 
   const averageScore = average(studentRows.map((student) => student.score));
   const publishedCount = teacherCourses.filter((course) => course.status === 'published').length;
+  // studentRows chỉ là dữ liệu demo cũ (luôn rỗng với khóa thật) → ưu tiên
+  // roster thật; chưa có điểm thật thì hiện gạch ngang thay vì 0%.
+  const activeStudentCount = teacherRoster
+    ? new Set(teacherRoster.map((row) => row.studentId)).size
+    : studentRows.length;
+  const averageScoreLabel = studentRows.length ? `${averageScore}%` : '—';
 
   const metrics = useMemo(
     () => [
       { label: 'Khóa đã đăng', value: String(teacherCourses.length) },
       { label: 'Đang công khai', value: String(publishedCount) },
-      { label: 'Học sinh đang học', value: String(studentRows.length) },
-      { label: 'Hiệu quả trung bình', value: `${averageScore}%` }
+      { label: 'Học sinh đang học', value: String(activeStudentCount) },
+      { label: 'Hiệu quả trung bình', value: averageScoreLabel }
     ],
-    [averageScore, publishedCount, studentRows.length, teacherCourses.length]
+    [activeStudentCount, averageScoreLabel, publishedCount, teacherCourses.length]
   );
   const courseStatsPagination = usePagination(courseStats, {
     pageSize: 4,
@@ -3728,6 +3783,9 @@ const ADMIN_SECTIONS = [
   { id: 'he-thong', label: 'Hệ thống' }
 ];
 
+// Cùng nhãn với ô chọn Trạng thái trong form khóa học.
+const COURSE_STATUS_LABELS = { draft: 'Nháp', published: 'Công khai', hidden: 'Ẩn' };
+
 function formatMoney(value) {
   return formatVnd(value);
 }
@@ -3738,6 +3796,29 @@ function getCourseKey(course) {
 
 function getCourseTitle(courseLookup, courseId) {
   return courseLookup.get(courseId)?.title || courseLookup.get(String(courseId || '').toLowerCase())?.title || 'Chưa gắn khóa';
+}
+
+// Gắn data-label (tên cột) cho từng <td> của dòng — trên điện thoại bảng
+// admin xếp thành thẻ dọc và nhãn này hiện trước mỗi giá trị (xem ux.css).
+function labelTableCells(row, columns) {
+  if (!React.isValidElement(row)) {
+    return row;
+  }
+
+  let columnIndex = 0;
+  const cells = React.Children.map(row.props.children, (cell) => {
+    if (!React.isValidElement(cell)) {
+      return cell;
+    }
+
+    const label = columns[columnIndex];
+    columnIndex += 1;
+    return cell.type === 'td' && label && !cell.props['data-label']
+      ? React.cloneElement(cell, { 'data-label': label })
+      : cell;
+  });
+
+  return React.cloneElement(row, undefined, cells);
 }
 
 function AdminDataTable({ columns, rows, emptyText, renderRow, pageSize = 8, paginationLabel = 'mục' }) {
@@ -3758,7 +3839,7 @@ function AdminDataTable({ columns, rows, emptyText, renderRow, pageSize = 8, pag
             </tr>
           </thead>
           <tbody>
-            {rows.length ? pagination.pageItems.map(renderRow) : (
+            {rows.length ? pagination.pageItems.map((row, index) => labelTableCells(renderRow(row, index), columns)) : (
               <tr>
                 <td colSpan={columns.length}>{emptyText}</td>
               </tr>
@@ -4633,19 +4714,19 @@ export function AdminDashboardPage() {
 
                   return (
                     <tr key={order.id}>
-                      <td>
+                      <td data-label="Học viên">
                         <strong>{order.studentName || user?.fullName || 'Học viên'}</strong>
                         <span>{order.studentEmail || user?.email || order.userId}</span>
                       </td>
-                      <td>{order.courseTitle || course?.title || order.courseId}</td>
-                      <td>{formatMoney(order.amount)}</td>
-                      <td>{order.transferCode || order.id}</td>
-                      <td>
+                      <td data-label="Khóa học">{order.courseTitle || course?.title || order.courseId}</td>
+                      <td data-label="Số tiền">{formatMoney(order.amount)}</td>
+                      <td data-label="Nội dung CK">{order.transferCode || order.id}</td>
+                      <td data-label="Trạng thái">
                         <span className={`pill ${order.status === 'paid' ? 'pill--success' : ''}`}>
                           {paymentStatusLabels[order.status] || order.status}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Thao tác">
                         <button
                           type="button"
                           className="button-ghost"
@@ -4810,23 +4891,23 @@ export function AdminDashboardPage() {
 
                   return (
                     <tr key={u.id}>
-                      <td>{u.fullName || '—'}</td>
-                      <td>{u.email}</td>
-                      <td>{u.phone || '—'}</td>
-                      <td><span className="pill">{u.role}</span></td>
-                      <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
-                      <td>
+                      <td data-label="Họ tên">{u.fullName || '—'}</td>
+                      <td data-label="Email">{u.email}</td>
+                      <td data-label="SĐT">{u.phone || '—'}</td>
+                      <td data-label="Vai trò"><span className="pill">{u.role}</span></td>
+                      <td data-label="Ngày đăng ký">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
+                      <td data-label="Khóa gần nhất">
                         {latest ? latest.courseTitle : '—'}
                         {enrollments.length > 1 ? <small> +{enrollments.length - 1} khóa khác</small> : null}
                       </td>
-                      <td>
+                      <td data-label="Buổi học">
                         {latest
                           ? latest.sessionsTotal === null || latest.sessionsTotal === undefined
                             ? `${latest.sessionsUsed} buổi (không giới hạn)`
                             : `${latest.sessionsUsed}/${latest.sessionsTotal} buổi`
                           : '—'}
                       </td>
-                      <td>
+                      <td data-label="Hạn gói">
                         {packageStatus ? (
                           <span className={`package-status-badge package-status-badge--${packageStatus}`}>
                             {getPackageStatusLabel(packageStatus)}
@@ -4835,12 +4916,12 @@ export function AdminDashboardPage() {
                           '—'
                         )}
                       </td>
-                      <td>
+                      <td data-label="Trạng thái">
                         <span className={`pill ${enrollments.length > 0 ? 'pill--success' : ''}`}>
                           {enrollments.length > 0 ? `Đã mua (${enrollments.length} khóa)` : 'Chưa mua'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Chi tiết">
                         {enrollments.length > 0 ? (
                           <button type="button" className="button-ghost" onClick={() => setDetailUserId(u.id)}>
                             Xem chi tiết
@@ -4891,14 +4972,14 @@ export function AdminDashboardPage() {
                     const status = getPackageStatus(enrollment);
                     return (
                       <tr key={`${enrollment.studentId}-${enrollment.courseId}`}>
-                        <td>{enrollment.courseTitle}</td>
-                        <td>{new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</td>
-                        <td>
+                        <td data-label="Khóa học">{enrollment.courseTitle}</td>
+                        <td data-label="Ngày vào học">{new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</td>
+                        <td data-label="Buổi học">
                           {enrollment.sessionsTotal === null || enrollment.sessionsTotal === undefined
                             ? `${enrollment.sessionsUsed} buổi (không giới hạn)`
                             : `${enrollment.sessionsUsed}/${enrollment.sessionsTotal} buổi · còn ${enrollment.sessionsRemaining}`}
                         </td>
-                        <td>
+                        <td data-label="Hạn gói">
                           <span className={`package-status-badge package-status-badge--${status}`}>
                             {getPackageStatusLabel(status)}
                           </span>
@@ -4984,10 +5065,10 @@ export function AdminDashboardPage() {
                     }[log.action] || log.action;
                     return (
                       <tr key={log.id}>
-                        <td>{user ? `${user.fullName} (${user.email})` : log.user_id?.slice(0, 8)}</td>
-                        <td><span className="exercise-chip">{actionLabel}</span></td>
-                        <td>{log.target_title || log.target_id || '—'}</td>
-                        <td>{log.created_at ? new Date(log.created_at).toLocaleString('vi-VN') : '—'}</td>
+                        <td data-label="Người dùng">{user ? `${user.fullName} (${user.email})` : log.user_id?.slice(0, 8)}</td>
+                        <td data-label="Hành động"><span className="exercise-chip">{actionLabel}</span></td>
+                        <td data-label="Nội dung">{log.target_title || log.target_id || '—'}</td>
+                        <td data-label="Thời gian">{log.created_at ? new Date(log.created_at).toLocaleString('vi-VN') : '—'}</td>
                       </tr>
                     );
                   })}
@@ -5220,7 +5301,7 @@ export function AdminDashboardPage() {
                       <span>
                         <strong>{course.title}</strong>
                         <small>
-                          {course.slug} · {course.status} · {lessonsByCourse.get(getCourseKey(course))?.length || 0} bài
+                          {course.slug} · {COURSE_STATUS_LABELS[course.status] || course.status} · {lessonsByCourse.get(getCourseKey(course))?.length || 0} bài
                         </small>
                       </span>
                     </label>
@@ -5389,7 +5470,7 @@ export function AdminDashboardPage() {
                 </td>
                 <td>{profileLookup.get(course.teacherId)?.fullName || 'Chưa gắn'}</td>
                 <td>{formatMoney(course.price)}</td>
-                <td>{course.status}</td>
+                <td>{COURSE_STATUS_LABELS[course.status] || course.status}</td>
                 <td>
                   <div className="admin-row-actions">
                     <button type="button" className="button-ghost" onClick={() => setCourseDraft({ ...emptyCourseDraft, ...course })}>

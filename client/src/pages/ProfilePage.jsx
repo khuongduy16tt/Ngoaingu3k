@@ -93,25 +93,24 @@ export default function ProfilePage() {
     async function loadStats() {
       if (!supabase || !user?.id) return;
       try {
-        const { data: purchases } = await supabase
-          .from('purchase_orders')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('status', 'approved');
-
-        const { data: progress } = await supabase
-          .from('lesson_progress')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('completed', true);
+        // Bảng thật là orders (status 'paid') và progress — tên cũ
+        // purchase_orders/lesson_progress không tồn tại nên số liệu luôn là 0.
+        const [{ data: purchases }, { count: completedCount }] = await Promise.all([
+          supabase.from('orders').select('course_id').eq('user_id', user.id).eq('status', 'paid'),
+          supabase
+            .from('progress')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('completed', true)
+        ]);
 
         const joinedDays = user.created_at
           ? Math.floor((Date.now() - new Date(user.created_at)) / 86400000)
           : 0;
 
         setStats({
-          courses: purchases?.length || 0,
-          completedLessons: progress?.length || 0,
+          courses: new Set((purchases || []).map((order) => order.course_id)).size,
+          completedLessons: completedCount || 0,
           joinedDays
         });
       } catch {

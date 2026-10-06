@@ -5,6 +5,19 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
+// Lọc `.in()` theo lô để URL không phình theo số học viên (mỗi UUID ~37 ký tự
+// trong query string). Trả về mảng gộp các dòng; lỗi ở lô nào thì ném ra.
+const IN_CHUNK_SIZE = 100;
+async function selectInChunks(values, buildQuery) {
+  const rows = [];
+  for (let start = 0; start < values.length; start += IN_CHUNK_SIZE) {
+    const { data, error } = await buildQuery(values.slice(start, start + IN_CHUNK_SIZE));
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows;
+}
+
 /**
  * GET /api/students/:userId/progress
  * Returns learning progress for a user. Requires authentication.
@@ -96,51 +109,37 @@ router.get('/roster', requireAuth, requireRole('teacher', 'admin'), async (req, 
 
     const userIds = [...new Set(orders.map((order) => order.user_id))];
 
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, email, phone, created_at')
-      .in('id', userIds);
-    if (profilesError) throw profilesError;
-
-    const { data: chapters, error: chaptersError } = await supabaseAdmin
-      .from('chapters')
-      .select('id, course_id')
-      .in('course_id', courseIds);
-    if (chaptersError) throw chaptersError;
-
-    const chapterIds = (chapters || []).map((chapter) => chapter.id);
-    const courseIdByChapterId = new Map((chapters || []).map((chapter) => [chapter.id, chapter.course_id]));
-
-    let lessons = [];
-    if (chapterIds.length) {
-      const { data, error } = await supabaseAdmin.from('lessons').select('id, chapter_id').in('chapter_id', chapterIds);
-      if (error) throw error;
-      lessons = data || [];
-    }
+    // Ba truy vấn độc lập chạy song song. Không đưa danh sách UUID bài học/
+    // chương vào URL: 430 bài × 37 ký tự ≈ 16KB làm request "fetch failed"
+    // (hoặc chậm ~7s) — bài được lấy qua join theo khóa, tiến độ lọc theo học
+    // viên (chia lô) rồi mới gán về khóa bằng bản đồ bài → khóa ở dưới.
+    const [profilesResult, lessonsResult, completedProgress] = await Promise.all([
+      selectInChunks(userIds, (ids) =>
+        supabaseAdmin.from('profiles').select('id, full_name, email, phone, created_at').in('id', ids)
+      ),
+      supabaseAdmin
+        .from('lessons')
+        .select('id, chapters!inner(course_id)')
+        .in('chapters.course_id', courseIds),
+      selectInChunks(userIds, (ids) =>
+        supabaseAdmin.from('progress').select('user_id, lesson_id').eq('completed', true).in('user_id', ids)
+      )
+    ]);
+    if (lessonsResult.error) throw lessonsResult.error;
+    const profiles = profilesResult;
 
     const courseIdByLessonId = new Map(
-      lessons.map((lesson) => [lesson.id, courseIdByChapterId.get(lesson.chapter_id)])
+      (lessonsResult.data || []).map((lesson) => [lesson.id, lesson.chapters?.course_id])
     );
-    const lessonIds = lessons.map((lesson) => lesson.id);
 
     // sessionsUsed[`${userId}:${courseId}`] = số bài học đã hoàn thành.
     const sessionsUsed = new Map();
-    if (lessonIds.length) {
-      const { data: completedProgress, error: progressError } = await supabaseAdmin
-        .from('progress')
-        .select('user_id, lesson_id')
-        .eq('completed', true)
-        .in('lesson_id', lessonIds)
-        .in('user_id', userIds);
-      if (progressError) throw progressError;
-
-      (completedProgress || []).forEach((row) => {
-        const courseId = courseIdByLessonId.get(row.lesson_id);
-        if (!courseId) return;
-        const key = `${row.user_id}:${courseId}`;
-        sessionsUsed.set(key, (sessionsUsed.get(key) || 0) + 1);
-      });
-    }
+    completedProgress.forEach((row) => {
+      const courseId = courseIdByLessonId.get(row.lesson_id);
+      if (!courseId) return;
+      const key = `${row.user_id}:${courseId}`;
+      sessionsUsed.set(key, (sessionsUsed.get(key) || 0) + 1);
+    });
 
     // Gộp order theo (user, course): lấy order paid gần nhất làm mốc "vào học"
     // hiện tại (renewal-aware — mua lại/gia hạn tạo order mới thay thế hạn cũ).

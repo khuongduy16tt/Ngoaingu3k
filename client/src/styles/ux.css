@@ -80,3 +80,163 @@
     overflow: visible;
   }
 }
+
+/* ── Bảng điều khiển học viên: "Khóa học của tôi" ─────────────────────────
+   Mỗi khóa một dòng có nút "Vào học" — lối vào học chính của học viên. */
+.student-course-links {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.student-course-links li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.student-course-links li span {
+  min-width: 0;
+  font-weight: 700;
+}
+
+.student-course-links li .button {
+  flex: none;
+}
+
+.student-course-links__empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.student-course-links__empty p {
+  margin: 0;
+}
+
+.student-course-links__rules {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--fs-small);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Bảng điều khiển trên điện thoại: mục điều hướng xuống dòng ────────────
+   Hàng chip cuộn ngang cắt cụt mục thứ 3 ("Người dùn…") và không có dấu hiệu
+   còn mục phía sau — admin không thấy Khóa học, Đề thi, Hệ thống. Cho các chip
+   xuống dòng để thấy đủ 6 mục ngay. */
+@media (max-width: 767px) {
+  .dashboard-section-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .dashboard-section-nav__item {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+  }
+}
+
+/* ── Bảng quản trị trên điện thoại: mỗi dòng thành một thẻ ────────────────
+   Bảng min-width 720px trong khung cuộn ngang: ở 390px chỉ thấy 2 cột đầu,
+   cột Số tiền / Trạng thái / nút Mở khóa nằm khuất bên phải mà không có dấu
+   hiệu cuộn. Dưới 640px xếp thành thẻ dọc, nhãn cột lấy từ data-label (gắn
+   trong JSX hoặc tự động qua labelTableCells). Cùng cách với bảng tiến độ
+   học viên ở brand.css §10. */
+@media (max-width: 640px) {
+  .admin-table-wrap {
+    overflow-x: visible;
+  }
+
+  .admin-table {
+    min-width: 0;
+  }
+
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .admin-table,
+  .admin-table tbody {
+    display: block;
+  }
+
+  .admin-table tr {
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+  }
+
+  .admin-table td,
+  .admin-table th:first-child,
+  .admin-table td:first-child {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+    /* Không có khoảng cách hàng: nhãn chiếm 6 hàng lưới ngầm, mỗi hàng thêm
+       một khoảng trống nếu đặt row-gap. */
+    gap: 0 var(--space-3);
+    align-items: start;
+  }
+
+  .admin-table td[data-label]::before {
+    content: attr(data-label);
+    grid-row: 1 / span 6;
+    padding-top: 0.15em;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .admin-table td[data-label] > * {
+    grid-column: 2;
+    justify-self: start;
+    max-width: 100%;
+  }
+}
+
+/* ── Vùng chạm tối thiểu ~44px cho nút nhỏ ─────────────────────────────────
+   Chấm chuyển banner (11px), chấm đánh giá (9px) và icon mạng xã hội (22px)
+   khó bấm trúng trên điện thoại. Nới vùng bấm bằng lớp vô hình, hình dáng
+   và khoảng cách hiển thị giữ nguyên. */
+.hero-slideshow__dot,
+.testimonial-carousel__dot {
+  position: relative;
+}
+
+.hero-slideshow__dot::after,
+.testimonial-carousel__dot::after {
+  content: '';
+  position: absolute;
+  inset: -14px -4px;
+}
+
+.site-footer__social a {
+  padding: 11px;
+  margin: -11px;
+}

@@ -46,6 +46,14 @@ describe('LessonTabbedContent', () => {
     expect(screen.queryByText('Câu ngữ pháp 1')).not.toBeInTheDocument();
   });
 
+  it('khung video không in lại tên chủ đề đã có ở tiêu đề trang', () => {
+    renderContent(lessonWithTabs);
+    expect(screen.queryByRole('heading', { name: 'Chủ đề 1' })).not.toBeInTheDocument();
+
+    renderContent({ ...lessonWithTabs, id: 'topic-2', videoTitle: 'Phát âm thanh điệu' });
+    expect(screen.getByRole('heading', { name: 'Phát âm thanh điệu' })).toBeInTheDocument();
+  });
+
   it('bấm Bài tập thì trải ra đủ các tab con đã đặt tên', () => {
     renderContent(lessonWithTabs);
     fireEvent.click(screen.getByRole('tab', { name: /^Bài tập/ }));
