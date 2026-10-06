@@ -849,8 +849,9 @@ router.get('/:courseId', async (req, res) => {
     let courseQuery = supabaseAdmin
       .from('courses')
       .select(
-        'id, slug, title, description, price, status, banner_url, teacher_id, updated_at, package_total_sessions, package_duration_months,' +
-          'chapters(id, title, position, lessons(id, chapter_id, title, video_url, content, position, is_preview))'
+        // '*' cho cột của khóa để có tutoring_price (giá dạy kèm) mà không vỡ
+        // khi migration dạy kèm chưa chạy.
+        '*, chapters(id, title, position, lessons(id, chapter_id, title, video_url, content, position, is_preview))'
       );
 
     courseQuery = isUuid(courseId)

@@ -5,8 +5,11 @@ import {
   getCourseBySlug,
   getOwnedCourseIds,
   getPendingCoursePaymentOrder,
+  getTutoringCourseIds,
   purchaseCourse
 } from '../lib/courseService';
+import { formatVnd } from '../lib/money';
+import { PackagePicker } from '../components/PackagePicker';
 import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { getLessonProgress } from '../lib/progressService';
 import { isLessonComplete } from '../lib/lessonStars';
@@ -35,6 +38,8 @@ export default function CourseDetailPage() {
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [lessonProgressMap, setLessonProgressMap] = useState({});
+  const [withTutoring, setWithTutoring] = useState(false);
+  const [tutoringCourseIds, setTutoringCourseIds] = useState([]);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -51,11 +56,17 @@ export default function CourseDetailPage() {
         // Trang này chỉ liệt kê chương và bài, không làm bài — xin bản không kèm
         // ngân hàng câu hỏi để khỏi tải cả bộ đề của toàn khóa.
         const nextCourse = await getCourseBySlug(courseId, { summaryOnly: true });
-        const nextOwnedIds = nextCourse ? await getOwnedCourseIds(auth.user?.id, [nextCourse]) : [];
+        const [nextOwnedIds, nextTutoringIds] = nextCourse
+          ? await Promise.all([
+              getOwnedCourseIds(auth.user?.id, [nextCourse]),
+              nextCourse.tutoringPriceValue ? getTutoringCourseIds(auth.user?.id) : []
+            ])
+          : [[], []];
 
         if (alive) {
           setCourse(nextCourse);
           setOwnedCourseIds(nextOwnedIds);
+          setTutoringCourseIds(nextTutoringIds);
           setPaymentOrder(nextCourse ? getPendingCoursePaymentOrder(auth.user?.id, nextCourse.id) || null : null);
         }
       } catch (error) {
@@ -79,6 +90,9 @@ export default function CourseDetailPage() {
   }, [auth.ready, auth.user?.id, courseId, reloadKey]);
 
   const isOwned = course ? ownedCourseIds.includes(course.id) : false;
+  const hasTutoring = course ? tutoringCourseIds.includes(course.databaseId) : false;
+  const canAddTutoring = isOwned && !hasTutoring && Boolean(course?.tutoringPriceValue);
+  const upgradeAmount = canAddTutoring ? Math.max(course.tutoringPriceValue - course.priceValue, 0) : 0;
   const courseSections = useMemo(() => course?.sections || [], [course?.sections]);
   const courseLessons = useMemo(
     () => courseSections.flatMap((section) => (Array.isArray(section.lessons) ? section.lessons : [])),
@@ -138,6 +152,9 @@ export default function CourseDetailPage() {
 
         if (result.paid && course) {
           setOwnedCourseIds(await getOwnedCourseIds(auth.user?.id, [course]));
+          if (order.withTutoring) {
+            setTutoringCourseIds(await getTutoringCourseIds(auth.user?.id));
+          }
           setFeedback('Đã nhận được thanh toán. Khóa học đã mở, bạn vào học được ngay.');
         }
       } catch (error) {
@@ -156,12 +173,12 @@ export default function CourseDetailPage() {
     onCheck: syncPaymentStatus
   });
 
-  async function handlePurchase() {
-    if (!course || !auth.session || currentRole !== 'student' || isOwned) {
+  async function handlePurchase(buyTutoring = withTutoring) {
+    if (!course || !auth.session || currentRole !== 'student' || (isOwned && !buyTutoring)) {
       return;
     }
 
-    if (paymentOrder) {
+    if (paymentOrder && Boolean(paymentOrder.withTutoring) === Boolean(buyTutoring)) {
       setPaymentScreenOpen(true);
       setFeedback('');
       return;
@@ -175,7 +192,8 @@ export default function CourseDetailPage() {
         course,
         userId: auth.user?.id,
         accessToken: auth.session?.access_token,
-        user: auth.user
+        user: auth.user,
+        withTutoring: buyTutoring
       });
 
       setOwnedCourseIds(result.ownedCourseIds);
@@ -293,8 +311,16 @@ export default function CourseDetailPage() {
         </div>
 
         <div className="price-box course-detail__sidebar">
-          <span className="pill">{isOwned ? 'Đã sở hữu' : 'Thanh toán một lần'}</span>
-          <strong>{course.price}</strong>
+          <span className="pill">{isOwned ? (hasTutoring ? 'Đã sở hữu · có dạy kèm' : 'Đã sở hữu') : 'Thanh toán một lần'}</span>
+          {!isOwned ? (
+            <PackagePicker
+              price={course.priceValue}
+              tutoringPrice={course.tutoringPriceValue}
+              withTutoring={withTutoring}
+              onChange={setWithTutoring}
+            />
+          ) : null}
+          <strong>{withTutoring && !isOwned ? formatVnd(course.tutoringPriceValue) : course.price}</strong>
           <p>
             {isOwned
               ? 'Khóa học này đã thuộc thư viện của tài khoản học viên hiện tại.'
@@ -302,17 +328,37 @@ export default function CourseDetailPage() {
           </p>
 
           {isOwned ? (
-            <Link className="button" to={`/learn/${course.id}`}>
-              Vào học
-            </Link>
+            <>
+              <Link className="button" to={`/learn/${course.id}`}>
+                Vào học
+              </Link>
+              {canAddTutoring && currentRole === 'student' ? (
+                <button
+                  type="button"
+                  className="button-ghost"
+                  disabled={purchasing}
+                  onClick={() => handlePurchase(true)}
+                >
+                  {purchasing ? 'Đang xử lý...' : `Thêm dạy kèm · ${formatVnd(upgradeAmount)}`}
+                </button>
+              ) : null}
+            </>
           ) : auth.session ? (
             <button
               type="button"
               className="button"
               disabled={currentRole !== 'student' || purchasing}
-              onClick={handlePurchase}
+              onClick={() => handlePurchase()}
             >
-              {currentRole === 'student' ? (purchasing ? 'Đang xử lý...' : paymentOrder ? 'Tiếp tục thanh toán' : 'Mua ngay') : 'Chỉ dành cho học viên'}
+              {currentRole === 'student'
+                ? purchasing
+                  ? 'Đang xử lý...'
+                  : paymentOrder && Boolean(paymentOrder.withTutoring) === withTutoring
+                    ? 'Tiếp tục thanh toán'
+                    : withTutoring
+                      ? 'Mua kèm dạy kèm'
+                      : 'Mua ngay'
+                : 'Chỉ dành cho học viên'}
             </button>
           ) : (
             <Link className="button" to="/auth">

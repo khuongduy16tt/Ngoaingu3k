@@ -86,6 +86,7 @@ import { getEmbeddableVideoUrl, getVideoAccessHint, getVideoEmbedIssue, getVideo
 import { uploadCourseImage } from '../lib/storageService';
 import { TeacherExamPanel } from './dashboard/TeacherExamPanel';
 import { AdminExamResultsPanel } from './dashboard/AdminExamResultsPanel';
+import { AdminComboPanel } from './dashboard/AdminComboPanel';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -3723,6 +3724,7 @@ const emptyCourseDraft = {
   title: '',
   description: '',
   price: '490000',
+  tutoringPrice: '',
   status: 'published',
   teacherId: '',
   bannerUrl: '',
@@ -3779,6 +3781,7 @@ const ADMIN_SECTIONS = [
   { id: 'thanh-toan', label: 'Thanh toán' },
   { id: 'nguoi-dung', label: 'Người dùng' },
   { id: 'khoa-bai', label: 'Khóa & bài học' },
+  { id: 'combo', label: 'Combo & giảm giá' },
   { id: 'de-thi', label: 'Đề thi & kết quả' },
   { id: 'he-thong', label: 'Hệ thống' }
 ];
@@ -4313,7 +4316,8 @@ export function AdminDashboardPage() {
     try {
       await saveAdminCourse({
         ...courseDraft,
-        price: normalizeVndAmount(courseDraft.price)
+        price: normalizeVndAmount(courseDraft.price),
+        tutoringPrice: normalizeVndAmount(courseDraft.tutoringPrice)
       });
       await reloadAdminData();
       resetCourseDraft();
@@ -4667,6 +4671,8 @@ export function AdminDashboardPage() {
 
       {adminSection === 'de-thi' ? <AdminExamResultsPanel /> : null}
 
+      {adminSection === 'combo' ? <AdminComboPanel courses={adminData.courses} /> : null}
+
       {adminSection === 'thanh-toan' ? (
         <section className="content-card content-card--enterprise admin-panel">
           <div className="section-head">
@@ -4718,9 +4724,14 @@ export function AdminDashboardPage() {
                         <strong>{order.studentName || user?.fullName || 'Học viên'}</strong>
                         <span>{order.studentEmail || user?.email || order.userId}</span>
                       </td>
-                      <td data-label="Khóa học">{order.courseTitle || course?.title || order.courseId}</td>
+                      <td data-label="Khóa học">
+                        {/* Mỗi khóa trong combo là một dòng; mở/đóng một dòng là cả combo. */}
+                        {course?.title || order.courseTitle || order.courseId}
+                        {order.comboGroup ? <span className="pill">Combo</span> : null}
+                        {order.withTutoring ? <span className="pill">Dạy kèm</span> : null}
+                      </td>
                       <td data-label="Số tiền">{formatMoney(order.amount)}</td>
-                      <td data-label="Nội dung CK">{order.transferCode || order.id}</td>
+                      <td data-label="Nội dung CK">{order.transferCode || (order.comboGroup ? 'Chung mã combo' : order.id)}</td>
                       <td data-label="Trạng thái">
                         <span className={`pill ${order.status === 'paid' ? 'pill--success' : ''}`}>
                           {paymentStatusLabels[order.status] || order.status}
@@ -4770,6 +4781,11 @@ export function AdminDashboardPage() {
               <p style={{ marginTop: '0.75rem', color: 'var(--color-error)' }}>
                 Hành động này là vĩnh viễn và sẽ {confirmationAction === 'revoke' ? 'xóa quyền truy cập khoá học' : 'cấp quyền truy cập khoá học'}.
               </p>
+              {confirmationOrder.comboGroup ? (
+                <p style={{ marginTop: '0.5rem' }}>
+                  Đơn này thuộc một combo — thao tác sẽ áp dụng cho <strong>tất cả khóa trong combo</strong> của học viên.
+                </p>
+              ) : null}
               <div style={{ marginTop: '1rem' }}>
                 <label htmlFor="confirmation-input" style={{ display: 'block', marginBottom: '0.5rem' }}>
                   Nhập <strong>{confirmationPhrase}</strong> để xác nhận:
@@ -5398,6 +5414,17 @@ export function AdminDashboardPage() {
             <label className="auth-field">
               <span>Giá VND</span>
               <input type="number" min="0" step="10000" value={courseDraft.price} onChange={(event) => updateCourseDraft('price', event.target.value)} />
+            </label>
+            <label className="auth-field">
+              <span>Giá kèm dạy kèm (VND)</span>
+              <input
+                type="number"
+                min="0"
+                step="10000"
+                value={courseDraft.tutoringPrice}
+                onChange={(event) => updateCourseDraft('tutoringPrice', event.target.value)}
+                placeholder="Bỏ trống nếu không bán dạy kèm"
+              />
             </label>
             <div className="auth-field auth-field--full">
               <span>Ảnh đại diện (banner)</span>

@@ -377,6 +377,7 @@ function normalizeCourse(course, fallbackIndex = 0) {
     level: course.level || inferCourseLevel(course.title),
     priceValue,
     price: formatPrice(priceValue),
+    tutoringPriceValue: normalizeVndAmount(course.tutoring_price ?? course.tutoringPriceValue) || null,
     progress: course.progress ?? 0,
     instructor: course.instructor || 'Giảng viên trung tâm',
     summary: course.description || course.summary || 'Khóa học được đồng bộ từ hệ thống.',
@@ -784,7 +785,8 @@ async function fetchCourseCatalog() {
   const [remoteCoursesResult, localTeacherCourses] = await Promise.all([
     supabase
     .from('courses')
-    .select('id, slug, title, description, price, status, banner_url')
+    // '*' để có tutoring_price mà không vỡ danh mục khi chưa chạy migration dạy kèm.
+    .select('*')
     .eq('status', 'published')
     .order('updated_at', { ascending: false }),
     Promise.resolve(readAllTeacherManagedCourses())
@@ -877,17 +879,17 @@ export async function getOwnedCourseIds(userId, courses = []) {
   return mergedIds;
 }
 
-export async function purchaseCourse({ course, userId, accessToken, user }) {
+export async function purchaseCourse({ course, userId, accessToken, user, withTutoring = false }) {
   if (!course?.id) {
     throw new Error('Thiếu dữ liệu khóa học.');
   }
 
   const currentIds = getStoredPurchasedCourseIds(userId || 'local');
-  if (currentIds.includes(course.id)) {
+  if (currentIds.includes(course.id) && !withTutoring) {
     return { ownedCourseIds: currentIds, mode: 'existing' };
   }
 
-  const existingOrder = findPaymentOrderForCourse(userId || 'local', course.id);
+  const existingOrder = findPaymentOrderForCourse(userId || 'local', course.id, withTutoring);
   if (existingOrder) {
     return {
       ownedCourseIds: currentIds,
@@ -900,7 +902,8 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
   if (!isSupabaseReady() || !userId) {
     const order = createSepayPaymentOrder({
       course,
-      user: user || { id: userId || 'local' }
+      user: user || { id: userId || 'local' },
+      withTutoring
     });
     if (userId) {
       void logActivity(userId, 'purchase', course.id, course.title, { orderId: order.id, status: order.status });
@@ -916,7 +919,8 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
   if (!isUuid(remoteCourseId)) {
     const order = createSepayPaymentOrder({
       course,
-      user: user || { id: userId }
+      user: user || { id: userId },
+      withTutoring
     });
     void logActivity(userId, 'purchase', course.id, course.title, { orderId: order.id, status: order.status });
     return { ownedCourseIds: currentIds, mode: 'sepay', order, requiresPayment: true };
@@ -928,7 +932,8 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
     body: {
       courseId: remoteCourseId,
       amount: course.priceValue ?? 0,
-      provider: 'sepay'
+      provider: 'sepay',
+      withTutoring
     }
   });
 
@@ -942,6 +947,7 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
   const order = createSepayPaymentOrder({
     course,
     user: user || { id: userId },
+    withTutoring,
     remoteOrder: {
       orderId: response.orderId,
       amount: response.amount ?? course.priceValue ?? 0,
@@ -970,8 +976,23 @@ export async function purchaseCourse({ course, userId, accessToken, user }) {
   };
 }
 
-export function getPendingCoursePaymentOrder(userId, courseId) {
-  return findPaymentOrderForCourse(userId || 'local', courseId);
+export function getPendingCoursePaymentOrder(userId, courseId, withTutoring) {
+  return findPaymentOrderForCourse(userId || 'local', courseId, withTutoring);
+}
+
+export async function getTutoringCourseIds(userId) {
+  if (!isSupabaseReady() || !userId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('course_id')
+    .eq('user_id', userId)
+    .eq('status', 'paid')
+    .eq('with_tutoring', true);
+
+  return error ? [] : (data || []).map((order) => order.course_id).filter(Boolean);
 }
 
 /**

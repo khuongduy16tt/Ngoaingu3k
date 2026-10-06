@@ -14,6 +14,10 @@ import { usePaymentStatusPolling } from '../hooks/usePaymentStatusPolling';
 import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { PaymentInstructions } from '../components/PaymentInstructions';
+import { formatVnd } from '../lib/money';
+import { ComboSection } from '../components/ComboSection';
+import { PackagePicker } from '../components/PackagePicker';
+import { getPublishedCombos, purchaseCombo } from '../lib/comboService';
 
 const roleLabels = {
   student: 'học viên',
@@ -59,8 +63,16 @@ function sortCoursesDefault(courses) {
 }
 
 function CourseCard({ course, isOwned, authSession, currentRole, purchasingCourseId, feedback, onPurchase, placeholderPhoto }) {
+  const [withTutoring, setWithTutoring] = useState(false);
   const canBuy = authSession && currentRole === 'student' && !isOwned;
-  const buyLabel = purchasingCourseId === course.id ? 'Đang xử lý...' : isOwned ? 'Đã sở hữu' : 'Mua ngay';
+  const buyLabel =
+    purchasingCourseId === course.id
+      ? 'Đang xử lý...'
+      : isOwned
+        ? 'Đã sở hữu'
+        : withTutoring
+          ? 'Mua kèm dạy kèm'
+          : 'Mua ngay';
   const hasBanner = Boolean(course.bannerUrl);
   const mediaSrc = course.bannerUrl || placeholderPhoto;
 
@@ -126,10 +138,19 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
           </div>
         ) : null}
 
+        {!isOwned ? (
+          <PackagePicker
+            price={course.priceValue}
+            tutoringPrice={course.tutoringPriceValue}
+            withTutoring={withTutoring}
+            onChange={setWithTutoring}
+          />
+        ) : null}
+
         <div className="marketplace-card__footer">
           <div className="marketplace-card__price">
-            <strong>{course.price}</strong>
-            <span>Thanh toán một lần · truy cập dài hạn</span>
+            <strong>{withTutoring ? formatVnd(course.tutoringPriceValue) : course.price}</strong>
+            <span>{withTutoring ? 'Khóa học + dạy kèm' : 'Thanh toán một lần · truy cập dài hạn'}</span>
           </div>
 
           <div className="marketplace-card__actions">
@@ -146,7 +167,7 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
                 type="button"
                 className="button"
                 disabled={!canBuy || purchasingCourseId === course.id}
-                onClick={() => onPurchase(course)}
+                onClick={() => onPurchase(course, withTutoring)}
               >
                 {currentRole === 'student' ? buyLabel : 'Chỉ dành cho học viên'}
               </button>
@@ -227,6 +248,7 @@ export default function CoursesPage() {
   const location = useLocation();
   const currentRole = getEffectiveRole(auth);
   const [courses, setCourses] = useState([]);
+  const [combos, setCombos] = useState([]);
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -250,10 +272,14 @@ export default function CoursesPage() {
 
       try {
         const nextCourses = await getCourseCatalog();
-        const nextOwnedCourseIds = await getOwnedCourseIds(auth.user?.id, nextCourses);
+        const [nextOwnedCourseIds, nextCombos] = await Promise.all([
+          getOwnedCourseIds(auth.user?.id, nextCourses),
+          getPublishedCombos(nextCourses)
+        ]);
 
         if (alive) {
           setCourses(nextCourses);
+          setCombos(nextCombos);
           setOwnedCourseIds(nextOwnedCourseIds);
         }
       } catch (error) {
@@ -319,7 +345,7 @@ export default function CoursesPage() {
         if (result.paid) {
           setOwnedCourseIds(await getOwnedCourseIds(auth.user?.id, courses));
           setFeedback({
-            courseId: order.localCourseId || order.courseId || '',
+            courseId: order.comboId || order.localCourseId || order.courseId || '',
             text: `Đã nhận được thanh toán cho ${order.courseTitle}. Khóa học đã mở.`
           });
         }
@@ -340,7 +366,7 @@ export default function CoursesPage() {
     onCheck: syncPaymentStatus
   });
 
-  async function handlePurchase(course) {
+  async function handlePurchase(course, withTutoring = false) {
     if (!auth.session || currentRole !== 'student') {
       return;
     }
@@ -353,7 +379,8 @@ export default function CoursesPage() {
         course,
         userId: auth.user?.id,
         accessToken: auth.session?.access_token,
-        user: auth.user
+        user: auth.user,
+        withTutoring
       });
 
       setOwnedCourseIds(result.ownedCourseIds);
@@ -369,6 +396,43 @@ export default function CoursesPage() {
       });
     } catch (error) {
       setFeedback({ courseId: course.id, text: error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.' });
+    } finally {
+      setPurchasingCourseId('');
+    }
+  }
+
+  async function handlePurchaseCombo(combo, withTutoring = false) {
+    if (!auth.session || currentRole !== 'student') {
+      return;
+    }
+
+    setFeedback({ courseId: '', text: '' });
+    setPurchasingCourseId(combo.id);
+
+    try {
+      const result = await purchaseCombo({
+        combo,
+        userId: auth.user?.id,
+        accessToken: auth.session?.access_token,
+        user: auth.user,
+        withTutoring
+      });
+
+      if (result.ownedCourseIds) {
+        setOwnedCourseIds(result.ownedCourseIds);
+      }
+      setActivePaymentOrder(result.order || null);
+      if (result.requiresPayment && result.order) {
+        setPaymentScreenOpen(true);
+      }
+      setFeedback({
+        courseId: combo.id,
+        text: result.requiresPayment
+          ? `Đã tạo đơn thanh toán cho ${combo.title}. Chuyển khoản xong là tất cả khóa trong combo được mở.`
+          : `Bạn đã sở hữu toàn bộ khóa trong ${combo.title}.`
+      });
+    } catch (error) {
+      setFeedback({ courseId: combo.id, text: error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.' });
     } finally {
       setPurchasingCourseId('');
     }
@@ -400,6 +464,11 @@ export default function CoursesPage() {
             <a className="button-ghost" href="#khoa-hoc-hsk">
               Xem khóa HSK
             </a>
+            {combos.length ? (
+              <a className="button-ghost" href="#combo">
+                Xem combo
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -453,6 +522,16 @@ export default function CoursesPage() {
           </section>
         ) : (
           <div className="marketplace-program-groups">
+            <ComboSection
+              combos={combos}
+              ownedCourseIdSet={ownedCourseIdSet}
+              authSession={auth.session}
+              currentRole={currentRole}
+              purchasingId={purchasingCourseId}
+              feedback={feedback}
+              onPurchase={handlePurchaseCombo}
+            />
+
             <CourseGroupSection
               id="khoa-hoc-ielts"
               title="Khóa học IELTS"

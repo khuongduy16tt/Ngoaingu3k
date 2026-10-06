@@ -89,9 +89,14 @@ export function upsertPaymentOrder(order) {
   return nextOrder;
 }
 
-export function createSepayPaymentOrder({ course, user, remoteOrder = {} }) {
+export function createSepayPaymentOrder({ course, user, remoteOrder = {}, withTutoring = false }) {
   const orderId = remoteOrder.orderId || remoteOrder.id || `local-payment-${Date.now()}`;
-  const amount = remoteOrder.amount ?? course.priceValue ?? course.price ?? 0;
+  const amount =
+    remoteOrder.amount ??
+    (withTutoring ? course.tutoringPriceValue : null) ??
+    course.priceValue ??
+    course.price ??
+    0;
 
   return upsertPaymentOrder({
     id: orderId,
@@ -100,7 +105,8 @@ export function createSepayPaymentOrder({ course, user, remoteOrder = {} }) {
     studentName: user?.user_metadata?.full_name || user?.email || 'Học viên',
     courseId: course.databaseId || course.id,
     localCourseId: course.id,
-    courseTitle: course.title,
+    courseTitle: withTutoring ? `${course.title} + dạy kèm` : course.title,
+    withTutoring,
     amount,
     status: remoteOrder.status || 'pending',
     provider: 'sepay',
@@ -113,10 +119,13 @@ export function createSepayPaymentOrder({ course, user, remoteOrder = {} }) {
   });
 }
 
-export function findPaymentOrderForCourse(userId, courseId) {
+export function findPaymentOrderForCourse(userId, courseId, withTutoring) {
   return readPaymentOrders().find(
     (order) =>
       order.userId === (userId || 'local') &&
+      !order.comboId &&
+      // Không truyền withTutoring = gói nào cũng được (trang chi tiết mở lại đơn đang chờ).
+      (withTutoring === undefined || Boolean(order.withTutoring) === Boolean(withTutoring)) &&
       (order.localCourseId === courseId || order.courseId === courseId) &&
       order.status !== 'paid' &&
       order.status !== 'failed' &&
@@ -139,8 +148,23 @@ export function markPaymentOrderPaid(orderId, updates = {}) {
     paidAt: updates.paidAt || new Date().toISOString()
   });
 
-  grantPurchasedCourseId(nextOrder.userId, nextOrder.localCourseId || nextOrder.courseId);
+  const courseIds = Array.isArray(nextOrder.courseIds) && nextOrder.courseIds.length
+    ? nextOrder.courseIds
+    : [nextOrder.localCourseId || nextOrder.courseId];
+  courseIds.forEach((courseId) => grantPurchasedCourseId(nextOrder.userId, courseId));
   return nextOrder;
+}
+
+export function findPaymentOrderForCombo(userId, comboId, withTutoring) {
+  return readPaymentOrders().find(
+    (order) =>
+      order.userId === (userId || 'local') &&
+      order.comboId === comboId &&
+      (withTutoring === undefined || Boolean(order.withTutoring) === Boolean(withTutoring)) &&
+      order.status !== 'paid' &&
+      order.status !== 'failed' &&
+      order.status !== 'cancelled'
+  );
 }
 
 export function approveManualPaymentOrder(orderId) {

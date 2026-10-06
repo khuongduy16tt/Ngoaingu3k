@@ -220,6 +220,7 @@ function normalizeCourse(course) {
     title: course.title || 'Khóa học chưa đặt tên',
     description: course.description || course.summary || '',
     price: normalizeVndAmount(course.price),
+    tutoringPrice: normalizeVndAmount(course.tutoring_price ?? course.tutoringPrice) || '',
     status: course.status || 'draft',
     teacherId: course.teacher_id || course.teacherId || '',
     bannerUrl: course.banner_url || course.bannerUrl || '',
@@ -341,7 +342,10 @@ function normalizeOrder(order) {
     createdAt: order.created_at || order.createdAt || '',
     paidAt: order.paid_at || order.paidAt || '',
     sepayRef: order.sepay_ref || order.sepayRef || '',
-    approvedAt: order.approved_at || order.approvedAt || ''
+    approvedAt: order.approved_at || order.approvedAt || '',
+    comboId: order.combo_id || order.comboId || '',
+    comboGroup: order.combo_group || order.comboGroup || '',
+    withTutoring: Boolean(order.with_tutoring ?? order.withTutoring)
   };
 }
 
@@ -404,7 +408,8 @@ export async function getAdminDashboardData() {
       query.select('id, full_name, email, phone, role, avatar_url, created_at, updated_at').order('created_at', { ascending: false })
     ),
     maybeSelect('courses', (query) =>
-      query.select('id, slug, title, description, price, status, teacher_id, banner_url, created_at, updated_at').order('updated_at', { ascending: false })
+      // '*' để có tutoring_price mà không lỗi khi chưa chạy migration dạy kèm.
+      query.select('*').order('updated_at', { ascending: false })
     ),
     maybeSelect('chapters', (query) =>
       query.select('id, course_id, title, position').order('position', { ascending: true })
@@ -414,7 +419,8 @@ export async function getAdminDashboardData() {
     ),
     maybeSelect('orders', (query) =>
       query
-        .select('id, user_id, course_id, status, amount, provider, transfer_code, paid_at, sepay_ref, created_at')
+        // '*' để đọc thêm combo_group khi đã chạy migration combo mà chưa chạy thì không lỗi.
+        .select('*')
         .order('created_at', { ascending: false })
     ),
     maybeSelect('progress', (query) =>
@@ -539,6 +545,7 @@ export async function saveAdminCourse(course) {
         title: nextCourse.title,
         description: nextCourse.description,
         price: nextCourse.price,
+        tutoring_price: nextCourse.tutoringPrice || null,
         status: nextCourse.status,
         teacher_id: nextCourse.teacherId || null,
         banner_url: nextCourse.bannerUrl || null,
@@ -557,6 +564,7 @@ export async function saveAdminCourse(course) {
         title: nextCourse.title,
         description: nextCourse.description,
         price: nextCourse.price,
+        tutoring_price: nextCourse.tutoringPrice || null,
         status: nextCourse.status,
         teacher_id: nextCourse.teacherId || null,
         banner_url: nextCourse.bannerUrl || null

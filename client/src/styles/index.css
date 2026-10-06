@@ -28,6 +28,9 @@
 /* 7. Danh sách bài học dùng chung (nạp sau enterprise.css để override h2/button) */
 @import './components/lesson-list.css';
 
+/* 7a. Combo khóa học: thẻ combo trên danh mục + form quản trị */
+@import './components/combo.css';
+
 /* 7b. Brand layer: bộ nhận diện 2026 cho button/form/card/heading/nút nổi */
 @import './brand.css';
 
