@@ -343,10 +343,11 @@ export function StudentDashboardPage() {
           const matched = courses.filter(
             (course) => ownedKeys.has(String(course.id)) || ownedKeys.has(String(course.databaseId))
           );
-          const matchedKeys = new Set(matched.flatMap((course) => [String(course.id), String(course.databaseId)]));
-          const unmatchedCount = [...ownedKeys].filter((key) => !matchedKeys.has(key)).length;
+          // Mã khóa không còn trong danh mục (khóa đã xóa/ẩn, mã cũ còn lưu trên
+          // máy) không mở được nên không đếm — trước đây ô số liệu ghi 6 trong
+          // khi "Khóa học của tôi" chỉ có 1 khóa để bấm vào.
           setOwnedCourses(matched);
-          setOwnedCount(matched.length + unmatchedCount);
+          setOwnedCount(matched.length);
           setStats(buildStudentStats({ lessonProgress, examAttempts }));
         }
       } catch (error) {

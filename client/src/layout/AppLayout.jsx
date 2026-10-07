@@ -6,6 +6,7 @@ import { contact } from '../config/contact';
 import { ui } from '../config/i18n';
 import { getAvatarGradient, getInitials } from '../lib/avatar';
 import { ConsultationFab, OPEN_CONSULTATION_EVENT } from '../components/ConsultationFab';
+import { AuthModalLink } from '../providers/AuthModalProvider';
 import { ConsultationPopup } from '../components/ConsultationPopup';
 import { getCourseCatalog, isHskCourse, getHskLevel, groupHskCourses } from '../lib/courseService';
 
@@ -27,6 +28,14 @@ export function AppLayout({ children }) {
   useEffect(() => {
     setContactOpen(false);
   }, [location.pathname]);
+
+  // SPA giữ nguyên vị trí cuộn khi đổi trang: bấm "Vào học" ở cuối bảng điều
+  // khiển thì phòng học mở ra ở giữa/cuối trang. Link có hash (#khoa-hoc-ielts)
+  // tự cuộn tới mục của nó nên bỏ qua.
+  useEffect(() => {
+    if (location.hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.pathname, location.hash]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -970,12 +979,12 @@ function TopBar({ theme, setTheme, themeLabel }) {
 
           {!signedIn ? (
             <div className="site-nav__auth">
-              <Link className="site-header__login" to="/auth" onClick={closeMobileMenu}>
+              <AuthModalLink className="site-header__login" onClick={closeMobileMenu}>
                 {ui.signIn}
-              </Link>
-              <Link className="site-header__signup" to="/auth?mode=sign-up" onClick={closeMobileMenu}>
+              </AuthModalLink>
+              <AuthModalLink className="site-header__signup" mode="sign-up" onClick={closeMobileMenu}>
                 {ui.signUp}
-              </Link>
+              </AuthModalLink>
             </div>
           ) : null}
         </nav>
@@ -1000,9 +1009,9 @@ function TopBar({ theme, setTheme, themeLabel }) {
           {signedIn ? (
             <UserAvatar />
           ) : (
-            <Link className="site-header__login" to="/auth">
+            <AuthModalLink className="site-header__login">
               {ui.signIn}
-            </Link>
+            </AuthModalLink>
           )}
 
           <button

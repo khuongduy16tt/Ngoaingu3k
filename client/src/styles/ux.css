@@ -1,20 +1,6 @@
 /* Tinh chỉnh trải nghiệm người dùng (đợt rà soát 10/2026).
    Chỉ thêm quy tắc đè nhỏ, có chú thích lý do; không sửa các lớp CSS gốc. */
 
-/* ── Đăng nhập trên điện thoại ────────────────────────────────────────────
-   Form từng nằm sau khối giới thiệu + số liệu + bộ ảnh (~1.600px), phải cuộn
-   gần 2 màn hình mới thấy ô nhập. Đưa form lên đầu, bỏ bộ ảnh trang trí. */
-@media (max-width: 900px) {
-  .auth-shell > .auth-card {
-    order: -1;
-  }
-
-  .auth-shell .auth-gallery,
-  .auth-shell .auth-stat-grid {
-    display: none;
-  }
-}
-
 /* ── Phòng học ────────────────────────────────────────────────────────────
    Chọn bài trên điện thoại sẽ tự cuộn tới khung nội dung; chừa chỗ cho thanh
    menu dính đầu trang (64px) để tiêu đề bài không bị che. */
@@ -239,4 +225,93 @@
 .site-footer__social a {
   padding: 11px;
   margin: -11px;
+}
+
+/* ── Thanh bên dính (sticky) hoạt động trở lại ─────────────────────────────
+   html/body/.app-shell đặt overflow-x:hidden để chặn tràn ngang, nhưng
+   overflow:hidden biến phần tử thành khung cuộn riêng → mọi position:sticky
+   bên trong (danh sách bài ở Phòng học, menu bảng điều khiển...) bám vào khung
+   không bao giờ cuộn đó và trôi mất theo trang. overflow-x:clip cắt tràn y như
+   cũ mà không tạo khung cuộn. Trình duyệt cũ không hiểu clip vẫn giữ hidden. */
+html,
+body,
+.app-shell {
+  overflow-x: clip;
+}
+
+/* ── Danh sách câu hỏi không còn thanh cuộn lồng ───────────────────────────
+   Khung câu hỏi cao tối đa 680px có thanh cuộn riêng nằm trong trang: lăn chuột
+   lúc cuộn trang, lúc cuộn khung, và nút "Kiểm tra đáp án" bị giấu dưới đáy
+   khung. Cho danh sách dài theo nội dung như trên điện thoại. */
+.excel-exercise-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+/* ── Đầu thẻ câu hỏi gọn một hàng ──────────────────────────────────────────
+   Nhãn "Trắc nghiệm" chiếm riêng một hàng dưới đề bài (~40px mỗi câu, 10 câu
+   là 400px trống). Đưa nhãn lên góc phải, ngang hàng "Câu 1". */
+.excel-exercise-row__head:has(> .lesson-question__type) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.excel-exercise-row__head:has(> .lesson-question__type) > :not(.lesson-question__type) {
+  grid-column: 1;
+}
+
+.excel-exercise-row__head > .lesson-question__type {
+  grid-column: 2;
+  grid-row: 1;
+  margin-left: 0;
+}
+
+/* ── Phòng học: đầu thanh bên gọn hơn ──────────────────────────────────────
+   Thanh tiến độ cách chữ "Tiến độ" 17px margin + 8px gap — trông như hai khối
+   rời. Kéo sát lại để thanh bên nhường chỗ cho danh sách bài. */
+.lesson-sidebar__progress .meter {
+  margin-top: 0;
+}
+
+/* ── Phòng học trên điện thoại: hai mục Video | Bài tập nằm cạnh nhau ──────
+   Xếp chồng thì hai nút cao ~150px, đẩy câu hỏi xuống dưới màn hình đầu. Nhãn
+   ngắn ("Video bài học" / "Bài tập") vừa đủ hai cột kể cả ở màn 320px. */
+@media (max-width: 760px) {
+  .lesson-tabs__parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+
+/* ── Footer: gạch chân mục liên hệ chạm sang cột "Truy cập nhanh" ──────────
+   Lưới 4 cột không có khoảng cách nên đường kẻ chạy sát chữ "Liên hệ/Tin tức"
+   của cột kế bên, nhìn như một đường gạch ngang chữ. Chừa 32px bên phải. */
+.site-footer__columns > :first-child {
+  padding-right: 32px;
+}
+
+@media (max-width: 1024px) {
+  .site-footer__columns > :first-child {
+    padding-right: 0;
+  }
+}
+
+/* ── Nút tốc độ nghe trên điện thoại ───────────────────────────────────────
+   Cao 30px, xếp sát nhau — bấm 0,75× rất dễ trúng 1×. Nới lên 36px. */
+@media (max-width: 760px) {
+  .listening-audio__speed-button {
+    min-height: 36px;
+  }
+}
+
+/* ── Chi tiết khóa học: hộp giá vừa nội dung ───────────────────────────────
+   Hộp giá kéo dài bằng cả khối banner (~590px) với nửa dưới trống trơn. Co về
+   đúng nội dung, dính theo khi cuộn để nút "Mua/Vào học" luôn trong tầm mắt. */
+@media (min-width: 901px) {
+  .course-hero > .course-detail__sidebar {
+    align-self: start;
+    position: sticky;
+    top: 96px;
+  }
 }

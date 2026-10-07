@@ -40,3 +40,9 @@
 
 /* 9. Tinh chỉnh trải nghiệm (UX) theo đợt rà soát 10/2026 — nạp sau cùng. */
 @import './ux.css';
+
+/* 10. Trang chủ sinh động: hiện dần khi cuộn, thẻ nổi, băng CTA (10/2026). */
+@import './pages/home-lively.css';
+
+/* 11. Hộp thoại đăng nhập dùng chung (thay trang /auth 2 cột). */
+@import './components/login-modal.css';

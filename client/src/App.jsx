@@ -1,11 +1,14 @@
 import React from 'react';
 import { AppLayout } from './layout/AppLayout';
 import { AppRoutes } from './routes';
+import { AuthModalProvider } from './providers/AuthModalProvider';
 
 export default function App() {
   return (
-    <AppLayout>
-      <AppRoutes />
-    </AppLayout>
+    <AuthModalProvider>
+      <AppLayout>
+        <AppRoutes />
+      </AppLayout>
+    </AuthModalProvider>
   );
 }

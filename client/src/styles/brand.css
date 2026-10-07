@@ -18,7 +18,7 @@
    Độ đặc hiệu (0,1,1) — đủ thắng các quy tắc tiêu đề cũ (vd. .x h2) vốn đặt
    màu chữ thường, nhưng CTA band (!important) vẫn giữ chữ trắng. Loại trừ các
    khối nền đậm nơi tiêu đề kế thừa chữ trắng. */
-:is(.page, .consult-popup__card) :is(h1, h2):not(:where(.home-band--cta *, .landing-hero *, .auth-hero *, .media-card__fallback *, .marketplace-card__fallback *)) {
+:is(.page, .consult-popup__card) :is(h1, h2):not(:where(.home-band--cta *, .landing-hero *, .media-card__fallback *, .marketplace-card__fallback *)) {
   color: var(--color-heading);
 }
 
@@ -405,9 +405,4 @@ progress {
     opacity: 0;
     pointer-events: none;
   }
-}
-
-/* ── 13. Trang đăng nhập: thẻ giới thiệu nền trắng ở theme sáng ──────────── */
-:root[data-theme='light'] .auth-hero h1 {
-  color: var(--color-heading);
 }

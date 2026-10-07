@@ -65,11 +65,9 @@ h1,
 .hero-panel-enterprise h1,
 .section-head h1,
 .course-hero h1,
-.auth-copy h1,
 .dashboard-head h1,
 .home-hero__left h1,
-.learning-hero__copy h1,
-.auth-hero__copy h1 {
+.learning-hero__copy h1 {
   color: var(--text);
   font-size: 44px !important;
   line-height: 1.08 !important;
@@ -87,8 +85,7 @@ h2,
 .program-section__head h2,
 .course-preview__head h2,
 .marketplace-filters__head h2,
-.lesson-sidebar .sidebar-head h2,
-.auth-card__head h2 {
+.lesson-sidebar .sidebar-head h2 {
   color: var(--text);
   font-size: 31.5px !important;
   line-height: 1.18 !important;
@@ -114,8 +111,6 @@ small,
 .program-section__head p,
 .course-preview__head p,
 .section-head p,
-.auth-card__head p,
-.auth-hero__copy p,
 .learning-hero__copy p,
 .content-card p,
 .course-card p,
@@ -320,7 +315,6 @@ small,
 .button,
 .button-ghost,
 .upload-button,
-.auth-link,
 .answer-pill,
 .exercise-tab {
   border-radius: var(--radius) !important;
@@ -357,7 +351,6 @@ small,
 }
 
 .button-ghost,
-.auth-google,
 .upload-button {
   min-height: 44px;
   padding: 0 18px;
@@ -369,7 +362,6 @@ small,
 }
 
 .button-ghost:hover,
-.auth-google:hover,
 .upload-button:hover {
   background: color-mix(in srgb, var(--accent-warm) 8%, var(--surface)) !important;
   border-color: color-mix(in srgb, var(--accent-warm) 26%, var(--border)) !important;
@@ -388,15 +380,12 @@ textarea:focus-visible {
 .content-card,
 .course-card,
 .stat-card,
-.auth-card,
 .lesson-sidebar,
 .price-box,
 .pastel-card,
 .quote-card,
 .mini-panel,
 .course-preview-card,
-.auth-hero,
-.auth-card--enterprise,
 .learning-hero,
 .learning-hero__panel,
 .learning-empty-screen,
@@ -413,11 +402,7 @@ textarea:focus-visible {
 .learning-empty-screen__panel article,
 .practice-badge,
 .teacher-recipient,
-.lesson-lock,
-.auth-stat,
-.auth-tabs,
-.auth-gallery__label,
-.auth-gallery__card {
+.lesson-lock {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius) !important;
@@ -428,7 +413,6 @@ textarea:focus-visible {
 .content-card,
 .course-card,
 .stat-card,
-.auth-card,
 .lesson-sidebar,
 .marketplace-card,
 .assignment-card {
@@ -467,7 +451,6 @@ textarea:focus-visible {
 .content-card,
 .course-card,
 .stat-card,
-.auth-card,
 .price-box,
 .marketplace-owned-strip,
 .marketplace-empty,
@@ -479,8 +462,7 @@ textarea:focus-visible {
 .marketplace-stat,
 .practice-badge,
 .learning-stat-grid article,
-.learning-empty-screen__panel article,
-.auth-stat {
+.learning-empty-screen__panel article {
   display: grid;
   gap: 6px;
   align-content: start;
@@ -490,8 +472,7 @@ textarea:focus-visible {
 .marketplace-stat span,
 .practice-badge span,
 .learning-stat-grid span,
-.learning-empty-screen__panel span,
-.auth-stat span {
+.learning-empty-screen__panel span {
   color: var(--muted);
   font-size: 14.5px;
   font-weight: 650;
@@ -501,7 +482,6 @@ textarea:focus-visible {
 .marketplace-stat strong,
 .learning-stat-grid strong,
 .learning-empty-screen__panel strong,
-.auth-stat strong,
 .home-stat strong {
   color: var(--text);
   font-size: 34px;
@@ -676,8 +656,7 @@ textarea:focus-visible {
 .hero__tilt::after,
 .photo-card::after,
 .program-card__link::after,
-.marketplace-card__media::after,
-.auth-gallery__main::after {
+.marketplace-card__media::after {
   display: none !important;
 }
 
@@ -696,7 +675,6 @@ textarea:focus-visible {
 
 .hero__actions,
 .marketplace-hero__actions,
-.auth-actions,
 .marketplace-card__actions,
 .lesson-actions,
 .teacher-recipient-actions {
@@ -795,7 +773,6 @@ textarea:focus-visible {
 .course-preview__grid,
 .marketplace-hero__stats,
 .learning-stat-grid,
-.auth-stat-grid,
 .lesson-notes-grid,
 .teacher-assignment-grid,
 .learning-media__grid,
@@ -877,8 +854,6 @@ textarea:focus-visible {
 .photo-card img,
 .program-card__link img,
 .course-preview-card img,
-.auth-gallery__main img,
-.auth-gallery__card img,
 .marketplace-card__media img {
   filter: none !important;
 }
@@ -977,7 +952,6 @@ textarea:focus-visible {
 
 .marketplace-hero,
 .learning-hero,
-.auth-shell,
 .course-hero,
 .split-layout,
 .catalog-layout {
@@ -1177,8 +1151,7 @@ textarea:focus-visible {
 
 .answer-pill.is-active,
 .exercise-tab.is-active,
-.marketplace-filter-pill.is-active,
-.auth-tab.is-active {
+.marketplace-filter-pill.is-active {
   color: var(--accent) !important;
   background: color-mix(in srgb, var(--accent) 10%, var(--surface)) !important;
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
@@ -2090,69 +2063,12 @@ textarea:focus-visible {
   font-size: 14.5px;
 }
 
-.auth-shell {
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
-  align-items: stretch;
-}
-
-.auth-hero,
-.auth-card--enterprise {
-  padding: 24px;
-}
-
-.auth-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 0.88fr) minmax(320px, 1.12fr);
-  gap: 22px;
-  align-items: center;
-}
-
-.auth-gallery {
-  gap: 12px;
-}
-
-.auth-gallery__main,
-.auth-gallery__card {
-  overflow: hidden;
-  border-radius: var(--radius) !important;
-  border: 1px solid var(--border) !important;
-}
-
-.auth-gallery__main {
-  min-height: 320px;
-}
-
-.auth-gallery__label {
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-}
-
-.auth-card--enterprise {
-  align-content: start;
-}
-
-.auth-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 4px;
-}
-
-.auth-tab {
-  min-height: 40px;
-  color: var(--muted);
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  font-weight: 800;
-}
-
 .auth-field {
   display: grid;
   gap: 8px;
 }
 
 .auth-field > span,
-.auth-field__row,
 .marketplace-field span,
 .marketplace-filter-group > span,
 .marketplace-sort span {
@@ -2182,58 +2098,6 @@ textarea:focus-visible {
 .lesson-input[rows] {
   min-height: 110px;
   resize: vertical;
-}
-
-/* Ô mật khẩu + nút hiện/ẩn nằm chồng bên phải, chừa padding cho chữ khỏi chui
-   xuống dưới nút. Nút cao hết chiều cao ô (44px) để đủ vùng chạm. */
-/* Dời margin-top của input lên wrapper, nếu không thì wrapper cao hơn input
-   6px và nút (top:0/bottom:0) thò lên khỏi khung ô. */
-.auth-field__password {
-  position: relative;
-  margin-top: 0.35rem;
-}
-
-.auth-field__password input {
-  margin-top: 0;
-  padding-right: 68px;
-}
-
-.auth-field__password-toggle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 4px;
-  padding: 0 12px;
-  color: var(--accent);
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: var(--radius);
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.auth-field__password-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.auth-link {
-  min-height: 0;
-  padding: 0;
-  color: var(--accent);
-  background: transparent !important;
-  border: 0 !important;
-  font-weight: 800;
-}
-
-.auth-divider {
-  color: var(--muted);
-}
-
-.auth-divider span:first-child,
-.auth-divider span:last-child {
-  background: var(--border) !important;
 }
 
 .footer {
@@ -2803,16 +2667,6 @@ textarea:focus-visible {
   border-radius: 8px !important;
 }
 
-.google-logo {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-}
-
-.auth-google {
-  gap: 10px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -2912,8 +2766,6 @@ textarea:focus-visible {
   .marketplace-hero,
   .learning-hero,
   .learning-empty-screen,
-  .auth-shell,
-  .auth-hero,
   .course-hero,
   .split-layout,
   .catalog-layout,
@@ -3084,11 +2936,9 @@ textarea:focus-visible {
   .hero-panel-enterprise h1,
   .section-head h1,
   .course-hero h1,
-  .auth-copy h1,
   .dashboard-head h1,
   .home-hero__left h1,
-  .learning-hero__copy h1,
-  .auth-hero__copy h1 {
+  .learning-hero__copy h1 {
     font-size: 32px !important;
     line-height: 1.12 !important;
   }
@@ -3098,8 +2948,7 @@ textarea:focus-visible {
   .program-section__head h2,
   .course-preview__head h2,
   .marketplace-filters__head h2,
-  .lesson-sidebar .sidebar-head h2,
-  .auth-card__head h2 {
+  .lesson-sidebar .sidebar-head h2 {
     font-size: 27px !important;
   }
 
@@ -3141,7 +2990,6 @@ textarea:focus-visible {
   .learning-empty-screen__actions .button,
   .learning-empty-screen__actions .button-ghost,
   .auth-submit,
-  .auth-google,
   .dashboard-submit {
     width: 100%;
   }
@@ -3159,7 +3007,6 @@ textarea:focus-visible {
   .teacher-assignment-grid,
   .lesson-notes-grid,
   .dashboard-form__grid,
-  .auth-stat-grid,
   .footer-links {
     grid-template-columns: 1fr;
   }
@@ -3167,12 +3014,9 @@ textarea:focus-visible {
   .content-card,
   .course-card,
   .stat-card,
-  .auth-card,
   .price-box,
   .marketplace-owned-strip,
   .marketplace-empty,
-  .auth-hero,
-  .auth-card--enterprise,
   .learning-hero,
   .learning-empty-screen,
   .learning-hero__panel,
@@ -3261,10 +3105,6 @@ textarea:focus-visible {
 
   .match-row {
     grid-template-columns: 1fr;
-  }
-
-  .auth-gallery__main {
-    min-height: 240px;
   }
 
   .footer-inner {

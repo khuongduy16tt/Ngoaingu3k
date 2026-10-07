@@ -18,6 +18,7 @@ import { formatVnd } from '../lib/money';
 import { ComboSection } from '../components/ComboSection';
 import { PackagePicker } from '../components/PackagePicker';
 import { getPublishedCombos, purchaseCombo } from '../lib/comboService';
+import { AuthModalLink } from '../providers/AuthModalProvider';
 
 // Ảnh khoá học từ brief "Check ảnh web" (#11 Tiếng Anh, #12 Tiếng Trung) — dùng
 // làm ảnh minh hoạ cho khoá chưa có bannerUrl riêng, luân phiên theo vị trí thẻ
@@ -165,9 +166,9 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
                 {currentRole === 'student' ? buyLabel : 'Chỉ dành cho học viên'}
               </button>
             ) : (
-              <Link className="button" to="/auth">
+              <AuthModalLink className="button">
                 Đăng nhập để mua
-              </Link>
+              </AuthModalLink>
             )}
           </div>
         </div>

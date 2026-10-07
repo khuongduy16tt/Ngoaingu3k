@@ -16,7 +16,11 @@ vi.mock('../providers/AuthProvider', () => ({
 
 vi.mock('../lib/courseService', async (importOriginal) => ({
   ...(await importOriginal()),
-  getCourseCatalog: vi.fn(async () => []),
+  // Khóa chỉ được đếm khi còn trong danh mục (mở được "Vào học").
+  getCourseCatalog: vi.fn(async () => [
+    { id: 'khoa-1', title: 'Khóa 1' },
+    { id: 'khoa-2', title: 'Khóa 2' }
+  ]),
   getOwnedCourseIds: vi.fn(async () => ['khoa-1', 'khoa-2'])
 }));
 

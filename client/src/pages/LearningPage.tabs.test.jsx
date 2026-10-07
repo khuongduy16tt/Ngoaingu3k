@@ -46,6 +46,17 @@ describe('LessonTabbedContent', () => {
     expect(screen.queryByText('Câu ngữ pháp 1')).not.toBeInTheDocument();
   });
 
+  it('chủ đề không có video lẫn nội dung đọc thì mở thẳng phần Bài tập', () => {
+    renderContent({
+      id: 'no-video',
+      title: 'Từ vựng',
+      tabs: [{ id: 'e1', kind: 'exercise', title: 'Bài tập từ vựng', exercises: [mcq('q1', 'Câu từ vựng 1')] }]
+    });
+
+    expect(screen.getByRole('tab', { name: /^Bài tập/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Câu từ vựng 1')).toBeInTheDocument();
+  });
+
   it('khung video không in lại tên chủ đề đã có ở tiêu đề trang', () => {
     renderContent(lessonWithTabs);
     expect(screen.queryByRole('heading', { name: 'Chủ đề 1' })).not.toBeInTheDocument();

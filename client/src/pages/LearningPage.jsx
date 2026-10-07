@@ -725,6 +725,14 @@ function parsePastedVideoQuestions(text) {
     .filter((question) => question.prompt);
 }
 
+// Bảng giảng viên ghi chú mặc định "Bài 3 · Nhập thủ công" — "Nhập thủ công" là
+// cách giảng viên đã tạo bài, học viên đọc không hiểu. Chỉ bỏ phần đó khi hiển thị.
+function getDisplayLessonNote(note) {
+  return String(note || '')
+    .replace(/\s*·\s*Nhập thủ công\s*$/i, '')
+    .trim();
+}
+
 function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', pageNote = '' }) {
   // Tên bài và ghi chú đã in ở đầu Phòng học (h1) — khung video chỉ nhắc lại
   // khi video có tiêu đề/ghi chú riêng khác với bài.
@@ -750,7 +758,7 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', p
           {videoIssue ||
             (isTeacher
             ? 'Bài này chưa có link video Google Drive. Hãy mở bảng giảng viên để gắn video cho từng bài.'
-            : 'Bài học này chưa có video. Bạn vẫn có thể làm phần bài tập bên dưới nếu đã được mở khóa.')}
+            : 'Bài học này chưa có video. Chuyển sang mục Bài tập để luyện ngay.')}
         </p>
         {rawVideoUrl ? (
           <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
@@ -880,6 +888,7 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
                 correctValue === choice.value ? 'is-correct' : '',
                 revealAnswer && isSelected && correctValue !== choice.value ? 'is-wrong' : ''
               ].filter(Boolean).join(' ')}
+              aria-pressed={isSelected}
               onClick={() => onChange(choice.value)}
               disabled={disabled}
             >
@@ -955,6 +964,7 @@ function LessonQuestionInput({ question, answer, onChange, disabled, revealAnswe
               correctLabel === option.label ? 'is-correct' : '',
               revealAnswer && isSelected && correctLabel && correctLabel !== option.label ? 'is-wrong' : ''
             ].filter(Boolean).join(' ')}
+            aria-pressed={isSelected}
             onClick={() => onChange(option.label)}
             disabled={disabled}
           >
@@ -1354,12 +1364,20 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
   const videoTab = useMemo(() => getVideoTab(tabs), [tabs]);
   const exerciseTabs = useMemo(() => getExerciseTabs(tabs), [tabs]);
 
-  const [activePart, setActivePart] = useState('video');
+  // Chủ đề không có video lẫn nội dung đọc thì phần Video chỉ là một ô "Chưa
+  // có video" — mở thẳng phần Bài tập để học viên khỏi phải bấm thêm một lần.
+  const videoPartIsEmpty =
+    !(videoTab?.videoUrl || lesson?.videoUrl || lesson?.videoEmbedUrl) &&
+    !(videoTab?.readingItems?.length || lesson?.readingItems?.length) &&
+    !(videoTab?.pinyinTable || lesson?.pinyinTable);
+  const defaultPart = videoPartIsEmpty && exerciseTabs.length ? 'exercise' : 'video';
+
+  const [activePart, setActivePart] = useState(defaultPart);
   const [activeExerciseTabId, setActiveExerciseTabId] = useState(exerciseTabs[0]?.id || '');
 
-  // Đổi chủ đề → quay lại phần Video và chọn lại tab bài tập đầu tiên.
+  // Đổi chủ đề → quay lại phần mặc định và chọn lại tab bài tập đầu tiên.
   useEffect(() => {
-    setActivePart('video');
+    setActivePart(defaultPart);
     setActiveExerciseTabId('');
   }, [lesson?.id]);
 
@@ -3599,7 +3617,7 @@ export default function LearningPage() {
             <>
               <div className="learning-lesson-title-row">
                 <h1>{currentLesson.title}</h1>
-                {currentLesson.note ? <p>{currentLesson.note}</p> : null}
+                {getDisplayLessonNote(currentLesson.note) ? <p>{getDisplayLessonNote(currentLesson.note)}</p> : null}
                 
                 {canManageCurrentCourse && (
                   <div style={PILL_ROW_STYLE}>

@@ -43,6 +43,17 @@ function consumePendingLogin() {
   }
 }
 
+// Link "đặt lại mật khẩu" trong email quay về /auth#...&type=recovery (implicit
+// flow). Đọc ngay khi nạp module, trước khi supabase-js xóa hash khỏi URL —
+// sự kiện PASSWORD_RECOVERY của supabase vẫn là đường chính, đây là lưới đỡ.
+// Người bấm link đang chủ động đăng nhập lại trên máy này: đánh dấu như một lần
+// đăng nhập để máy này giành chỗ thiết bị, không bị máy cũ đá ra giữa chừng.
+const OPENED_FROM_RECOVERY_LINK =
+  typeof window !== 'undefined' && /(^|[#&?])type=recovery(&|$)/.test(window.location.hash || '');
+if (OPENED_FROM_RECOVERY_LINK) {
+  markPendingLogin();
+}
+
 function normalizeRole(role) {
   return validRoles.includes(role) ? role : 'student';
 }
@@ -143,6 +154,9 @@ export function AuthProvider({ children }) {
   // Bật khi tài khoản này vừa được đăng nhập ở máy khác nên máy này bị đăng
   // xuất — trang đăng nhập đọc cờ này để giải thích cho người dùng.
   const [deviceKickedOut, setDeviceKickedOut] = useState(false);
+  // Bật khi người dùng vừa mở link đặt lại mật khẩu — hộp thoại đăng nhập hiện
+  // màn "Đặt mật khẩu mới" thay vì chuyển thẳng vào bảng điều khiển.
+  const [passwordRecovery, setPasswordRecovery] = useState(OPENED_FROM_RECOVERY_LINK);
   const skipNextLoginLogRef = useRef(false);
   const deviceGuardQueueRef = useRef(Promise.resolve());
   // Id của user đang thực sự đăng nhập — dùng để phân biệt "đổi user thật"
@@ -380,6 +394,21 @@ export function AuthProvider({ children }) {
     });
   }
 
+  // Đặt mật khẩu mới cho phiên khôi phục (sau khi bấm link trong email). Cờ
+  // passwordRecovery do hộp thoại tắt (clearPasswordRecovery) sau khi người dùng
+  // đã đọc thông báo thành công — tắt ở đây thì /auth chuyển trang ngay lập tức.
+  async function updatePassword(newPassword) {
+    if (!supabase) {
+      return { data: {}, error: null };
+    }
+
+    return supabase.auth.updateUser({ password: newPassword });
+  }
+
+  function clearPasswordRecovery() {
+    setPasswordRecovery(false);
+  }
+
   useEffect(() => {
     if (!supabase) {
       return;
@@ -446,6 +475,10 @@ export function AuthProvider({ children }) {
     } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) {
         return;
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
       }
 
       const nextUserId = nextSession?.user?.id ?? null;
@@ -551,14 +584,17 @@ export function AuthProvider({ children }) {
       user: session?.user ?? null,
       isAuthenticated: Boolean(session),
       deviceKickedOut,
+      passwordRecovery,
       signOut,
       signInWithEmail,
       signUpWithEmail,
       signInWithGoogle,
       sendPasswordReset,
+      updatePassword,
+      clearPasswordRecovery,
       updateProfile
     }),
-    [deviceKickedOut, loading, profile, ready, role, session]
+    [deviceKickedOut, loading, passwordRecovery, profile, ready, role, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

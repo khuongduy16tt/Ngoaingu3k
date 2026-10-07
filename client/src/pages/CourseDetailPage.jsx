@@ -20,14 +20,16 @@ import { usePaymentStatusPolling } from '../hooks/usePaymentStatusPolling';
 import { CourseLessonList } from '../components/CourseLessonList';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { PaymentInstructions } from '../components/PaymentInstructions';
+import { AuthModalLink } from '../providers/AuthModalProvider';
 
 export default function CourseDetailPage() {
   const { courseId } = useParams();
   const auth = useAuth();
   const navigate = useNavigate();
-  usePageTitle(courseId ? `Khóa học ${courseId}` : 'Chi tiết khóa học');
   const currentRole = getEffectiveRole(auth);
   const [course, setCourse] = useState(null);
+  // Tên khóa thật ("HSK 3") chứ không phải slug trên URL ("hsk-3").
+  usePageTitle(course?.title ? `Khóa học ${course.title}` : 'Chi tiết khóa học');
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -355,9 +357,9 @@ export default function CourseDetailPage() {
                 : 'Chỉ dành cho học viên'}
             </button>
           ) : (
-            <Link className="button" to="/auth">
+            <AuthModalLink className="button">
               Đăng nhập để mua
-            </Link>
+            </AuthModalLink>
           )}
 
           <Link className="button-ghost" to="/courses">

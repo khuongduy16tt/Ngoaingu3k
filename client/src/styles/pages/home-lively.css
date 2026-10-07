@@ -1,0 +1,571 @@
+/* Trang chủ sinh động hơn (đợt 10/2026).
+   Chỉ thêm lớp đè cho các khối sẵn có của HomePage — không đổi bố cục gốc ở
+   hsk-campaign.css. Màu lấy từ token (tokens.css), chuyển động nhẹ, và tắt hết
+   khi người dùng bật "giảm chuyển động". */
+
+/* ── 0. Tiện ích ────────────────────────────────────────────────────────── */
+.home-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
+/* Không còn dải trống 56px giữa băng CTA và footer. */
+.page.home-page--new {
+  padding-bottom: 0;
+}
+
+/* ── 1. Hiện dần khi cuộn ──────────────────────────────────────────────────
+   Chỉ ẩn khi hook đã gắn .home-page--reveal (có JS + IntersectionObserver +
+   không giảm chuyển động). data-reveal="stagger": các con hiện lần lượt. */
+.home-page--reveal [data-reveal]:not([data-reveal='stagger']):not(.is-revealed),
+.home-page--reveal [data-reveal='stagger']:not(.is-revealed) > * {
+  opacity: 0;
+}
+
+/* animation với fill 'backwards' (không phải 'both'): hết hiệu ứng thì trả lại
+   transform cho :hover của từng thẻ, không giữ đè transform: none. */
+.home-page--reveal [data-reveal].is-revealed:not([data-reveal='stagger']),
+.home-page--reveal [data-reveal='stagger'].is-revealed > * {
+  animation: home-reveal-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+.home-page--reveal [data-reveal='stagger'].is-revealed > :nth-child(2) { animation-delay: 0.08s; }
+.home-page--reveal [data-reveal='stagger'].is-revealed > :nth-child(3) { animation-delay: 0.16s; }
+.home-page--reveal [data-reveal='stagger'].is-revealed > :nth-child(4) { animation-delay: 0.24s; }
+.home-page--reveal [data-reveal='stagger'].is-revealed > :nth-child(5) { animation-delay: 0.32s; }
+.home-page--reveal [data-reveal='stagger'].is-revealed > :nth-child(n + 6) { animation-delay: 0.4s; }
+
+@keyframes home-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── 2. Nhãn mục: vạch màu brand dẫn mắt ───────────────────────────────── */
+.home-page--new .section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-page--new .section-eyebrow::before {
+  content: '';
+  width: 28px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  flex: none;
+}
+
+/* Khối testimonial căn giữa: vạch hai bên cho cân. */
+.home-band--testimonial .section-eyebrow::after {
+  content: '';
+  width: 28px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--color-secondary), var(--color-primary));
+}
+
+/* ── 3. Thẻ số liệu: icon + vạch màu + nổi khi rê chuột ────────────────── */
+.home-stat {
+  position: relative;
+  overflow: hidden;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: center;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.home-stat::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary), var(--color-success));
+}
+
+.home-stat:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.home-stat__icon {
+  grid-row: span 2;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-secondary) 16%, var(--color-surface));
+}
+
+.home-stat--accent .home-stat__icon {
+  color: var(--color-success-text) !important;
+  background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface));
+}
+
+/* Nền tối: icon navy chìm vào nền — dùng xanh dương sáng. */
+:root[data-theme='dark'] .home-stat__icon {
+  color: var(--color-secondary) !important;
+}
+
+.home-stat__icon svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.home-stat strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Số nằm trong <span> (bản đếm + bản cho trình đọc màn hình): không ăn quy tắc
+   ".home-stat span" vốn dành cho nhãn nhỏ viết hoa bên dưới. */
+.home-stat strong > span {
+  font: inherit !important;
+  color: inherit !important;
+  text-transform: none !important;
+  letter-spacing: inherit !important;
+}
+
+/* ── 4. Ảnh: phóng nhẹ khi rê chuột, khung ảnh "Về chúng tôi" có lớp nền ─── */
+.about-section__media,
+.path-section__media,
+.story-section__media,
+.products-section__item,
+.trust-gallery__item,
+.activities-gallery__item,
+.course-tile__media,
+.program-tile__media {
+  overflow: hidden;
+}
+
+.about-section__media img,
+.path-section__media img,
+.story-section__media img,
+.products-section__item img,
+.trust-gallery__item img,
+.activities-gallery__item img,
+.course-tile__media img,
+.program-tile__media img {
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.about-section__media:hover img,
+.path-section__media:hover img,
+.story-section__media:hover img,
+.products-section__item:hover img,
+.trust-gallery__item:hover img,
+.activities-gallery__item:hover img,
+.course-tile:hover .course-tile__media img,
+.program-tile:hover .program-tile__media img {
+  transform: scale(1.05);
+}
+
+.trust-gallery__item,
+.activities-gallery__item,
+.products-section__item {
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.trust-gallery__item:hover,
+.activities-gallery__item:hover,
+.products-section__item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── 5. Lộ trình học: mỗi bước là một dòng nổi lên khi rê chuột ─────────── */
+.path-list__link {
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.path-list__link:hover,
+.path-list__link:focus-visible {
+  background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  transform: translateX(6px);
+}
+
+.path-list__number {
+  transition: color 0.2s ease;
+}
+
+/* ── 6. Vì sao chọn: từ bảng kẻ mảnh thành 3 thẻ có icon tròn ───────────── */
+.reasons-table {
+  gap: 24px;
+  border: 0;
+}
+
+.reasons-table__col,
+.reasons-table__col:first-child,
+.reasons-table__col:last-child {
+  padding: 32px 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.reasons-table__col + .reasons-table__col {
+  border-left: 1px solid var(--color-border);
+}
+
+.reasons-table__col:hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--color-secondary) 55%, var(--color-border));
+  box-shadow: var(--shadow-md);
+}
+
+.reasons-table__icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  color: var(--color-on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+
+.reasons-table__col:nth-child(3) .reasons-table__icon {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-success));
+}
+
+.reasons-table__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* ── 8. Học viên nói gì: thẻ trắng, avatar chữ cái, đổi đánh giá mượt ───── */
+.testimonial-carousel {
+  width: 100%;
+  padding: 40px 48px 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.testimonial-carousel__mark {
+  color: var(--color-secondary) !important;
+}
+
+.testimonial-carousel__slide {
+  display: grid;
+  gap: 1.5rem;
+  justify-items: center;
+  animation: home-testimonial-in 0.55s ease both;
+}
+
+.testimonial-carousel__author {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.testimonial-carousel__avatar {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-on-primary) !important;
+  font-size: 1rem !important;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+}
+
+.testimonial-carousel__who {
+  display: grid;
+  gap: 2px;
+}
+
+.testimonial-carousel__dot {
+  transition:
+    width 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.testimonial-carousel__dot.is-active {
+  width: 24px;
+  border-radius: 999px;
+}
+
+@keyframes home-testimonial-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── 9. Khóa học nổi bật: thẻ có khung, nổi khi rê chuột, link "Xem tất cả" ─ */
+.courses-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.courses-section__all {
+  color: var(--color-link);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.courses-section__all:hover {
+  text-decoration: underline;
+}
+
+.course-tile {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.course-tile:hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--color-secondary) 55%, var(--color-border));
+  box-shadow: var(--shadow-md);
+}
+
+.course-tile__media {
+  border-radius: 0;
+  aspect-ratio: 16 / 10;
+}
+
+.course-tile__body {
+  padding: 18px 20px 22px;
+  align-content: start;
+}
+
+.course-tile__body p {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.course-tile__body .course-tile__link {
+  margin-top: 6px;
+}
+
+/* ── 10. Băng CTA cuối trang: nền gradient brand + hai nút ──────────────── */
+.home-band--cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(120deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary) 72%, var(--color-secondary)) 100%);
+}
+
+.home-band--cta::before,
+.home-band--cta::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.home-band--cta::before {
+  width: 420px;
+  height: 420px;
+  top: -210px;
+  left: -120px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-secondary) 45%, transparent), transparent 70%);
+  animation: home-cta-float 9s ease-in-out infinite alternate;
+}
+
+.home-band--cta::after {
+  width: 360px;
+  height: 360px;
+  right: -90px;
+  bottom: -200px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-success) 40%, transparent), transparent 70%);
+  animation: home-cta-float 11s ease-in-out infinite alternate-reverse;
+}
+
+.cta-band__lead {
+  margin: -0.5rem 0 0;
+  color: color-mix(in srgb, var(--color-on-primary) 86%, transparent) !important;
+  font-size: 1.05rem;
+}
+
+.cta-band__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.cta-band__button {
+  justify-content: center;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(15, 33, 64, 0.22);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.cta-band__button:hover {
+  transform: translateY(-2px);
+}
+
+.cta-band__button--ghost {
+  color: var(--color-on-primary);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-on-primary) 70%, transparent);
+  box-shadow: none;
+}
+
+.cta-band__button--ghost:hover {
+  color: var(--color-primary);
+  background: var(--color-on-primary);
+}
+
+@keyframes home-cta-float {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(40px, 30px);
+  }
+}
+
+/* ── 11. Điện thoại ─────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Thẻ số liệu 3 cột hẹp: icon nhỏ, nằm trên số. */
+  .home-stat {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .home-stat__icon {
+    grid-row: auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  .home-stat__icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* 3 ảnh "tin cậy" + 4 ảnh "hoạt động" xếp dọc dài ~2.000px: chuyển thành dải
+     vuốt ngang, mỗi ảnh 82% bề ngang để lộ mép ảnh kế — biết còn ảnh sau. */
+  .trust-gallery,
+  .activities-gallery {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    margin-inline: calc(var(--page-gutter, 32px) / -2);
+    padding: 4px calc(var(--page-gutter, 32px) / 2) 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .trust-gallery::-webkit-scrollbar,
+  .activities-gallery::-webkit-scrollbar {
+    display: none;
+  }
+
+  .trust-gallery__item,
+  .activities-gallery__item {
+    flex: 0 0 82%;
+    scroll-snap-align: center;
+  }
+
+  .reasons-table {
+    gap: 14px;
+  }
+
+  /* Icon nằm trái, chữ phải: mỗi thẻ thấp hơn ~70px so với xếp chồng. */
+  .reasons-table__col,
+  .reasons-table__col:first-child,
+  .reasons-table__col:last-child {
+    grid-template-columns: 48px minmax(0, 1fr);
+    column-gap: 16px;
+    padding: 20px 18px;
+  }
+
+  .reasons-table__icon {
+    grid-row: span 2;
+    width: 48px;
+    height: 48px;
+    margin: 0;
+  }
+
+  .reasons-table__col h3,
+  .reasons-table__col p {
+    grid-column: 2;
+  }
+
+  .testimonial-carousel {
+    padding: 28px 20px 24px;
+  }
+
+
+  .cta-band__actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 340px;
+  }
+}
+
+/* ── 12. Giảm chuyển động: giữ đổi màu, bỏ dịch chuyển/phóng/trôi ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .home-page--new *,
+  .home-page--new *::before,
+  .home-page--new *::after {
+    animation: none !important;
+    transition-property: color, background-color, border-color, box-shadow !important;
+  }
+
+  .home-page--new :hover,
+  .home-page--new :hover img {
+    transform: none !important;
+  }
+}

@@ -4,6 +4,7 @@ import { formatVnd } from '../lib/money';
 import { quoteCombo, savingsPercent, sumListPrice } from '../lib/comboPricing';
 import { comboPricingCourses } from '../lib/comboService';
 import { PackagePicker } from './PackagePicker';
+import { AuthModalLink } from '../providers/AuthModalProvider';
 
 function ComboCard({ combo, ownedCourseIdSet, authSession, currentRole, purchasingId, feedback, onPurchase }) {
   const pricingCourses = comboPricingCourses(combo);
@@ -85,9 +86,9 @@ function ComboCard({ combo, ownedCourseIdSet, authSession, currentRole, purchasi
                   : 'Mua combo'}
           </button>
         ) : (
-          <Link className="button" to="/auth">
+          <AuthModalLink className="button">
             Đăng nhập để mua
-          </Link>
+          </AuthModalLink>
         )}
       </div>
 
