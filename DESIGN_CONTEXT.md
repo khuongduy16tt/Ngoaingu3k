@@ -16,16 +16,16 @@
 - Soft
 - Balanced and modern
 
-## Brand identity (2026)
-- Primary `#385791` — header, navigation, primary CTA, headings, links. The dominant brand color.
-- Secondary blue `#59B3E1` — secondary CTA, selected/active state, info, highlights.
-- Secondary green `#52BD87` — success, progress, completion, achievement.
-- Never change these HEX values. White text only on `#385791` (7.14:1); on blue/green fills use navy ink `#0f2140` (6.8:1).
+## Brand identity (10/2026 — all green, matching the logo)
+- Navy `#385791` and blue `#59B3E1` are retired. Do not reintroduce them.
+- Primary dark green `#15803D` (hover `#16A34A`, deep `#14532D`) — header, navigation, primary CTA, links. White text on it is 5.0:1.
+- Bright green `#22C55E` — secondary CTA, selected/active state, highlights, progress. Never put white text on it (2.3:1); use green-black ink `#052E16` (8.6:1).
+- Light green `#DCFCE7` — soft fills, badges.
 - All colors live in `client/src/styles/tokens.css` (primitive → semantic `--color-*` → legacy aliases). Components must use tokens, never raw HEX.
 - Keep neutral surfaces and whitespace dominant; brand colors are accents, not backgrounds everywhere.
 
 ## Visual direction
-- Calm, modern, trustworthy educational UI: navy brand header, light cool-neutral surfaces, blue for interaction, green for progress.
+- Calm, modern, trustworthy educational UI: green brand header, light warm-neutral surfaces, green for interaction and progress.
 - Use color strategically to highlight calls to action, course importance, and progress states.
 - Strong hierarchy, generous spacing, and crisp content structure are more important than decorative effects.
 
@@ -37,7 +37,7 @@
 5. Support accessibility through strong contrast, readable typography, and reduced-motion behavior.
 
 ## Visual language guidance
-- Good directions: brand navy/blue/green accents, rounded surfaces (12px cards), subtle elevation, gentle transitions. Gradients only between brand colors and sparingly.
+- Good directions: brand green accents, rounded surfaces (12px cards), subtle elevation, gentle transitions. Gradients only between brand colors and sparingly.
 - Avoid: the retired green/orange brand (#6bcf49, #ec6e23), monotone gray UI, overly saturated or neon colors, heavy animation, cluttered hero sections, generic enterprise styling.
 
 ## Content and tone

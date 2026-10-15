@@ -10,9 +10,10 @@
      3. Alias cũ       — --accent, --bg, --button-bg… trỏ về semantic.
 
    Tương phản (WCAG 2.1, đã đo):
-     #385791 + trắng  7.14:1  → chữ trắng trên primary: đạt AA/AAA.
-     #59B3E1 + trắng  2.34:1  → KHÔNG đạt; trên nền #59B3E1 dùng chữ navy
-     #52BD87 + trắng  2.34:1    --color-on-secondary (#0f2140, 6.8:1).
+     (10/2026: bỏ navy, toàn bộ nhận diện chuyển sang xanh lá theo logo.)
+     #15803D + trắng  5.0:1   → chữ trắng trên primary: đạt AA.
+     #22C55E + trắng  2.3:1   → KHÔNG đạt; trên nền #22C55E dùng chữ xanh đen
+                                --color-on-secondary (#052E16, 8.6:1).
    Vì vậy màu xanh dương/xanh lá brand dùng làm NỀN (nút, thanh tiến độ, chấm
    trạng thái) với chữ tối; khi cần làm CHỮ trên nền sáng thì dùng biến thể
    đậm hơn cùng sắc độ (--color-success-text, --color-info-text).
@@ -20,24 +21,25 @@
 
 :root {
   /* ── 1. Brand primitives ── */
-  --brand-primary: #385791;
-  --brand-blue: #59b3e1;
-  --brand-green: #52bd87;
+  --brand-primary: #15803d;
+  /* Tên biến giữ "blue" để khỏi sửa hàng trăm chỗ dùng — giá trị giờ là xanh lá tươi. */
+  --brand-blue: #22c55e;
+  --brand-green: #22c55e;
 
   /* Biến thể cùng sắc độ của primary, dùng cho trạng thái tương tác. */
-  --brand-primary-600: #2d4876;
-  --brand-primary-700: #253c63;
-  --brand-primary-300: #8fb0e6;
-  --brand-ink: #0f2140; /* chữ đặt trên nền blue/green */
+  --brand-primary-600: #166534;
+  --brand-primary-700: #14532d;
+  --brand-primary-300: #86efac;
+  --brand-ink: #052e16; /* chữ đặt trên nền xanh lá tươi */
   /* Xanh hoàng gia của nút "Bắt đầu học ngay" trong ảnh banner trang chủ —
      nút thật đè lên phải cùng tông ảnh, không phải màu UI. Chữ trắng 4.8–7.2:1. */
-  --banner-cta-from: #0a4fc4;
-  --banner-cta-to: #1f6ee0;
-  --avatar-blue-deep: #1f6f9c; /* cùng sắc độ #59B3E1, đủ tối cho chữ trắng */
-  --avatar-green-deep: #1f7a50; /* cùng sắc độ #52BD87, đủ tối cho chữ trắng */
+  --banner-cta-from: #15803d;
+  --banner-cta-to: #16a34a;
+  --avatar-blue-deep: #166534; /* xanh lá đậm, đủ tối cho chữ trắng */
+  --avatar-green-deep: #1f7a50;
 
   /* ── Không phải màu: typography · spacing · radius · elevation ── */
-  --font-sans: Nunito, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Be Vietnam Pro', Nunito, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --fs-display: clamp(32px, 4.2vw, 48px);
   --fs-h1: clamp(26px, 3.2vw, 40px);
@@ -71,8 +73,8 @@
   --space-12: 48px;
 
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
   --radius-pill: 999px;
 
   --control-height: 44px;
@@ -94,34 +96,34 @@
   --color-on-primary: #ffffff;
 
   --color-secondary: var(--brand-blue);
-  --color-secondary-hover: #47a3d3;
+  --color-secondary-hover: #16a34a;
   --color-on-secondary: var(--brand-ink);
 
   --color-accent: var(--brand-green);
   --color-on-accent: var(--brand-ink);
 
-  --color-background: #f5f8fc;
-  --color-background-alt: #eaf0f8;
+  --color-background: #f6f4f0;
+  --color-background-alt: #efede9;
   --color-surface: #ffffff;
-  --color-surface-muted: #f2f6fb;
-  --color-surface-inverse: #14223f;
+  --color-surface-muted: #faf9f7;
+  --color-surface-inverse: #14532d;
 
-  --color-text-primary: #14223f;
-  --color-text-secondary: #42506b;
-  --color-text-muted: #5b6a85;
-  --color-heading: var(--brand-primary);
+  --color-text-primary: #111111;
+  --color-text-secondary: #3d3d3d;
+  --color-text-muted: #5b5b5b;
+  --color-heading: #111111;
   --color-link: var(--brand-primary);
 
-  --color-border: rgba(20, 34, 63, 0.14);
-  --color-border-strong: rgba(20, 34, 63, 0.28);
-  --color-divider: rgba(20, 34, 63, 0.1);
+  --color-border: #e7e4df;
+  --color-border-strong: #d6d2cb;
+  --color-divider: #efede9;
 
   --color-success: var(--brand-green);
   --color-success-text: #1f7a50;
   --color-warning: #b45f06;
   --color-error: #c0392b;
   --color-info: var(--brand-blue);
-  --color-info-text: #1f6f9c;
+  --color-info-text: #15803d;
 
   --color-focus: var(--brand-blue);
 
@@ -130,10 +132,10 @@
   --color-header-text: #ffffff;
   --color-header-active-bg: var(--brand-blue);
   --color-header-active-text: var(--brand-ink);
-  --color-footer-bg: #14223f;
+  --color-footer-bg: #0c2a18;
 
-  --shadow-sm: 0 1px 2px rgba(20, 34, 63, 0.06), 0 2px 8px rgba(20, 34, 63, 0.05);
-  --shadow-md: 0 1px 2px rgba(20, 34, 63, 0.06), 0 10px 28px rgba(20, 34, 63, 0.08);
+  --shadow-sm: 0 1px 2px rgba(19, 32, 26, 0.06), 0 2px 8px rgba(19, 32, 26, 0.05);
+  --shadow-md: 0 1px 2px rgba(19, 32, 26, 0.06), 0 10px 28px rgba(19, 32, 26, 0.08);
 
   /* ── 3. Alias cho tên biến cũ ── */
   --bg: var(--color-background);
@@ -174,46 +176,46 @@
   color-scheme: dark;
 
   --color-primary: var(--brand-primary);
-  --color-primary-hover: #42659f;
+  --color-primary-hover: #16a34a;
   --color-primary-active: var(--brand-primary-600);
   --color-on-primary: #ffffff;
 
   --color-secondary: var(--brand-blue);
-  --color-secondary-hover: #74c1e8;
+  --color-secondary-hover: #4ade80;
 
-  --color-background: #0e1729;
-  --color-background-alt: #122038;
-  --color-surface: #16243f;
-  --color-surface-muted: #12203a;
-  --color-surface-inverse: #f5f8fc;
+  --color-background: #0b1410;
+  --color-background-alt: #0f1c15;
+  --color-surface: #13221a;
+  --color-surface-muted: #102019;
+  --color-surface-inverse: #f6f7f4;
 
-  --color-text-primary: #eef3fb;
-  --color-text-secondary: #c5d0e2;
-  --color-text-muted: #a9b8d0;
-  /* Primary #385791 trên nền navy chỉ 2.5:1 — tiêu đề/link dùng tint sáng. */
-  --color-heading: #eef3fb;
+  --color-text-primary: #eef5f0;
+  --color-text-secondary: #c5d3ca;
+  --color-text-muted: #a6b8ad;
+  /* Primary #15803D trên nền tối chỉ ~3:1 — tiêu đề/link dùng tint sáng. */
+  --color-heading: #eef5f0;
   --color-link: var(--brand-primary-300);
 
-  --color-border: rgba(169, 184, 208, 0.22);
-  --color-border-strong: rgba(169, 184, 208, 0.4);
-  --color-divider: rgba(169, 184, 208, 0.14);
+  --color-border: rgba(166, 184, 173, 0.22);
+  --color-border-strong: rgba(166, 184, 173, 0.4);
+  --color-divider: rgba(166, 184, 173, 0.14);
 
   --color-success-text: var(--brand-green);
   --color-warning: #f2b35b;
   --color-error: #ff8a7e;
   --color-info-text: var(--brand-blue);
 
-  --color-footer-bg: #0a1222;
+  --color-footer-bg: #07120c;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.28);
 
   --accent: var(--brand-primary-300);
-  --accent-hover: #b3c9ee;
+  --accent-hover: #bbf7d0;
   --accent-warm: var(--brand-primary-300);
   --brand: var(--brand-primary-300);
   --primary: var(--brand-primary-300);
-  /* Nút primary giữ nền #385791 (chữ trắng 7.14:1) + viền sáng hơn để tách
-     khỏi nền navy. */
-  --button-border: #5f80c2;
+  /* Nút primary giữ nền #15803D (chữ trắng 5.0:1) + viền sáng hơn để tách
+     khỏi nền tối. */
+  --button-border: #22c55e;
 }

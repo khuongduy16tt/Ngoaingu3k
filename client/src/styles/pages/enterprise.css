@@ -2401,7 +2401,7 @@ textarea:focus-visible {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: #0d1624;
+  background: #08140d;
 }
 
 .learning-page .lesson-video-panel__frame iframe,

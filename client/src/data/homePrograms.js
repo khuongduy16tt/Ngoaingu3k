@@ -1,0 +1,66 @@
+// Khối tab "Từ mất gốc đến IELTS / HSK" trên trang chủ. Mỗi tab: danh sách chủ
+// đề (cột trái) + thẻ mô tả khoá (cột phải). `glyph` là ký tự lớn mờ trang trí
+// phía sau khối. Ảnh lấy từ thư viện ảnh của trung tâm (public/images/imported).
+export const homePrograms = [
+  {
+    id: 'tieng-anh',
+    label: 'Tiếng Anh',
+    glyph: 'Aa',
+    title: 'Tiếng Anh',
+    description: 'IELTS, TOEIC, giao tiếp và tiếng Anh công sở theo lộ trình cá nhân hoá, có giảng viên đồng hành.',
+    meta: 'Kỹ năng cốt lõi · 6 tuần · 24 bài học',
+    topics: [
+      'Xây nền nghe – nói – ngữ pháp vững chắc',
+      'Phát âm và từ vựng theo chủ đề',
+      'Bài học hướng dẫn từng bước',
+      'Bài tập theo dõi tiến độ mỗi tuần',
+    ],
+    image: '/images/imported/6_Trang-chu_GT-TA.webp',
+    to: '/courses#khoa-hoc-ielts',
+  },
+  {
+    id: 'tieng-trung',
+    label: 'Tiếng Trung',
+    glyph: '汉',
+    title: 'Tiếng Trung',
+    description: 'Luyện thi HSK theo từng cấp độ, xây nền tảng phát âm đến tăng tốc phản xạ giao tiếp.',
+    meta: 'HSK 1 – 2 – 3 – 4 – 5',
+    topics: ['Phát âm, pinyin và thanh điệu', 'Chữ Hán và luyện viết nét', 'HSK theo từng cấp độ', 'Tăng tốc phản xạ giao tiếp'],
+    image: '/images/imported/7_Trang-chu_GT-TT.webp',
+    to: '/courses#khoa-hoc-hsk',
+  },
+  {
+    id: 'luyen-thi',
+    label: 'Luyện thi',
+    glyph: 'A+',
+    title: 'Luyện thi',
+    description: 'Luyện đề bấm giờ theo 4 kỹ năng, chấm chữa bài viết chi tiết theo tiêu chí band điểm.',
+    meta: 'IELTS 3.5 → 6.5 · HSK 1 – 5',
+    topics: ['IELTS 3.5 · 4.0-4.5 · 5.0-5.5 · 6.0-6.5', 'TOEIC Fast Track 650+', 'HSK 1-2-3-4-5', 'Đề bấm giờ theo 4 kỹ năng'],
+    image: '/images/imported/11.1_KH-TA-scaled.webp',
+    to: '/courses',
+  },
+  {
+    id: 'giao-tiep',
+    label: 'Giao tiếp',
+    glyph: 'Hi!',
+    title: 'Giao tiếp',
+    description: 'Luyện phản xạ qua tình huống giao tiếp hằng ngày, nhận phản hồi trực tiếp mỗi tuần.',
+    meta: 'Tự tin giao tiếp và thuyết trình',
+    topics: ['Tình huống giao tiếp hằng ngày', 'Luyện phản xạ nói', 'Thuyết trình tự tin', 'Phản hồi trực tiếp mỗi tuần'],
+    image: '/images/imported/8.2_Trang-chu_GT-TT.webp',
+    to: '/courses',
+  },
+  {
+    id: 'cong-so',
+    label: 'Công sở',
+    glyph: '@',
+    title: 'Công sở & viết chuyên nghiệp',
+    description:
+      'Thực hành viết email, thuyết trình và xử lý cuộc họp bằng ngoại ngữ theo tình huống thực tế. Khung viết email, báo cáo chuẩn doanh nghiệp, sửa lỗi thực tế ngay trên bài viết của bạn.',
+    meta: 'Viết email và báo cáo công sở',
+    topics: ['Viết email chuẩn doanh nghiệp', 'Báo cáo và tài liệu công việc', 'Thuyết trình, xử lý cuộc họp', 'Sửa lỗi trên bài viết thực tế'],
+    image: '/images/imported/8.1_Trang-chu_GT-TT.webp',
+    to: '/courses',
+  },
+];

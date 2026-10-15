@@ -45,7 +45,7 @@
    nên overlay không còn phải gánh hết trách nhiệm tương phản cho label. */
 :root[data-theme='light'] .landing-hero::after {
   background:
-    linear-gradient(180deg, rgba(15, 33, 64, 0.26) 0%, rgba(15, 33, 64, 0.46) 22%, rgba(15, 33, 64, 0.4) 100%),
+    linear-gradient(180deg, rgba(5, 46, 22, 0.26) 0%, rgba(5, 46, 22, 0.46) 22%, rgba(5, 46, 22, 0.4) 100%),
     linear-gradient(100deg, rgba(28, 22, 10, 0.55) 0%, rgba(28, 22, 10, 0.28) 36%, rgba(28, 22, 10, 0) 66%);
 }
 
@@ -871,7 +871,7 @@
     color: #ffffff;
     background: linear-gradient(90deg, var(--banner-cta-from), var(--banner-cta-to));
     box-shadow:
-      0 0.5cqw 1.4cqw rgba(15, 33, 64, 0.32),
+      0 0.5cqw 1.4cqw rgba(5, 46, 22, 0.32),
       inset 0 1px 0 rgba(255, 255, 255, 0.28);
     font-size: 1.42cqw;
     font-weight: 800;
@@ -938,12 +938,12 @@
     animation-play-state: paused;
     transform: translateY(-0.2cqw) scale(1.04);
     box-shadow:
-      0 0.9cqw 2cqw rgba(15, 33, 64, 0.4),
+      0 0.9cqw 2cqw rgba(5, 46, 22, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.32);
   }
 
   .hero-slideshow__cta:focus-visible {
-    outline: 3px solid var(--color-focus, #59b3e1);
+    outline: 3px solid var(--color-focus, #22c55e);
     outline-offset: 3px;
   }
 

@@ -1,107 +1,95 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ConsultationForm, hasSubmittedConsultation } from './ConsultationForm';
 
-const FIRST_OPEN_DELAY_MS = 600;
 const AUTO_CLOSE_AFTER_SUCCESS_MS = 1500;
-// Coi như đã tới cuối trang khi còn cách đáy dưới một màn hình — bắt đúng lúc
-// người đọc sắp hết nội dung, không phải chờ chạm đáy tuyệt đối.
-const BOTTOM_THRESHOLD_PX = 600;
+export const POPUP_TIME_TRIGGER_MS = 45000;
+export const POPUP_SCROLL_TRIGGER_RATIO = 0.6;
+export const POPUP_SESSION_KEY = 'ngoaingu3k-consult-popup-shown';
 
-// Popup quảng cáo toàn màn hình, hiện ĐÚNG 3 LẦN mỗi lượt vào trang chủ, mỗi
-// lần gắn với một mốc đọc thay vì hẹn giờ lặp:
-//   1. 'dau'   — vừa vào trang;
-//   2. 'vi-sao'— khi khối "Vì sao chọn Ngoaingu3k" (.reasons-section) lọt vào
-//                màn hình;
-//   3. 'cuoi'  — khi cuộn gần hết trang.
-// Mỗi mốc chỉ bắn một lần cho tới khi rời trang chủ. Trước đây popup bật lại
-// sau mỗi 10s vô hạn, đóng bao nhiêu lần cũng hiện lại.
-// CHỈ dựng ở trang chủ (xem AppLayout) — rời trang chủ là component unmount.
-// Hai trường hợp KHÔNG bật:
-//   - người dùng đã gửi form tư vấn thành công (ở đây hoặc form hero trang
-//     chủ) — đã có lead rồi thì không spam tiếp. Cờ nằm ở localStorage nên
-//     giữ qua cả lần mở trình duyệt sau;
-//   - đang có modal .consult-popup khác mở (nút "Tư vấn" nổi ở góc phải) — bật
-//     chồng lên sẽ cướp focus form họ đang gõ dở, nên bỏ qua nhịp đó. Mốc chưa
-//     bị tiêu, cuộn qua lại vẫn còn cơ hội bắn.
+function wasShownThisSession() {
+  try {
+    return sessionStorage.getItem(POPUP_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markShownThisSession() {
+  try {
+    sessionStorage.setItem(POPUP_SESSION_KEY, '1');
+  } catch {
+    // Trình duyệt chặn storage: vẫn chỉ hiện 1 lần trong lượt xem này (shownRef).
+  }
+}
+
+// Popup mời đăng ký tư vấn — KHÔNG bật khi vừa tải trang. Chỉ bật ở lần đầu
+// gặp một trong ba tín hiệu cho thấy khách đã thật sự đọc trang:
+//   - exit-intent: chuột rời mép trên cửa sổ (chỉ máy có chuột);
+//   - đã cuộn ≥ 60% trang;
+//   - đã ở trang ≥ 45 giây.
+// Tối đa 1 lần mỗi phiên (sessionStorage). Không bật với người đã đăng nhập,
+// người đã gửi form tư vấn, hoặc khi đang có hộp thoại .consult-popup khác mở
+// (nút "Tư vấn" nổi) — trường hợp cuối chỉ bỏ qua nhịp đó, chưa tiêu lượt.
+// CHỈ dựng ở trang chủ (xem AppLayout).
 export function ConsultationPopup({ isSignedIn = false }) {
   const [open, setOpen] = useState(false);
-  const openRef = useRef(false);
-  const firedRef = useRef(new Set());
-  // Người đã đăng nhập (học viên, giảng viên, admin) đã là người dùng của trung
-  // tâm — popup mời tư vấn chỉ dành cho khách, không che màn hình họ nữa.
-
-  useEffect(() => {
-    openRef.current = open;
-  }, [open]);
+  const shownRef = useRef(false);
+  const closeButtonRef = useRef(null);
+  const returnFocusRef = useRef(null);
 
   useEffect(() => {
     if (isSignedIn) {
       setOpen(false);
       return undefined;
     }
-
-    if (hasSubmittedConsultation()) {
+    if (shownRef.current || wasShownThisSession() || hasSubmittedConsultation()) {
       return undefined;
     }
 
-    function moc(ten) {
-      if (firedRef.current.has(ten) || openRef.current || hasSubmittedConsultation()) {
-        return;
-      }
-
-      // Modal khác đang mở: bỏ qua lần này nhưng KHÔNG đánh dấu đã bắn.
-      if (document.querySelector('.consult-popup')) {
-        return;
-      }
-
-      firedRef.current.add(ten);
+    function trigger() {
+      if (shownRef.current || hasSubmittedConsultation()) return;
+      if (document.querySelector('.consult-popup')) return;
+      shownRef.current = true;
+      markShownThisSession();
+      cleanup();
+      returnFocusRef.current = document.activeElement;
       setOpen(true);
     }
 
-    // 1. Đầu trang — chờ một nhịp cho trang vẽ xong rồi mới che.
-    const timer = setTimeout(() => moc('dau'), FIRST_OPEN_DELAY_MS);
-
-    // 2. Khối "Vì sao chọn Ngoaingu3k".
-    let observer;
-    const reasons = document.querySelector('.reasons-section');
-    if (reasons && typeof IntersectionObserver !== 'undefined') {
-      observer = new IntersectionObserver(
-        (entries) => entries.forEach((entry) => entry.isIntersecting && moc('vi-sao')),
-        { threshold: 0.35 }
-      );
-      observer.observe(reasons);
-    }
-
-    // 3. Gần cuối trang.
     function onScroll() {
-      const conLai = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
-      if (conLai <= BOTTOM_THRESHOLD_PX) {
-        moc('cuoi');
-      }
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollable > 0 && window.scrollY / scrollable >= POPUP_SCROLL_TRIGGER_RATIO) trigger();
     }
 
-    window.addEventListener('scroll', onScroll, { passive: true });
+    function onMouseOut(event) {
+      if (!event.relatedTarget && event.clientY <= 0) trigger();
+    }
 
-    return () => {
+    const timer = setTimeout(trigger, POPUP_TIME_TRIGGER_MS);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    const hasMouse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
+    if (hasMouse) document.addEventListener('mouseout', onMouseOut);
+
+    function cleanup() {
       clearTimeout(timer);
-      observer?.disconnect();
       window.removeEventListener('scroll', onScroll);
-    };
+      document.removeEventListener('mouseout', onMouseOut);
+    }
+    return cleanup;
   }, [isSignedIn]);
 
   useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
+    if (!open) return undefined;
+    closeButtonRef.current?.focus();
 
     function onKeyDown(event) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
+      if (event.key === 'Escape') setOpen(false);
     }
-
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      returnFocusRef.current?.focus?.();
+    };
   }, [open]);
 
   function handleFormSuccess() {
@@ -125,7 +113,13 @@ export function ConsultationPopup({ isSignedIn = false }) {
       }}
     >
       <div className="consult-popup__card">
-        <button type="button" className="consult-popup__close" onClick={() => setOpen(false)} aria-label="Đóng">
+        <button
+          ref={closeButtonRef}
+          type="button"
+          className="consult-popup__close"
+          onClick={() => setOpen(false)}
+          aria-label="Đóng"
+        >
           ✕
         </button>
         <span className="eyebrow">Ưu đãi tư vấn miễn phí</span>

@@ -4,6 +4,8 @@ import { useAuth } from './providers/AuthProvider';
 import { getDashboardPathForRole, getEffectiveRole } from './lib/permissions';
 import { ui } from './config/i18n';
 import { usePageTitle } from './hooks/usePageTitle';
+import { Mascot } from './components/home/Mascot';
+import { OPEN_CONSULTATION_EVENT } from './components/ConsultationFab';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
@@ -84,27 +86,45 @@ function NotFoundPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="page centered">
-      <h1>{ui.pageNotFound}</h1>
-      <div className="not-found__actions">
-        {/* <a href> ở đây nạp lại cả SPA và mất state; Link giữ nguyên phiên. */}
-        <Link className="button" to="/home">
-          {ui.goHome}
-        </Link>
-        <button type="button" className="button-ghost" onClick={() => navigate(-1)}>
-          {ui.goBack}
-        </button>
+    <div className="page centered status-page">
+      <div className="status-page__card">
+        <Mascot className="status-page__mascot" mood="wow" />
+        <span className="status-page__code" aria-hidden="true">404</span>
+        <h1>{ui.pageNotFound}</h1>
+        <div className="not-found__actions">
+          {/* <a href> ở đây nạp lại cả SPA và mất state; Link giữ nguyên phiên. */}
+          <Link className="button" to="/home">
+            {ui.goHome}
+          </Link>
+          <button type="button" className="button-ghost" onClick={() => navigate(-1)}>
+            {ui.goBack}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
+// Bài test trình độ chưa có: thay trang trống bằng lối đi tiếp — mở form tư vấn
+// (trung tâm kiểm tra trình độ qua tư vấn) hoặc xem khoá học.
 function TestPage() {
   usePageTitle(ui.testPageTitle);
   return (
-    <div className="page centered">
-      <h1>{ui.testPageTitle}</h1>
-      <p>{ui.testPageMessage}</p>
+    <div className="page centered status-page">
+      <div className="status-page__card">
+        <Mascot className="status-page__mascot" />
+        <span className="eyebrow">Kiểm tra trình độ miễn phí</span>
+        <h1>{ui.testPageTitle}</h1>
+        <p>{ui.testPageMessage} Trong lúc chờ, để lại thông tin — giảng viên sẽ kiểm tra trình độ và gửi lộ trình phù hợp cho bạn trong 24h.</p>
+        <div className="not-found__actions">
+          <button type="button" className="button" onClick={() => window.dispatchEvent(new Event(OPEN_CONSULTATION_EVENT))}>
+            Đăng ký kiểm tra trình độ
+          </button>
+          <Link className="button-ghost" to="/courses">
+            Xem khoá học
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

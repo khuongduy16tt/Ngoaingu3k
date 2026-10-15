@@ -46,3 +46,11 @@
 
 /* 11. Hộp thoại đăng nhập dùng chung (thay trang /auth 2 cột). */
 @import './components/login-modal.css';
+
+/* 12. Trang chủ v2 (10/2026): token, navbar viên thuốc, hero quiz, tab chương
+       trình, marquee cảm nhận, popup. Chỉ áp dưới .app-shell--home / .hv. */
+@import './pages/home-v2.css';
+
+/* 13. Site v2 (10/2026): đưa thiết kế trang chủ mới ra mọi trang — restyle các
+       thành phần dùng chung (nút, thẻ, ô nhập, nhãn, bảng). Nạp sau cùng. */
+@import './site-v2.css';

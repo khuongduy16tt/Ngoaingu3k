@@ -440,7 +440,7 @@
   cursor: pointer;
   font: inherit;
   font-weight: 800;
-  box-shadow: 0 10px 24px rgba(15, 33, 64, 0.22);
+  box-shadow: 0 10px 24px rgba(5, 46, 22, 0.22);
   transition:
     transform 0.2s ease,
     background-color 0.2s ease,

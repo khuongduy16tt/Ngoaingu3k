@@ -162,7 +162,7 @@
   padding: 20px;
   background: var(--header-green);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(15, 33, 64, 0.18);
+  box-shadow: 0 8px 24px rgba(5, 46, 22, 0.18);
   opacity: 0;
   visibility: hidden;
   transform: perspective(600px) rotateX(-90deg);
@@ -403,8 +403,8 @@
 }
 
 .site-header .theme-toggle.is-dark .theme-toggle__track {
-  background: rgba(15, 33, 64, 0.55);
-  border-color: rgba(15, 33, 64, 0.75);
+  background: rgba(5, 46, 22, 0.55);
+  border-color: rgba(5, 46, 22, 0.75);
 }
 
 .site-header .theme-toggle.is-dark .theme-toggle__thumb {

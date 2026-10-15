@@ -1,0 +1,944 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   SITE v2 (10/2026) — đưa ngôn ngữ thiết kế của trang chủ mới ra MỌI trang:
+   nền trắng ấm, chữ đen, xanh lá logo làm màu nhấn, tiêu đề serif, thẻ bo
+   tròn lớn, nút pill "bấm lún" 3D, ô nhập bo 14px.
+
+   Chỉ restyle các thành phần DÙNG CHUNG (.page, .section-head, .button,
+   .button-ghost, .pill/.eyebrow, các loại thẻ, ô nhập, bảng, tab…) — không
+   đụng bố cục/logic riêng của từng trang. Token --hv-* khai báo ở
+   pages/home-v2.css (:root). Nạp SAU CÙNG; enterprise.css khai báo nút/tiêu đề
+   bằng !important nên ở đây buộc phải dùng !important để đè.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Token nút dùng chung: xanh lá tươi + chữ xanh đen (8.6:1) ─────────── */
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'] {
+  --button-bg: var(--hv-green);
+  --button-bg-hover: var(--hv-green-hover);
+  --button-text: var(--hv-on-green);
+  --button-border: var(--hv-green);
+  --ghost-bg: var(--hv-surface);
+  --ghost-text: var(--hv-ink);
+  --ghost-border: var(--hv-border-strong);
+  --radius: 18px;
+  --site-header-height: 96px;
+}
+
+@media (max-width: 767px) {
+  :root,
+  :root[data-theme='light'],
+  :root[data-theme='dark'] {
+    --site-header-height: 80px;
+  }
+}
+
+/* ── 2. Nền & chữ ──────────────────────────────────────────────────────── */
+body {
+  background: var(--hv-bg) !important;
+  font-family: var(--hv-font-sans);
+}
+
+.app-shell {
+  background: var(--hv-bg);
+  font-family: var(--hv-font-sans);
+}
+
+.background-accent {
+  display: none;
+}
+
+/* Header viên thuốc nổi trên mọi trang → nội dung chừa đúng phần đầu. */
+.app-shell:not(.app-shell--home):not(.app-shell--immersive) .site-main {
+  padding-top: calc(var(--site-header-height) + env(safe-area-inset-top));
+}
+
+:where(.page) :is(h1, h2, h3) {
+  color: var(--hv-ink);
+}
+
+/* Tiêu đề trang: serif hiển thị như trang chủ. */
+.page h1,
+.page .section-head h1,
+.page .section-head h2:first-child:not(:where(.content-card *, .admin-panel *)) {
+  font-family: var(--hv-font-display) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.page h2,
+.page h3 {
+  letter-spacing: -0.01em !important;
+}
+
+.page p,
+.page li {
+  color: var(--hv-ink-2);
+}
+
+/* ── 3. Nhãn: eyebrow · pill ──────────────────────────────────────────── */
+.eyebrow,
+.section-eyebrow {
+  border: 0 !important;
+  border-radius: var(--hv-radius-pill);
+  background: var(--hv-green-soft) !important;
+  color: var(--hv-green-text) !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.pill {
+  border: 1px solid var(--hv-border) !important;
+  border-radius: var(--hv-radius-pill);
+  background: var(--hv-surface) !important;
+  color: var(--hv-ink-2) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ── 4. Nút: pill + bấm lún 3D ─────────────────────────────────────────── */
+.button,
+.button-ghost,
+.upload-button {
+  border-radius: var(--hv-radius-pill) !important;
+  padding-inline: 22px;
+  font-family: var(--hv-font-sans);
+  font-weight: 700;
+  transition:
+    transform 120ms var(--hv-ease),
+    box-shadow 120ms var(--hv-ease),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease !important;
+}
+
+.button {
+  color: var(--hv-on-green) !important;
+  background: var(--hv-green) !important;
+  border: 2px solid transparent !important;
+  box-shadow: 0 4px 0 var(--hv-green-deep) !important;
+}
+
+.button:hover {
+  color: var(--hv-on-green) !important;
+  background: var(--hv-green-hover) !important;
+  transform: none !important;
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(4px) !important;
+  box-shadow: 0 0 0 var(--hv-green-deep) !important;
+  background: var(--hv-green-hover) !important;
+}
+
+.button-ghost,
+.upload-button,
+.button.button--secondary,
+.button.button--outline {
+  color: var(--hv-ink) !important;
+  background: var(--hv-surface) !important;
+  border: 2px solid var(--hv-border-strong) !important;
+  box-shadow: 0 3px 0 var(--hv-border-strong) !important;
+}
+
+.button-ghost:hover,
+.upload-button:hover,
+.button.button--secondary:hover,
+.button.button--outline:hover {
+  color: var(--hv-ink) !important;
+  background: var(--hv-surface) !important;
+  border-color: var(--hv-ink-2) !important;
+  transform: none !important;
+}
+
+.button-ghost:active:not(:disabled),
+.upload-button:active,
+.button.button--secondary:active:not(:disabled),
+.button.button--outline:active:not(:disabled) {
+  transform: translateY(3px) !important;
+  box-shadow: 0 0 0 var(--hv-border-strong) !important;
+}
+
+.button.button--danger,
+.button-ghost.danger {
+  color: #ffffff !important;
+  background: #b91c1c !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 0 #7f1d1d !important;
+}
+
+.button-ghost.danger {
+  color: var(--hv-danger-text) !important;
+  background: var(--hv-surface) !important;
+  border-color: color-mix(in srgb, var(--hv-danger-text) 40%, transparent) !important;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--hv-danger-text) 30%, transparent) !important;
+}
+
+.button:disabled,
+.button[disabled],
+.button-ghost:disabled,
+.button-ghost[disabled] {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+:where(button, a, select, input, textarea, summary, [role='button'], [role='tab'], [tabindex]):focus-visible {
+  outline: 3px solid var(--hv-focus) !important;
+  outline-offset: 2px;
+}
+
+/* ── 5. Thẻ: bo lớn, viền mảnh, bóng rất nhẹ ──────────────────────────── */
+:is(
+    .content-card,
+    .stat-card,
+    .exam-card,
+    .marketplace-card,
+    .profile-card,
+    .course-tile,
+    .price-box,
+    .exam-lobby__card,
+    .combo-card,
+    .fc-set-card,
+    .teacher-student-table-wrap,
+    .admin-table-wrap
+  ) {
+  border-radius: 24px !important;
+  border-color: var(--hv-border) !important;
+  box-shadow: var(--hv-shadow) !important;
+}
+
+:is(.content-card, .stat-card, .exam-card, .marketplace-card, .profile-card, .course-tile, .combo-card):hover {
+  box-shadow: var(--hv-shadow-lift) !important;
+}
+
+.empty-state {
+  border: 1.5px dashed var(--hv-border-strong) !important;
+  border-radius: 24px !important;
+  background: var(--hv-surface) !important;
+  box-shadow: none !important;
+}
+
+.stat-card strong {
+  color: var(--hv-ink) !important;
+  font-family: var(--hv-font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thanh tiến độ: xanh lá, bo tròn. */
+.meter {
+  border-radius: var(--hv-radius-pill);
+  background: var(--hv-warm) !important;
+  overflow: hidden;
+}
+
+.meter span {
+  border-radius: inherit;
+  background: var(--hv-green) !important;
+}
+
+/* ── 6. Ô nhập ─────────────────────────────────────────────────────────── */
+:is(
+    .auth-field input,
+    .auth-field select,
+    .auth-field textarea,
+    .lesson-input,
+    .profile-form__input,
+    .student-filter-bar__select,
+    .student-filter-bar__date
+  ),
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea) {
+  border-radius: 14px;
+  border-color: var(--hv-border-strong);
+  background-color: var(--hv-surface);
+  color: var(--hv-ink);
+}
+
+:is(
+    .auth-field input,
+    .auth-field select,
+    .auth-field textarea,
+    .lesson-input,
+    .profile-form__input
+  ):focus,
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea):focus {
+  border-color: var(--hv-green) !important;
+  box-shadow: 0 0 0 4px var(--hv-green-soft) !important;
+  outline: none;
+}
+
+:is(input[type='checkbox'], input[type='radio'], input[type='range'], progress) {
+  accent-color: var(--hv-green);
+}
+
+.auth-field > span {
+  color: var(--hv-ink);
+  font-weight: 600;
+}
+
+/* ── 7. Tab, đáp án, bảng ─────────────────────────────────────────────── */
+.exercise-tab,
+.answer-pill {
+  border-radius: var(--hv-radius-pill) !important;
+}
+
+:is(.admin-table, .teacher-student-table) th {
+  background: var(--hv-warm);
+  color: var(--hv-ink-2);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:is(.admin-table, .teacher-student-table) :is(th, td) {
+  border-color: var(--hv-border);
+}
+
+/* ── 8. Thanh điều hướng dưới đáy (mobile) ────────────────────────────── */
+@media (max-width: 767px) {
+  .mobile-tabbar {
+    border-top: 1px solid var(--hv-border) !important;
+    background: color-mix(in srgb, var(--hv-surface) 88%, transparent) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+  }
+
+  .mobile-tabbar__item {
+    color: var(--hv-ink-2);
+    font-family: var(--hv-font-sans);
+    font-weight: 600;
+  }
+
+  .mobile-tabbar__item.is-active {
+    color: var(--hv-green-text);
+  }
+}
+
+/* ── 9. Popup tư vấn & hộp đăng nhập ─────────────────────────────────── */
+.consult-popup__card {
+  border-color: var(--hv-border);
+  border-radius: var(--hv-radius-card);
+  background: var(--hv-surface);
+  font-family: var(--hv-font-sans);
+}
+
+.consult-popup__card h2 {
+  color: var(--hv-ink) !important;
+  font-family: var(--hv-font-display);
+  font-weight: 600;
+}
+
+.consult-popup__close {
+  border-color: var(--hv-border);
+  background: var(--hv-surface);
+  color: var(--hv-ink);
+}
+
+.consult-popup__free {
+  color: var(--hv-green-text);
+}
+
+/* ── 10. Footer: xanh rêu đậm, chữ Be Vietnam Pro ─────────────────────── */
+.site-footer {
+  font-family: var(--hv-font-sans);
+}
+
+.site-footer__heading {
+  font-family: var(--hv-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ── 11. Thanh bên dính: chừa đúng header viên thuốc ──────────────────── */
+.learning-page .lesson-sidebar {
+  top: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .button-ghost,
+  .upload-button {
+    transition-property: background-color, border-color, color !important;
+  }
+
+  .button:active,
+  .button-ghost:active {
+    transform: none !important;
+  }
+}
+
+/* ── 12. Đầu trang (page hero) dùng chung ─────────────────────────────────
+   Khối tiêu đề đầu mỗi trang (Khoá học, Phòng thi, Flashcard, Bảng điều khiển,
+   Tiến độ, Chi tiết khoá, Phòng học trống) bỏ khung thẻ, đặt thẳng trên nền
+   ấm với lưới hình thoi rất mờ như hero trang chủ; tiêu đề serif lớn. */
+:is(
+    .page > .marketplace-hero,
+    .page > .dashboard-head,
+    .page > section.section-head:first-of-type,
+    .page > .course-hero,
+    .learning-empty-screen
+  ) {
+  position: relative;
+  isolation: isolate;
+  padding: 28px 0 12px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:is(
+    .page > .marketplace-hero,
+    .page > .dashboard-head,
+    .page > section.section-head:first-of-type,
+    .page > .course-hero
+  )::before {
+  content: '';
+  position: absolute;
+  inset: -40px -10vw -8px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M28 0 56 28 28 56 0 28Z' fill='none' stroke='%23111111' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 80% at 30% 40%, #000 20%, transparent 80%);
+  mask-image: radial-gradient(ellipse 60% 80% at 30% 40%, #000 20%, transparent 80%);
+}
+
+:root[data-theme='dark'] :is(
+    .page > .marketplace-hero,
+    .page > .dashboard-head,
+    .page > section.section-head:first-of-type,
+    .page > .course-hero
+  )::before {
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M28 0 56 28 28 56 0 28Z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+:is(
+    .page > .marketplace-hero,
+    .page > .dashboard-head,
+    .page > section.section-head:first-of-type,
+    .page > .course-hero,
+    .learning-empty-screen
+  )
+  h1 {
+  margin: 10px 0 10px !important;
+  color: var(--hv-ink) !important;
+  font-family: var(--hv-font-display) !important;
+  font-size: clamp(34px, 4.4vw, 56px) !important;
+  font-weight: 600 !important;
+  line-height: 1.06 !important;
+  letter-spacing: -0.025em !important;
+}
+
+:is(
+    .page > .marketplace-hero,
+    .page > .dashboard-head,
+    .page > section.section-head:first-of-type,
+    .page > .course-hero,
+    .learning-empty-screen
+  )
+  h1
+  + p,
+:is(.page > .marketplace-hero, .page > .dashboard-head, .page > section.section-head:first-of-type) p {
+  max-width: 44em;
+  color: var(--hv-ink-2) !important;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+/* Số liệu nhỏ trong hero Khoá học: thẻ trắng bo tròn. */
+.marketplace-hero .marketplace-stat {
+  border: 1px solid var(--hv-border) !important;
+  border-radius: 20px !important;
+  background: var(--hv-surface) !important;
+  box-shadow: var(--hv-shadow);
+}
+
+.marketplace-hero .marketplace-stat strong {
+  color: var(--hv-ink) !important;
+  font-family: var(--hv-font-display);
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  :is(
+      .page > .marketplace-hero,
+      .page > .dashboard-head,
+      .page > section.section-head:first-of-type,
+      .page > .course-hero,
+      .learning-empty-screen
+    ) {
+    padding-top: 12px !important;
+  }
+
+  :is(.page > .marketplace-hero, .page > .dashboard-head, .page > section.section-head:first-of-type) p {
+    font-size: 16px;
+  }
+}
+
+/* ── 13. Hero trang Khoá học: xếp dọc (tiêu đề → mô tả → nút) ───────────── */
+.page > .marketplace-hero--compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 24px;
+}
+
+.marketplace-hero--compact .marketplace-hero__copy {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: 4px;
+}
+
+.marketplace-hero--compact .marketplace-hero__copy p {
+  margin: 0 0 18px;
+}
+
+.marketplace-hero--compact .marketplace-hero__actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.marketplace-hero--compact .marketplace-hero__actions :is(.button, .button-ghost) {
+  min-height: 48px;
+  padding-inline: 22px;
+}
+
+@media (max-width: 767px) {
+  .page > .marketplace-hero--compact {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .marketplace-hero--compact .marketplace-hero__stats {
+    justify-content: flex-start;
+  }
+}
+
+/* ── 14. Trang trạng thái (/test, 404): thẻ giữa màn + linh vật ──────────── */
+.status-page {
+  min-height: calc(100dvh - var(--site-header-height) - 80px);
+  display: grid;
+  place-items: center;
+}
+
+.status-page__card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(560px, 100%);
+  padding: 56px 32px 40px;
+  border: 1px solid var(--hv-border);
+  border-radius: var(--hv-radius-panel);
+  background: var(--hv-surface);
+  box-shadow: var(--hv-shadow-pop);
+  text-align: center;
+}
+
+.status-page__mascot {
+  width: 96px;
+  margin-top: -100px;
+  margin-bottom: 4px;
+}
+
+.status-page__code {
+  color: var(--hv-green-text);
+  font-family: var(--hv-font-display);
+  font-size: 64px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.page.status-page h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 40px) !important;
+  line-height: 1.15 !important;
+}
+
+.page.status-page p {
+  margin: 0;
+  max-width: 34em;
+  font-size: 16.5px;
+}
+
+.status-page .not-found__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 767px) {
+  .status-page__card {
+    padding: 48px 20px 28px;
+  }
+
+  .status-page .not-found__actions {
+    flex-direction: column;
+    align-self: stretch;
+  }
+}
+
+/* ── 15. Hộp đăng nhập ───────────────────────────────────────────────── */
+.login-modal__panel {
+  border-color: var(--hv-border);
+  border-radius: var(--hv-radius-card);
+  background: var(--hv-surface);
+  box-shadow: var(--hv-shadow-pop);
+  font-family: var(--hv-font-sans);
+}
+
+.login-modal__head h2 {
+  color: var(--hv-ink);
+  font-family: var(--hv-font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.login-modal__input {
+  border-color: var(--hv-border-strong);
+  border-radius: 14px;
+}
+
+.login-modal__input:focus {
+  border-color: var(--hv-green) !important;
+  box-shadow: 0 0 0 4px var(--hv-green-soft) !important;
+}
+
+.login-modal__submit,
+.login-modal__google {
+  border-radius: var(--hv-radius-pill) !important;
+  font-weight: 700;
+  transition:
+    transform 120ms var(--hv-ease),
+    box-shadow 120ms var(--hv-ease),
+    background-color 150ms ease;
+}
+
+.login-modal__submit {
+  border: 0;
+  background: var(--hv-green);
+  color: var(--hv-on-green);
+  box-shadow: 0 4px 0 var(--hv-green-deep);
+}
+
+.login-modal__submit:hover:not(:disabled) {
+  background: var(--hv-green-hover);
+}
+
+.login-modal__submit:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--hv-green-deep);
+}
+
+.login-modal__google {
+  border: 2px solid var(--hv-border-strong);
+  box-shadow: 0 3px 0 var(--hv-border-strong);
+}
+
+.login-modal__google:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--hv-border-strong);
+}
+
+.login-modal__text-button,
+.login-modal__switch a,
+.login-modal__switch button {
+  color: var(--hv-green-text);
+}
+
+/* ── 16. Nút "Học thử miễn phí" ở các trang không phải trang chủ ─────────
+   Không có hero → hiện sẵn, nhưng chỉ khi header đủ rộng; màn hẹp hơn giữ nút
+   Đăng nhập (người dùng trang học/thi cần đăng nhập hơn là học thử). */
+@media (min-width: 1181px) {
+  .site-header--pill.site-header--app .site-header__trial {
+    max-width: 200px;
+    margin-left: 0;
+    padding: 0 18px;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+  }
+}
+
+/* ── 17. Pill trạng thái: giữ màu ngữ nghĩa (đè lại pill trung tính ở §3) ── */
+.pill.pill--success {
+  border-color: transparent !important;
+  background: var(--hv-green-soft) !important;
+  color: var(--hv-green-text) !important;
+}
+
+.pill.pill--warning,
+.pill.lesson-tab-manager__dirty {
+  border-color: transparent !important;
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.pill.exam-manager__pill-draft {
+  border-style: dashed !important;
+}
+
+:root[data-theme='dark'] :is(.pill.pill--warning, .pill.lesson-tab-manager__dirty) {
+  background: #3a2a0c !important;
+  color: #fcd34d !important;
+}
+
+/* ── 18. Khung header: viền gradient xanh lá lấp lánh ─────────────────────
+   Viền vẽ bằng ::after (mask cắt rỗng ruột) để giữ được kính mờ ở ::before
+   — đặt gradient làm background của chính khung sẽ mất backdrop-filter. */
+.site-header--pill .site-header__inner {
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 1px 2px rgba(21, 128, 61, 0.06),
+    0 10px 28px -10px rgba(21, 128, 61, 0.22);
+}
+
+.site-header--pill.is-scrolled .site-header__inner {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 2px 4px rgba(21, 128, 61, 0.06),
+    0 16px 36px -12px rgba(21, 128, 61, 0.3);
+}
+
+:root[data-theme='dark'] .site-header--pill .site-header__inner {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 32px -10px rgba(0, 0, 0, 0.55);
+}
+
+.site-header--pill .site-header__inner::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  padding: 2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    #15803d 0%,
+    #22c55e 18%,
+    #bbf7d0 30%,
+    var(--hv-border) 42%,
+    var(--hv-border) 58%,
+    #86efac 72%,
+    #22c55e 86%,
+    #15803d 100%
+  );
+  background-size: 220% 100%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+  animation: hvRingShimmer 9s ease-in-out infinite alternate;
+}
+
+@keyframes hvRingShimmer {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+/* ── 19. Linh vật đu mép khung ─────────────────────────────────────────── */
+.header-mascot {
+  position: absolute;
+  top: calc(100% - 6px);
+  right: 168px;
+  z-index: 2;
+  width: 62px;
+  height: 66px;
+  pointer-events: none;
+}
+
+/* Khung cắt: phần mascot "rụt lên" vượt mép trên sẽ khuất sau thanh header. */
+.header-mascot__clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.header-mascot__buddy {
+  display: block;
+  width: 62px;
+  height: 60px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: none;
+  transform: translateY(-105%);
+  transition: transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.header-mascot__buddy svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 50% 0;
+}
+
+.header-mascot__arm {
+  fill: none;
+  stroke: #15803d;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+/* Lúc ló ra, hai bàn tay siết mép khung một nhịp. */
+.header-mascot__hand {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.header-mascot.is-peek .header-mascot__hand {
+  animation: hvGrip 520ms ease-out;
+}
+
+@keyframes hvGrip {
+  0% { transform: scaleY(1.25); }
+  60% { transform: scaleY(0.85); }
+  100% { transform: scaleY(1); }
+}
+
+.header-mascot.is-peek .header-mascot__buddy,
+.header-mascot.is-look .header-mascot__buddy {
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Ngó nghiêng: thân lắc nhẹ, con ngươi đảo theo. */
+.header-mascot.is-look .header-mascot__buddy svg {
+  animation: hvMascotSway 2.2s ease-in-out infinite;
+}
+
+.header-mascot__pupils {
+  transition: transform 260ms ease;
+}
+
+.header-mascot.look-left .header-mascot__pupils {
+  transform: translateX(-2.5px);
+}
+
+.header-mascot.look-right .header-mascot__pupils {
+  transform: translateX(2.5px);
+}
+
+.header-mascot__eyes {
+  transform-origin: 40px 36px;
+  animation: hvBlink 4.2s ease-in-out infinite;
+}
+
+/* Ngại: rụt lên thật nhanh. */
+.header-mascot.is-duck .header-mascot__buddy {
+  transform: translateY(-105%);
+  transition-duration: 180ms;
+  transition-timing-function: ease-in;
+}
+
+.header-mascot.is-gone {
+  display: none;
+}
+
+/* Bị bấm: nhảy cẫng (nhún xuống rồi bật lên chạm mép). */
+.header-mascot__buddy.is-jumping svg {
+  animation: hvMascotJump 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.header-mascot__bubble {
+  position: absolute;
+  top: 14px;
+  right: calc(100% + 6px);
+  padding: 7px 12px;
+  border: 1.5px solid #22c55e;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--hv-surface);
+  color: var(--hv-ink);
+  box-shadow: var(--hv-shadow-lift);
+  font: 600 13px/1.3 var(--hv-font-sans);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: hvBubbleIn 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes hvMascotSway {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-7deg); }
+  70% { transform: rotate(6deg); }
+}
+
+@keyframes hvMascotJump {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(6px) scale(1.06, 0.92); }
+  65% { transform: translateY(-3px) scale(0.96, 1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes hvBubbleIn {
+  from {
+    opacity: 0;
+    transform: translateX(8px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .header-mascot {
+    right: 120px;
+  }
+}
+
+@media (max-width: 767px) {
+  .header-mascot {
+    top: calc(100% - 7px);
+    right: 64px;
+    width: 50px;
+    height: 54px;
+  }
+
+  .header-mascot__buddy {
+    width: 50px;
+    height: 48px;
+  }
+
+  .header-mascot__bubble {
+    font-size: 12px;
+  }
+}
+
+/* Máy cảm ứng không có hover: bỏ phản ứng "ngại", chỉ còn chạm để nói. */
+@media (hover: none) {
+  .header-mascot.is-duck .header-mascot__buddy {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header--pill .site-header__inner::after,
+  .header-mascot__eyes,
+  .header-mascot.is-look .header-mascot__buddy svg,
+  .header-mascot__buddy.is-jumping svg,
+  .header-mascot__bubble {
+    animation: none;
+  }
+
+  .header-mascot__buddy {
+    transition: none;
+  }
+}
