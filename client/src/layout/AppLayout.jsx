@@ -68,7 +68,7 @@ export function AppLayout({ children }) {
       <a className="skip-link" href="#main-content">
         Bỏ qua điều hướng, tới nội dung chính
       </a>
-      <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} floating />
+      <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} />
       <main id="main-content" tabIndex={-1} className="site-frame site-main">
         {children}
       </main>
@@ -861,67 +861,10 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
 // thẳng vào đường tải tới hạn.
 const LOGO_SRC = '/images/imported/logo-ngoaingu3k-clean.webp';
 
-function useMediaQuery(query) {
-  const [matches, setMatches] = useState(() => window.matchMedia?.(query)?.matches ?? false);
-  useEffect(() => {
-    const list = window.matchMedia?.(query);
-    if (!list) return undefined;
-    const onChange = () => setMatches(list.matches);
-    onChange();
-    list.addEventListener('change', onChange);
-    return () => list.removeEventListener('change', onChange);
-  }, [query]);
-  return matches;
-}
-
-// Mọi trang dùng header "viên thuốc" nổi (home-v2.css). Nút "Học thử miễn
-// phí": ở trang chủ chỉ trượt ra sau khi cuộn qua hero (#home-hero); các trang
-// khác không có hero nên hiện ngay.
-function useHeaderScrollState(enabled, pathname) {
-  const [state, setState] = useState({ scrolled: false, pastHero: false });
-
-  useEffect(() => {
-    if (!enabled) {
-      setState({ scrolled: false, pastHero: false });
-      return undefined;
-    }
-    let frame = 0;
-    function update() {
-      frame = 0;
-      const hero = document.getElementById('home-hero');
-      const onHome = pathname === '/home' || pathname === '/';
-      const pastHero = onHome && hero ? hero.getBoundingClientRect().bottom < 96 : false;
-      const scrolled = window.scrollY > 8;
-      setState((previous) =>
-        previous.scrolled === scrolled && previous.pastHero === pastHero ? previous : { scrolled, pastHero }
-      );
-    }
-    function onScroll() {
-      if (!frame) frame = requestAnimationFrame(update);
-    }
-    update();
-    // Trang đích dựng muộn (lazy route) → đo lại vài nhịp sau khi đổi trang.
-    const timers = [300, 1200].map((ms) => setTimeout(update, ms));
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      cancelAnimationFrame(frame);
-      timers.forEach(clearTimeout);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [enabled, pathname]);
-
-  return state;
-}
-
-function TopBar({ theme, setTheme, themeLabel, floating = false }) {
+function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { pathname } = useLocation();
-  const { scrolled, pastHero } = useHeaderScrollState(floating, pathname);
-  const appTrialVisible = useMediaQuery('(min-width: 1181px)') && pathname !== '/home' && pathname !== '/';
   const topbarRef = useRef(null);
   const signedIn = Boolean(auth.session);
   const currentRole = auth.profile?.role || auth.role || 'student';
@@ -956,28 +899,15 @@ function TopBar({ theme, setTheme, themeLabel, floating = false }) {
   }, [mobileOpen]);
 
   return (
-    <header
-      className={[
-        'site-header',
-        floating ? 'site-header--pill' : '',
-        floating && scrolled ? 'is-scrolled' : '',
-        floating && pastHero ? 'is-past-hero' : '',
-        // Trang khác trang chủ: không có hero — CTA hiện sẵn trên desktop rộng,
-        // màn hẹp giữ nút Đăng nhập (xem home-v2.css).
-        floating && pathname !== '/home' && pathname !== '/' ? 'site-header--app' : '',
-        mobileOpen ? 'is-menu-open' : ''
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+    <header className="site-header">
       <div className="site-header__inner" ref={topbarRef}>
-        {floating ? <HeaderMascot hidden={mobileOpen} /> : null}
+        <HeaderMascot hidden={mobileOpen} />
         <Link className="site-header__logo" to="/home" onClick={closeMobileMenu}>
           <img src={LOGO_SRC} alt={contact.companyName} />
         </Link>
 
         <nav id="site-nav" className={`site-nav ${mobileOpen ? 'is-open' : ''}`} aria-label="Menu chính">
-          {/* Đầu drawer, chỉ hiện ở ≤1024px */}
+          {/* Đầu drawer, chỉ hiện ở ≤767px */}
           <div className="site-nav__head">
             <img src={LOGO_SRC} alt="" />
             <button type="button" className="site-nav__close" aria-label="Đóng menu" onClick={closeMobileMenu}>
@@ -1085,18 +1015,6 @@ function TopBar({ theme, setTheme, themeLabel, floating = false }) {
               {ui.signIn}
             </AuthModalLink>
           )}
-
-          {floating && !signedIn ? (
-            <button
-              type="button"
-              className="site-header__trial"
-              aria-hidden={!pastHero && !appTrialVisible}
-              tabIndex={pastHero || appTrialVisible ? undefined : -1}
-              onClick={() => window.dispatchEvent(new Event(OPEN_CONSULTATION_EVENT))}
-            >
-              Học thử miễn phí
-            </button>
-          ) : null}
 
           <button
             type="button"

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFeaturedCourses } from '../lib/courseService';
 import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
@@ -183,8 +183,36 @@ function FeatureRow({ feature, index }) {
 
 export default function HomePage() {
   const pageRef = useRef(null);
+  const mascotTimer = useRef(null);
   usePageTitle('Trang chủ');
   const [featuredCourses, setFeaturedCourses] = useState([]);
+  const [mascotMood, setMascotMood] = useState('happy');
+  const [mascotLine, setMascotLine] = useState('');
+  const [mascotGreeting, setMascotGreeting] = useState(0);
+
+  useEffect(() => () => clearTimeout(mascotTimer.current), []);
+
+  const reactToQuiz = useCallback((correct) => {
+    clearTimeout(mascotTimer.current);
+    setMascotMood(correct ? 'celebrate' : 'encourage');
+    setMascotLine(correct ? 'Giỏi quá! ✨' : 'Thử lại nhé, mình tin bạn!');
+    mascotTimer.current = setTimeout(() => {
+      setMascotMood('happy');
+      setMascotLine('');
+    }, 2200);
+  }, []);
+
+  function greetMascot() {
+    const greetings = ['Chào bạn! 👋', 'Mình cùng học nhé!', 'Cố lên, bạn làm được!'];
+    clearTimeout(mascotTimer.current);
+    setMascotLine(greetings[mascotGreeting % greetings.length]);
+    setMascotGreeting((current) => current + 1);
+    setMascotMood('celebrate');
+    mascotTimer.current = setTimeout(() => {
+      setMascotMood('happy');
+      setMascotLine('');
+    }, 2200);
+  }
 
   // Chỉ ẩn các khối .hv-reveal khi JS đã chạy — thiếu JS thì trang hiện đủ.
   useLayoutEffect(() => {
@@ -206,24 +234,22 @@ export default function HomePage() {
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section id="home-hero" className="hv-hero" aria-labelledby="hv-hero-title">
         <div className="hv-hero__inner">
-          <span className="hv-hero__kicker">Tiếng Anh · Tiếng Trung</span>
-          <h1 id="hv-hero-title">
-            Học ngoại ngữ <em>dễ dàng</em>, hiệu quả
-          </h1>
-          <div className="hv-hero__demo">
-            <HeroQuizDemo />
-            <Mascot className="hv-hero__mascot" mood="wow" />
+          <div className="hv-hero__banner" aria-hidden="true" />
+          <div className="hv-hero__mobile-copy">
+            <h1 id="hv-hero-title" className="hv-hero__mobile-title">Học tiếng Trung &amp; tiếng Anh <em>dễ dàng, hiệu quả</em></h1>
+            <p className="hv-hero__lead">Bài học tương tác sinh động, lộ trình cá nhân hoá, luyện phát âm chuẩn, mở rộng vốn từ vựng và nắm vững ngữ pháp.</p>
+            <div className="hv-hero__actions">
+              <button type="button" className="hv-btn hv-btn--primary" onClick={openConsultation}>Học thử miễn phí</button>
+              <Link to="/courses" className="hv-btn hv-btn--light">Xem khóa học</Link>
+            </div>
           </div>
-          <p className="hv-hero__lead">
-            Lộ trình cá nhân hoá, giảng viên đồng hành và tiến độ minh bạch từ buổi đầu.
-          </p>
-          <div className="hv-hero__actions">
-            <Link to="/test" className="hv-btn hv-btn--primary hv-btn--block">
-              Kiểm tra trình độ miễn phí
-            </Link>
-            <button type="button" className="hv-btn hv-btn--light hv-btn--block" onClick={openConsultation}>
-              Tôi là phụ huynh / doanh nghiệp
+          <div className="hv-hero__mobile-visual" aria-hidden="true" />
+          <div className="hv-hero__demo">
+            <button type="button" className={`hv-hero__mascot is-${mascotMood}`} onClick={greetMascot} aria-label="Chạm vào bạn 3K để nhận lời động viên">
+              <Mascot className="hv-hero__mascot-art" mood={mascotMood} />
+              {mascotLine ? <span className="hv-hero__mascot-message" aria-hidden="true">{mascotLine}</span> : null}
             </button>
+            <HeroQuizDemo onAnswer={reactToQuiz} />
           </div>
         </div>
       </section>

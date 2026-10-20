@@ -45,7 +45,7 @@ const PHASE_MS = { idle: 700, move: 850, grab: 260, drag: 900, drop: 1900 };
 const NEXT_PHASE = { idle: 'move', move: 'grab', grab: 'drag', drag: 'drop' };
 const RESUME_AFTER_USER_MS = 5000;
 
-export function HeroQuizDemo() {
+export function HeroQuizDemo({ onAnswer }) {
   const cardRef = useRef(null);
   const slotRef = useRef(null);
   const chipRefs = useRef({});
@@ -114,6 +114,7 @@ export function HeroQuizDemo() {
     } else if (phase === 'drop') {
       setGhost(null);
       setPlaced({ word: question.answer, correct: true });
+      onAnswer?.(true);
     }
 
     const timer = setTimeout(() => {
@@ -140,6 +141,7 @@ export function HeroQuizDemo() {
 
     const correct = word === question.answer;
     setPlaced({ word, correct });
+    onAnswer?.(correct);
     setAnnounce(
       correct
         ? `Chính xác! Đáp án là ${word}. ${question.meaning}`

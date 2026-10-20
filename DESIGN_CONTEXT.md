@@ -29,6 +29,9 @@
 - Use color strategically to highlight calls to action, course importance, and progress states.
 - Strong hierarchy, generous spacing, and crisp content structure are more important than decorative effects.
 
+## Page header rule
+- Do not add a language-list pill or eyebrow such as “Tiếng Anh · Tiếng Trung” above page headings on any page, in either light or dark mode. Start with the meaningful heading itself. Language names may still appear in navigation, course content, and descriptive copy when they convey information.
+
 ## Design principles
 1. Make the experience feel calm and focused, not noisy.
 2. Use color and motion to guide attention, not to overwhelm.

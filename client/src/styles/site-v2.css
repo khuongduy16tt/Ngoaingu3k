@@ -22,15 +22,6 @@
   --ghost-text: var(--hv-ink);
   --ghost-border: var(--hv-border-strong);
   --radius: 18px;
-  --site-header-height: 96px;
-}
-
-@media (max-width: 767px) {
-  :root,
-  :root[data-theme='light'],
-  :root[data-theme='dark'] {
-    --site-header-height: 80px;
-  }
 }
 
 /* ── 2. Nền & chữ ──────────────────────────────────────────────────────── */
@@ -46,11 +37,6 @@ body {
 
 .background-accent {
   display: none;
-}
-
-/* Header viên thuốc nổi trên mọi trang → nội dung chừa đúng phần đầu. */
-.app-shell:not(.app-shell--home):not(.app-shell--immersive) .site-main {
-  padding-top: calc(var(--site-header-height) + env(safe-area-inset-top));
 }
 
 :where(.page) :is(h1, h2, h3) {
@@ -654,21 +640,6 @@ body {
   color: var(--hv-green-text);
 }
 
-/* ── 16. Nút "Học thử miễn phí" ở các trang không phải trang chủ ─────────
-   Không có hero → hiện sẵn, nhưng chỉ khi header đủ rộng; màn hẹp hơn giữ nút
-   Đăng nhập (người dùng trang học/thi cần đăng nhập hơn là học thử). */
-@media (min-width: 1181px) {
-  .site-header--pill.site-header--app .site-header__trial {
-    max-width: 200px;
-    margin-left: 0;
-    padding: 0 18px;
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-    transition-delay: 0s;
-  }
-}
-
 /* ── 17. Pill trạng thái: giữ màu ngữ nghĩa (đè lại pill trung tính ở §3) ── */
 .pill.pill--success {
   border-color: transparent !important;
@@ -692,66 +663,7 @@ body {
   color: #fcd34d !important;
 }
 
-/* ── 18. Khung header: viền gradient xanh lá lấp lánh ─────────────────────
-   Viền vẽ bằng ::after (mask cắt rỗng ruột) để giữ được kính mờ ở ::before
-   — đặt gradient làm background của chính khung sẽ mất backdrop-filter. */
-.site-header--pill .site-header__inner {
-  border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    0 1px 2px rgba(21, 128, 61, 0.06),
-    0 10px 28px -10px rgba(21, 128, 61, 0.22);
-}
-
-.site-header--pill.is-scrolled .site-header__inner {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    0 2px 4px rgba(21, 128, 61, 0.06),
-    0 16px 36px -12px rgba(21, 128, 61, 0.3);
-}
-
-:root[data-theme='dark'] .site-header--pill .site-header__inner {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 12px 32px -10px rgba(0, 0, 0, 0.55);
-}
-
-.site-header--pill .site-header__inner::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  z-index: -1;
-  padding: 2px;
-  border-radius: inherit;
-  background: linear-gradient(
-    110deg,
-    #15803d 0%,
-    #22c55e 18%,
-    #bbf7d0 30%,
-    var(--hv-border) 42%,
-    var(--hv-border) 58%,
-    #86efac 72%,
-    #22c55e 86%,
-    #15803d 100%
-  );
-  background-size: 220% 100%;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box exclude,
-    linear-gradient(#000 0 0);
-  pointer-events: none;
-  animation: hvRingShimmer 9s ease-in-out infinite alternate;
-}
-
-@keyframes hvRingShimmer {
-  from { background-position: 0% 50%; }
-  to { background-position: 100% 50%; }
-}
-
-/* ── 19. Linh vật đu mép khung ─────────────────────────────────────────── */
+/* Linh vật đu mép dưới thanh menu, trên desktop và mobile. */
 .header-mascot {
   position: absolute;
   top: calc(100% - 6px);
@@ -858,6 +770,20 @@ body {
   animation: hvMascotJump 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.header-mascot__buddy:focus-visible {
+  outline: 2px solid #22c55e;
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.header-mascot.is-waving .header-mascot__hand {
+  animation: hvMascotWave 650ms ease-in-out 2;
+}
+
+.header-mascot__sparkle { opacity: 0; }
+.header-mascot.is-waving .header-mascot__sparkle,
+.header-mascot:has(.is-jumping) .header-mascot__sparkle { opacity: 1; }
+
 .header-mascot__bubble {
   position: absolute;
   top: 14px;
@@ -885,6 +811,12 @@ body {
   30% { transform: translateY(6px) scale(1.06, 0.92); }
   65% { transform: translateY(-3px) scale(0.96, 1.05); }
   100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes hvMascotWave {
+  0%, 100% { transform: rotate(0deg); }
+  35% { transform: rotate(-22deg); }
+  70% { transform: rotate(16deg); }
 }
 
 @keyframes hvBubbleIn {
@@ -930,10 +862,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-header--pill .site-header__inner::after,
   .header-mascot__eyes,
   .header-mascot.is-look .header-mascot__buddy svg,
   .header-mascot__buddy.is-jumping svg,
+  .header-mascot.is-waving .header-mascot__hand,
   .header-mascot__bubble {
     animation: none;
   }

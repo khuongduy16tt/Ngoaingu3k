@@ -6,13 +6,16 @@
      nav link Nunito 700/16px uppercase trắng, padding 12px 0, li padding 0 11px
      hover    li nền trắng 14%, mục đang chọn nền secondary, bo 10px
      dropdown 250px, nền brand primary, bo 6px, padding 20px, lật rotateX từ trên xuống
-     CTA      secondary blue, 16px/800, letter-spacing 2px, padding 12px 24px, bo 30px
-     mobile   thanh 80px + drawer off-canvas 350px trượt từ trái (trang thật
-              chốt ở 1024px, bản này hạ xuống 1240px — lý do ghi ở khối media)
+     CTA      xanh lá sáng, chữ xanh đen
+     mobile   drawer off-canvas 350px trượt từ phải ở ≤767px
 
-   Bộ nhận diện mới (2026): nền header là brand primary #385791 ở cả 2 theme,
-   mục đang chọn là viên #59B3E1 chữ navy, nút chính dùng màu secondary. Màu
+   Bộ nhận diện hiện tại: nền header xanh lá đậm ở cả 2 theme,
+   mục đang chọn xanh lá sáng, chữ xanh đen; nút chính dùng màu secondary. Màu
    lấy từ tokens.css — không viết cứng HEX ở đây nữa. */
+
+:root {
+  --site-header-height: 87px;
+}
 
 .site-header {
   /* Tên biến giữ nguyên để không phải sửa hàng chục quy tắc bên dưới;
@@ -40,6 +43,8 @@
    7 mục nhãn tiếng Việt dài (~900px). Logo giờ nằm trong luồng nên chiếm thêm
    ~125px, cộng lại vượt 1250px và menu sẽ tràn ra sát logo. */
 .site-header__inner {
+  /* Giữ mascot bám mép dưới thanh menu, không chiếm một cột trong grid. */
+  position: relative;
   width: min(1360px, 100%);
   height: 100%;
   margin: 0 auto;
@@ -106,7 +111,7 @@
   background: var(--color-header-active-bg);
 }
 
-/* Chữ trắng trên #59B3E1 chỉ 2.34:1 — mục đang chọn dùng chữ navy (6.8:1). */
+/* Mục đang chọn dùng chữ xanh đen trên nền xanh lá sáng. */
 .site-menu__item:has(> .site-menu__link.is-active) > .site-menu__link {
   color: var(--color-header-active-text);
 }
@@ -589,11 +594,11 @@
    ĐỔI SỐ NÀY thì phải đổi luôn MOBILE_NAV_QUERY trong AppLayout.jsx. */
 @media (max-width: 767px) {
   :root {
-    --site-header-height: 80px;
+    --site-header-height: var(--mobile-header-height);
   }
 
   .site-header {
-    --header-height: 80px;
+    --header-height: var(--mobile-header-height);
   }
 
   /* Menu thành drawer position:fixed nên rời khỏi luồng grid — còn đúng 2 khối

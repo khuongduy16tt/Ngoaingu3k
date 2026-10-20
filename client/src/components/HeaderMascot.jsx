@@ -4,7 +4,7 @@ import { prefersReducedMotion } from '../lib/scrollMotion';
 // "Bạn 3K" đu bám mép dưới khung header: lúc thò đầu ra ngó nghiêng, lúc rụt
 // vào trốn sau khung. Rê chuột vào → ngại, trốn ngay rồi lén ló lại. Bấm vào →
 // nhảy cẫng lên và nói một câu. Chỉ là trang trí (aria-hidden, không nhận
-// focus); hoạt ảnh là transform trong home-v2.css, JS chỉ đổi pha.
+// focus); hoạt ảnh là transform trong site-v2.css, JS chỉ đổi pha.
 //
 // Pha: hidden → peek (ló đầu) → look (ngó trái/phải) → hidden …
 // Giảm chuyển động: đứng yên ở trạng thái ló đầu, không lặp.
@@ -24,10 +24,11 @@ function random(min, max) {
 
 export function HeaderMascot({ hidden = false }) {
   const [reduced] = useState(prefersReducedMotion);
-  const [phase, setPhase] = useState(reduced ? 'peek' : 'hidden');
+  const [phase, setPhase] = useState('peek');
   const [look, setLook] = useState('center'); // left | center | right
   const [line, setLine] = useState('');
   const [jumping, setJumping] = useState(false);
+  const [waving, setWaving] = useState(false);
   const timers = useRef([]);
   const lineIndex = useRef(random(0, LINES.length - 1));
 
@@ -47,9 +48,9 @@ export function HeaderMascot({ hidden = false }) {
     if (reduced || hidden || line) return undefined;
     let timer;
     if (phase === 'hidden') {
-      timer = setTimeout(() => setPhase('peek'), random(2500, 6000));
+      timer = setTimeout(() => setPhase('peek'), 300);
     } else if (phase === 'peek') {
-      timer = setTimeout(() => setPhase('look'), 900);
+      timer = setTimeout(() => setPhase('look'), random(2400, 4200));
     } else if (phase === 'look') {
       const steps = [
         () => setLook(Math.random() > 0.5 ? 'left' : 'right'),
@@ -57,7 +58,7 @@ export function HeaderMascot({ hidden = false }) {
         () => setLook('center'),
       ];
       steps.forEach((step, i) => later(step, 500 + i * 750));
-      timer = setTimeout(() => setPhase('hidden'), random(3200, 4600));
+      timer = setTimeout(() => setPhase('peek'), random(2200, 3400));
     }
     return () => clearTimeout(timer);
   }, [phase, reduced, hidden, line]);
@@ -70,12 +71,20 @@ export function HeaderMascot({ hidden = false }) {
     }
   }, [hidden]);
 
-  function onShy() {
-    if (reduced || line) return;
+  function onHello() {
+    if (line) return;
     clearAll();
-    setLook('center');
-    setPhase('duck');
-    later(() => setPhase('peek'), 1400);
+    setPhase('peek');
+    setLine('Chào bạn! Bấm mình nhé 👋');
+    setWaving(true);
+    later(() => setWaving(false), 900);
+    later(() => setLine(''), 1900);
+  }
+
+  function onMove(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = (event.clientX - rect.left) / rect.width;
+    setLook(position < 0.4 ? 'left' : position > 0.6 ? 'right' : 'center');
   }
 
   function onPoke() {
@@ -85,21 +94,26 @@ export function HeaderMascot({ hidden = false }) {
     setPhase('peek');
     setLook('center');
     setJumping(true);
+    setWaving(true);
     later(() => setJumping(false), 520);
+    later(() => setWaving(false), 900);
     later(() => {
       setLine('');
-      if (!reduced) setPhase('hidden');
+      setPhase('peek');
     }, 2400);
   }
 
   return (
-    <span className={`header-mascot is-${hidden ? 'gone' : phase} look-${look}`} aria-hidden="true">
+    <span className={`header-mascot is-${hidden ? 'gone' : phase} look-${look} ${waving ? 'is-waving' : ''}`}>
       <span className="header-mascot__clip">
         <button
           type="button"
-          tabIndex={-1}
           className={`header-mascot__buddy ${jumping ? 'is-jumping' : ''}`}
-          onMouseEnter={onShy}
+          aria-label="Chạm vào bạn 3K để nghe lời cổ vũ"
+          onMouseEnter={onHello}
+          onMouseMove={onMove}
+          onMouseLeave={() => setLook('center')}
+          onFocus={() => setPhase('peek')}
           onClick={onPoke}
         >
           <svg viewBox="0 0 80 76" focusable="false">
@@ -133,11 +147,14 @@ export function HeaderMascot({ hidden = false }) {
             </g>
             <circle cx="24" cy="46" r="3" fill="#FDA4AF" opacity="0.75" />
             <circle cx="56" cy="46" r="3" fill="#FDA4AF" opacity="0.75" />
+            <circle cx="21" cy="43" r="1.2" fill="#fff" opacity="0.85" />
+            <circle cx="53" cy="43" r="1.2" fill="#fff" opacity="0.85" />
             <path className="header-mascot__mouth" d="M35 46c2 3.5 8 3.5 10 0" fill="none" stroke="#0B1F12" strokeWidth="2.6" strokeLinecap="round" />
+            <path className="header-mascot__sparkle" d="m8 33 1.5-4L11 33l4 1.5-4 1.5-1.5 4L8 36l-4-1.5Z" fill="#facc15" />
           </svg>
         </button>
       </span>
-      {line ? <span className="header-mascot__bubble">{line}</span> : null}
+      {line ? <span className="header-mascot__bubble" role="status">{line}</span> : null}
     </span>
   );
 }

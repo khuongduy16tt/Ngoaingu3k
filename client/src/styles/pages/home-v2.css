@@ -43,7 +43,6 @@
   --hv-warm: #efede9;
   --hv-sky: #e3eefb;
 
-  --hv-nav-bg: rgba(255, 255, 255, 0.85);
   --hv-focus: #15803d;
 
   --hv-font-display: 'Fraunces', 'Lora', Georgia, 'Times New Roman', serif;
@@ -85,7 +84,6 @@
   --hv-warm: #17251d;
   --hv-sky: #13282a;
 
-  --hv-nav-bg: rgba(19, 34, 26, 0.85);
   --hv-focus: #4ade80;
 
   --hv-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.2);
@@ -93,533 +91,13 @@
   --hv-shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.45);
 }
 
-/* Header trang chủ là viên thuốc nổi → nội dung chạy ngay từ mép trên. */
+/* Hero tự chừa chiều cao header để nền phủ liên tục từ đầu trang. */
 .app-shell--home:not(.app-shell--immersive) .site-main {
   padding-top: 0;
 }
 
 .app-shell--home .background-accent {
   display: none;
-}
-
-/* ── 2. Navbar dạng viên thuốc nổi ──────────────────────────────────────── */
-.site-header.site-header--pill {
-  top: 0;
-  left: 0;
-  right: 0;
-  height: auto;
-  padding: calc(16px + env(safe-area-inset-top)) 16px 0;
-  background: transparent;
-  pointer-events: none;
-  font-family: var(--hv-font-sans);
-}
-
-.site-header--pill .site-header__inner {
-  position: relative;
-  isolation: isolate;
-  width: min(1100px, 100%);
-  height: 64px;
-  padding: 0 10px 0 18px;
-  gap: 16px;
-  border: 1px solid var(--hv-border);
-  border-radius: var(--hv-radius-pill);
-  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
-  pointer-events: auto;
-  transition: box-shadow 250ms var(--hv-ease);
-}
-
-/* Kính mờ đặt trên pseudo-element, KHÔNG đặt trên header/inner: backdrop-filter
-   biến phần tử thành khối chứa cho con position:fixed, menu mobile (fixed)
-   sẽ bị nhốt trong viên thuốc thay vì phủ cả màn hình. */
-.site-header--pill .site-header__inner::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--hv-nav-bg);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-}
-
-.site-header--pill.is-scrolled .site-header__inner {
-  box-shadow: 0 10px 30px rgba(17, 17, 17, 0.08);
-}
-
-.site-header--pill .site-header__logo img {
-  height: 44px;
-  filter: none;
-}
-
-:root[data-theme='dark'] .site-header--pill .site-header__logo img,
-:root[data-theme='dark'] .site-header--pill .site-nav__head img {
-  filter: brightness(0) invert(1);
-}
-
-.site-header--pill .site-menu__item {
-  padding: 0;
-  border-radius: var(--hv-radius-pill);
-}
-
-.site-header--pill .site-menu__item:hover,
-.site-header--pill .site-menu__item:focus-within,
-.site-header--pill .site-menu__item.is-open {
-  background: var(--hv-hover);
-}
-
-.site-header--pill .site-menu__item:has(> .site-menu__link.is-active) {
-  background: var(--hv-green-soft);
-}
-
-.site-header--pill .site-menu__item:has(> .site-menu__link.is-active) > .site-menu__link {
-  color: var(--hv-green-text);
-}
-
-.site-header--pill .site-menu__link,
-.site-header--pill .site-menu__link:hover,
-.site-header--pill .site-menu__link:focus-visible {
-  padding: 8px 14px;
-  color: var(--hv-ink);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  text-transform: none;
-}
-
-/* Dropdown: thẻ trắng mở mượt (opacity + translateY 8px, 180ms). */
-.site-header--pill .site-menu__sub {
-  top: calc(100% + 10px);
-  width: 280px;
-  padding: 10px;
-  background: var(--hv-surface);
-  border: 1px solid var(--hv-border);
-  border-radius: 20px;
-  box-shadow: var(--hv-shadow-pop);
-  transform: translateY(8px);
-  transition:
-    opacity 180ms var(--hv-ease),
-    transform 180ms var(--hv-ease),
-    visibility 180ms;
-}
-
-/* Cầu nối vô hình qua khe 10px để chuột đi từ link xuống panel không bị hụt. */
-.site-header--pill .site-menu__sub::before {
-  content: '';
-  position: absolute;
-  top: -12px;
-  left: 0;
-  right: 0;
-  height: 12px;
-}
-
-.site-header--pill .site-menu__item.is-open > .site-menu__sub {
-  transform: translateY(0);
-}
-
-.site-header--pill .site-menu__sub-link,
-.site-header--pill .site-menu__group-row,
-.site-header--pill .site-menu__flyout-link {
-  padding: 10px 12px;
-  border-radius: 12px;
-  color: var(--hv-ink);
-  font-size: 15px;
-  font-weight: 600;
-  text-transform: none;
-  border-color: var(--hv-border);
-}
-
-.site-header--pill .site-menu__sub-link:hover,
-.site-header--pill .site-menu__flyout-link:hover {
-  opacity: 1;
-  background: var(--hv-hover);
-  transform: none;
-}
-
-.site-header--pill .site-menu__sub-link span,
-.site-header--pill .site-menu__flyout-link span {
-  color: var(--hv-ink-2);
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.site-header--pill .site-menu__sub--compact .site-menu__sub-link + .site-menu__sub-link {
-  border-top: 0;
-}
-
-.site-header--pill .site-menu__search {
-  margin-bottom: 6px;
-  border: 1px solid var(--hv-border);
-  border-radius: 12px;
-  background: var(--hv-bg);
-  color: var(--hv-ink);
-  font-size: 15px;
-}
-
-.site-header--pill .site-menu__search::placeholder {
-  color: var(--hv-ink-2);
-}
-
-.site-header--pill .site-menu__search:focus {
-  outline: 2px solid var(--hv-focus);
-}
-
-.site-header--pill .site-menu__empty {
-  padding: 4px 12px;
-  color: var(--hv-ink-2);
-  font-size: 14px;
-}
-
-.site-header--pill .site-menu__flyout {
-  background: var(--hv-surface);
-  border: 1px solid var(--hv-border);
-  border-radius: 16px;
-  box-shadow: var(--hv-shadow-pop);
-}
-
-.site-header--pill .site-header__actions {
-  gap: 8px;
-}
-
-.site-header--pill .site-header__actions > .site-header__login {
-  display: inline-flex;
-  align-items: center;
-  min-height: 42px;
-  padding: 0 18px;
-  border: 1px solid var(--hv-border-strong);
-  border-radius: var(--hv-radius-pill);
-  background: transparent;
-  color: var(--hv-ink);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0;
-  transition:
-    background-color 150ms ease,
-    max-width 320ms var(--hv-ease),
-    opacity 200ms ease;
-}
-
-.site-header--pill .site-header__login:hover {
-  background: var(--hv-hover);
-  transform: none;
-}
-
-/* "Học thử miễn phí": thu gọn về 0 cho tới khi cuộn qua hero rồi trượt ra. */
-.site-header__trial {
-  display: inline-flex;
-  align-items: center;
-  max-width: 0;
-  min-height: 42px;
-  margin-left: -8px; /* triệt khe gap khi đang ẩn */
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: var(--hv-radius-pill);
-  background: var(--hv-green);
-  color: var(--hv-on-green);
-  font: 600 15px/1 var(--hv-font-sans);
-  white-space: nowrap;
-  cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-6px);
-  transition:
-    max-width 320ms var(--hv-ease),
-    padding 320ms var(--hv-ease),
-    margin 320ms var(--hv-ease),
-    opacity 200ms ease,
-    transform 320ms var(--hv-ease),
-    background-color 150ms ease,
-    visibility 0s linear 320ms;
-}
-
-.site-header--pill.is-past-hero .site-header__trial {
-  max-width: 200px;
-  margin-left: 0;
-  padding: 0 18px;
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  transition-delay: 0s;
-}
-
-.site-header__trial:hover {
-  background: var(--hv-green-hover);
-}
-
-.site-header--pill .site-header__burger {
-  color: var(--hv-ink);
-  border-radius: var(--hv-radius-pill);
-}
-
-.site-header--pill .site-header__burger:hover {
-  background: var(--hv-hover);
-}
-
-:root .site-header.site-header--pill .theme-toggle .theme-toggle__track {
-  background: var(--hv-warm);
-  border-color: var(--hv-border-strong);
-}
-
-:root .site-header.site-header--pill .theme-toggle.is-dark .theme-toggle__track {
-  background: #22362b;
-  border-color: #2e4739;
-}
-
-.site-header--pill :focus-visible {
-  outline: 3px solid var(--hv-focus);
-  outline-offset: 2px;
-}
-
-/* Màn vừa: thu nhỏ menu; khi đã qua hero thì "Đăng nhập" nhường chỗ cho CTA
-   (Đăng nhập vẫn có trong menu mobile và ở đầu trang). */
-@media (max-width: 1180px) {
-  .site-header--pill.is-past-hero .site-header__actions > .site-header__login {
-    max-width: 0;
-    min-width: 0;
-    padding: 0;
-    margin-left: -8px;
-    border-width: 0;
-    overflow: hidden;
-    opacity: 0;
-  }
-}
-
-@media (max-width: 1080px) {
-  .site-header--pill .site-menu__link,
-  .site-header--pill .site-menu__link:hover,
-  .site-header--pill .site-menu__link:focus-visible {
-    padding: 8px 10px;
-    font-size: 14px;
-  }
-
-  .site-header--pill.is-past-hero .site-header__actions > .site-header__login {
-    max-width: 0;
-    min-width: 0;
-    padding: 0;
-    margin-left: -8px;
-    border-width: 0;
-    overflow: hidden;
-    opacity: 0;
-  }
-}
-
-@media (max-width: 900px) {
-  .site-header--pill .site-header__inner {
-    padding: 0 8px 0 14px;
-    gap: 8px;
-  }
-
-  .site-header--pill .site-header__logo img {
-    height: 38px;
-  }
-
-  .site-header--pill .site-menu__link,
-  .site-header--pill .site-menu__link:hover,
-  .site-header--pill .site-menu__link:focus-visible {
-    padding: 6px 6px;
-    font-size: 13px;
-  }
-
-  .site-header--pill .site-header__actions {
-    gap: 4px;
-  }
-}
-
-/* Tablet (768–900px): menu ngang hết chỗ → bỏ mục "Trang chủ" (logo đã dẫn
-   về trang chủ) để không đè lên logo và nút gạt theme. */
-@media (min-width: 768px) and (max-width: 900px) {
-  .site-header--pill .site-menu > .site-menu__item:first-child {
-    display: none;
-  }
-}
-
-/* Mobile: viên thuốc gọn + menu toàn màn hình (fade, các mục trượt lên lần lượt). */
-@media (max-width: 767px) {
-  .site-header.site-header--pill {
-    padding: calc(10px + env(safe-area-inset-top)) 10px 0;
-  }
-
-  .site-header--pill .site-header__inner {
-    height: 58px;
-    padding: 0 6px 0 14px;
-  }
-
-  .site-header--pill .site-header__logo img {
-    height: 38px;
-  }
-
-  .site-header--pill .site-header__actions > .site-header__login {
-    min-height: 40px;
-    padding: 0 14px;
-    font-size: 14px;
-  }
-
-  .site-header--pill.is-past-hero .site-header__trial {
-    padding: 0 14px;
-    font-size: 14px;
-  }
-
-  .site-header--pill .site-nav {
-    width: 100vw;
-    height: 100dvh;
-    padding: env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom));
-    background: var(--hv-bg);
-    box-shadow: none;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-12px);
-    transition:
-      opacity 260ms var(--hv-ease),
-      transform 260ms var(--hv-ease),
-      visibility 0s linear 260ms;
-  }
-
-  .site-header--pill .site-nav.is-open {
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-    transition-delay: 0s;
-  }
-
-  .site-header--pill .site-nav__overlay {
-    display: none;
-  }
-
-  .site-header--pill .site-nav__head {
-    padding: 14px 16px 14px 24px;
-    background: transparent;
-  }
-
-  .site-header--pill .site-nav__head img {
-    height: 40px;
-    filter: none;
-  }
-
-  .site-header--pill .site-nav__close {
-    width: 48px;
-    height: 48px;
-    border: 1px solid var(--hv-border);
-    border-radius: var(--hv-radius-pill);
-    background: var(--hv-surface);
-    color: var(--hv-ink);
-  }
-
-  .site-header--pill .site-menu {
-    padding: 8px 12px;
-  }
-
-  .site-header--pill .site-menu__item,
-  .site-header--pill .site-menu__item:hover,
-  .site-header--pill .site-menu__item:focus-within,
-  .site-header--pill .site-menu__item.is-open,
-  .site-header--pill .site-menu__item:has(> .site-menu__link.is-active) {
-    border-radius: 16px;
-    border-bottom: 0;
-    background: transparent;
-  }
-
-  .site-header--pill .site-menu__item:has(> .site-menu__link.is-active) {
-    background: var(--hv-green-soft);
-  }
-
-  .site-header--pill .site-menu__link,
-  .site-header--pill .site-menu__link:hover,
-  .site-header--pill .site-menu__link:focus-visible {
-    width: 100%;
-    min-height: 56px;
-    padding: 12px 16px;
-    font-size: 22px;
-    font-weight: 600;
-    background: transparent;
-  }
-
-  /* Trong menu toàn màn hình submenu là khối tĩnh xổ xuống (display do
-     site-header.css bật/tắt) — huỷ kiểu panel nổi của bản desktop. */
-  .site-header--pill .site-menu__sub,
-  .site-header--pill .site-menu__item.is-open > .site-menu__sub {
-    width: auto;
-    padding: 4px 8px 12px 16px;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    transform: none;
-    transition: none;
-  }
-
-  .site-header--pill .site-menu__sub::before {
-    display: none;
-  }
-
-  .site-header--pill .site-menu__sub-link {
-    font-size: 16px;
-  }
-
-  .site-header--pill .site-nav__auth {
-    padding: 16px 24px 24px;
-  }
-
-  .site-header--pill .site-nav__auth .site-header__login,
-  .site-header--pill .site-nav__auth .site-header__signup {
-    min-height: 52px;
-    border-radius: var(--hv-radius-pill);
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 0;
-  }
-
-  .site-header--pill .site-nav__auth .site-header__login {
-    border: 1px solid var(--hv-border-strong);
-    background: var(--hv-surface);
-    color: var(--hv-ink);
-  }
-
-  .site-header--pill .site-nav__auth .site-header__signup {
-    border: 0;
-    background: var(--hv-green);
-    color: var(--hv-on-green);
-  }
-
-  .site-header--pill .site-nav .site-menu__item,
-  .site-header--pill .site-nav__auth {
-    opacity: 0;
-    transform: translateY(12px);
-    transition:
-      opacity 300ms var(--hv-ease),
-      transform 300ms var(--hv-ease),
-      background-color 150ms ease;
-  }
-
-  .site-header--pill .site-nav.is-open .site-menu__item,
-  .site-header--pill .site-nav.is-open .site-nav__auth {
-    opacity: 1;
-    transform: none;
-  }
-
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(1) { transition-delay: 60ms; }
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(2) { transition-delay: 100ms; }
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(3) { transition-delay: 140ms; }
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(4) { transition-delay: 180ms; }
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(5) { transition-delay: 220ms; }
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(6) { transition-delay: 260ms; }
-  .site-header--pill .site-nav.is-open .site-menu__item:nth-child(n + 7) { transition-delay: 300ms; }
-  .site-header--pill .site-nav.is-open .site-nav__auth { transition-delay: 320ms; }
-
-  /* Đã qua hero: "Đăng nhập" (vẫn có trong menu) nhường chỗ cho CTA. */
-  .site-header--pill.is-past-hero .site-header__actions > .site-header__login {
-    display: none;
-  }
-}
-
-@media (max-width: 380px) {
-  .site-header--pill .site-header__logo img {
-    height: 32px;
-  }
-
-  .site-header--pill.is-past-hero .site-header__trial {
-    padding: 0 12px;
-    font-size: 13px;
-  }
 }
 
 /* ── 3. Nền tảng trang ─────────────────────────────────────────────────── */
@@ -828,7 +306,7 @@
 /* ── 4. Hero ──────────────────────────────────────────────────────────── */
 .hv-hero {
   position: relative;
-  padding: calc(16px + 64px + 64px + env(safe-area-inset-top)) 16px 72px;
+  padding: calc(var(--site-header-height) + 64px + env(safe-area-inset-top)) 16px 72px;
   text-align: center;
 }
 
@@ -857,18 +335,6 @@
   z-index: 1;
   max-width: 960px;
   margin: 0 auto;
-}
-
-.hv-hero__kicker {
-  display: inline-block;
-  margin-bottom: 18px;
-  padding: 6px 14px;
-  border: 1px solid var(--hv-border);
-  border-radius: var(--hv-radius-pill);
-  background: var(--hv-surface);
-  color: var(--hv-ink-2);
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .hv-hero h1 {
@@ -1619,6 +1085,15 @@
   animation: hvBlink 4.6s ease-in-out infinite;
 }
 
+.hv-mascot__paw--right { transform-origin: 90px 64px; }
+.hv-mascot__sparkles { opacity: 0; }
+.hv-mascot.mood-celebrate .hv-mascot__paw--right { animation: hvMascotWave 650ms ease-in-out 2; }
+.hv-mascot.mood-celebrate .hv-mascot__sparkles { opacity: 1; animation: hvMascotTwinkle 800ms ease-in-out 2; }
+.hv-mascot.mood-encourage .hv-mascot__body { animation: hvMascotEncourage 700ms ease-in-out 2; }
+
+@keyframes hvMascotTwinkle { 50% { opacity: 0.35; transform: scale(1.08); } }
+@keyframes hvMascotEncourage { 50% { transform: rotate(-8deg) scale(1.05); } }
+
 /* ── 7. Tab chương trình ─────────────────────────────────────────────── */
 .hv-programs {
   position: relative;
@@ -2332,7 +1807,7 @@
 
 @media (max-width: 767px) {
   .hv-hero {
-    padding: calc(10px + 58px + 40px + env(safe-area-inset-top)) 0 48px;
+    padding: calc(var(--site-header-height) + 40px + env(safe-area-inset-top)) 0 48px;
   }
 
   .hv-hero__inner {
@@ -2560,6 +2035,9 @@
 
   .hv-mascot__body,
   .hv-mascot__eyes,
+  .hv-mascot.mood-celebrate .hv-mascot__paw--right,
+  .hv-mascot.mood-celebrate .hv-mascot__sparkles,
+  .hv-mascot.mood-encourage .hv-mascot__body,
   .is-active .hv-wave span,
   .hv-cta__shape,
   .hv-quiz__slot.is-correct,
@@ -2581,12 +2059,7 @@
   .hv-gallery__item img,
   .hv-course__media img,
   .hv-btn,
-  .hv-chip,
-  .site-header__trial,
-  .site-header--pill .site-nav,
-  .site-header--pill .site-nav .site-menu__item,
-  .site-header--pill .site-nav__auth,
-  .site-header--pill .site-menu__sub {
+  .hv-chip {
     transition-property: opacity;
   }
 
@@ -2616,4 +2089,153 @@
   .hv-marquee .hv-quote[aria-hidden='true'] {
     display: none;
   }
+}
+
+/* Homepage banner with a compact, interactive lesson card. */
+.hv-hero {
+  padding: calc(var(--site-header-height) + env(safe-area-inset-top)) 0 0;
+  background: #f8fff9;
+}
+
+.hv-hero::before { display: none; }
+.hv-hero__inner { max-width: none; }
+.hv-hero__banner { display: block; width: 100%; aspect-ratio: 1923 / 818; background: url('/images/imported/hero-banner-clean-v2.png') center / cover no-repeat; }
+.hv-hero__mobile-visual { display: none; }
+.hv-hero__mobile-copy {
+  position: absolute;
+  z-index: 3;
+  top: 10%;
+  left: 4.2%;
+  width: 35%;
+  text-align: left;
+}
+.hv-hero h1.hv-hero__mobile-title { max-width: none; margin: 0; color: #101c14; font-size: clamp(32px, 4vw, 68px) !important; font-weight: 700; line-height: 1.08 !important; letter-spacing: -0.035em !important; text-align: left; }
+.hv-hero h1.hv-hero__mobile-title em { color: #064e32; background: none; }
+.hv-hero .hv-hero__lead { max-width: 43ch; margin: 20px 0 0; color: #44584b; font-size: clamp(14px, 1.12vw, 19px); line-height: 1.55; }
+.hv-hero .hv-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; margin: 22px 0 0; }
+.hv-hero__actions .hv-btn { min-height: 52px; padding: 0 23px; border-radius: 999px; font-size: clamp(13px, 1.1vw, 17px); font-weight: 700; white-space: nowrap; }
+.hv-hero__actions .hv-btn--primary { border: 1px solid #078a49; background: linear-gradient(135deg, #08b65d, #008643); color: #fff; box-shadow: 0 9px 20px rgba(0, 123, 65, 0.25); }
+.hv-hero__actions .hv-btn--light { border: 1.5px solid #07884d; background: #fff; color: #075932; box-shadow: 0 7px 18px rgba(0, 100, 52, 0.12); }
+.hv-hero__actions .hv-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0, 100, 52, 0.25); }
+.hv-hero__actions .hv-btn:focus-visible { outline: 3px solid #064e3b; outline-offset: 3px; }
+
+.hv-hero__demo {
+  position: absolute;
+  z-index: 2;
+  top: 22%;
+  left: 50%;
+  width: min(32vw, 440px);
+  min-width: 330px;
+  margin: 0;
+}
+.hv-hero__mascot {
+  top: -65px;
+  left: 43%;
+  bottom: auto;
+  width: 84px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 5px rgba(0, 100, 50, 0.18));
+}
+.hv-hero__mascot-art { width: 100%; height: auto; }
+.hv-hero__mascot:focus-visible { outline: 3px solid #22c55e; outline-offset: 3px; border-radius: 20px; }
+.hv-hero__mascot-message {
+  position: absolute;
+  right: 70%;
+  bottom: calc(100% - 10px);
+  width: max-content;
+  max-width: 180px;
+  padding: 7px 11px;
+  border: 1px solid #76d99a;
+  border-radius: 14px 14px 4px 14px;
+  background: #f5fff7;
+  color: #075932;
+  box-shadow: 0 8px 24px rgba(0, 58, 25, 0.16);
+  font: 700 12px/1.35 var(--hv-font-sans);
+  white-space: normal;
+  pointer-events: none;
+}
+.hv-hero .hv-quiz {
+  --hv-ink: #14251a;
+  --hv-ink-2: #53685a;
+  --hv-border: #d8e9dc;
+  --hv-border-strong: #a9cbb2;
+  --hv-surface: #ffffff;
+  --hv-warm: #eff9f1;
+  --hv-green-text: #08703d;
+  --hv-green-soft: #e5f8eb;
+  padding: 16px 18px 16px;
+  border: 1px solid #dcefe1;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 55px rgba(9, 94, 47, 0.19);
+}
+.hv-hero .hv-quiz__tag { font-size: 12px; padding: 4px 9px; }
+.hv-hero .hv-quiz__prompt { margin: 14px 0 4px; font-size: 13px; }
+.hv-hero .hv-quiz__sentence { min-height: 2.6em; margin-bottom: 12px; font-size: clamp(19px, 1.8vw, 25px); }
+.hv-hero .hv-quiz__slot { min-width: 70px; padding: 0 8px; }
+.hv-hero .hv-quiz__options { gap: 7px; }
+.hv-hero .hv-chip { flex: 1 1 0; min-width: 0; min-height: 39px; padding: 0 7px; border-radius: 10px; font-size: 15px; }
+.hv-hero .hv-quiz__feedback { min-height: 42px; margin-top: 12px; padding: 6px 10px; border-radius: 12px; background: #effaf2; font-size: 13px; }
+.hv-hero .hv-quiz__ghost { height: 39px; padding: 0 8px; font-size: 15px; }
+
+@media (max-width: 1050px) and (min-width: 768px) {
+  .hv-hero__mobile-copy { top: 7%; width: 40%; }
+  .hv-hero h1.hv-hero__mobile-title { font-size: clamp(30px, 3.8vw, 40px) !important; }
+  .hv-hero .hv-hero__lead { margin-top: 10px; font-size: 12px; line-height: 1.45; }
+  .hv-hero .hv-hero__actions { gap: 7px; margin-top: 12px; }
+  .hv-hero__actions .hv-btn { min-height: 44px; padding: 0 12px; font-size: 12px; }
+  .hv-hero__demo { left: 49%; top: 20%; width: 37vw; min-width: 285px; }
+  .hv-hero__mascot { top: -55px; width: 70px; }
+  .hv-hero .hv-quiz { padding: 12px; }
+  .hv-hero .hv-quiz__sentence { font-size: 19px; }
+  .hv-hero .hv-quiz__feedback { margin-top: 8px; }
+}
+
+@media (max-width: 767px) {
+  .hv-hero { padding: calc(var(--site-header-height) + env(safe-area-inset-top)) 0 44px; text-align: left; }
+  .hv-hero__inner { width: 100%; }
+  .hv-hero__banner { display: none; }
+  .hv-hero__mobile-copy { position: relative; top: auto; left: auto; box-sizing: border-box; width: 100%; padding: 34px 20px 0; }
+  .hv-hero h1.hv-hero__mobile-title { max-width: 16ch; font-size: clamp(34px, 9vw, 48px) !important; line-height: 1.1 !important; }
+  .hv-hero__mobile-title em { color: #08713e; font-style: normal; }
+  .hv-hero .hv-hero__lead { max-width: 42ch; margin: 16px 0 0; color: #426052; font-size: 15px; line-height: 1.55; }
+  .hv-hero .hv-hero__actions { gap: 10px; margin-top: 20px; }
+  .hv-hero__actions .hv-btn { min-height: 44px; padding-inline: 18px; font-size: 13px; }
+  .hv-hero__mobile-visual { display: block; height: clamp(180px, 52vw, 290px); margin-top: 12px; background: url('/images/imported/hero-banner-clean-v2.png') 54% center / cover no-repeat; }
+  .hv-hero__demo { position: relative; top: auto; left: auto; width: min(390px, calc(100% - 28px)); min-width: 0; margin: -22px auto 0; }
+  .hv-hero__mascot { top: -57px; left: 43%; right: auto; width: 74px; }
+  .hv-hero .hv-quiz { padding: 16px; }
+  .hv-hero .hv-quiz__sentence { font-size: 21px; }
+}
+
+/* The hero has its own art direction in dark mode. */
+:root[data-theme='dark'] .hv-hero { background: #08150e; }
+:root[data-theme='dark'] .hv-hero__banner { background-image: url('/images/imported/hero-banner-dark-v1.png'); }
+:root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title { color: #f4fff6; }
+:root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title em { color: #9aefb5; }
+:root[data-theme='dark'] .hv-hero .hv-hero__lead { color: #c7ddce; }
+:root[data-theme='dark'] .hv-hero__actions .hv-btn--primary { border-color: #4ade80; background: #4ade80; color: #052e16; box-shadow: 0 10px 26px rgba(18, 215, 98, 0.2); }
+:root[data-theme='dark'] .hv-hero__actions .hv-btn--light { border-color: #74d99a; background: rgba(5, 31, 17, 0.75); color: #e6ffed; box-shadow: 0 9px 22px rgba(0, 0, 0, 0.25); }
+:root[data-theme='dark'] .hv-hero__actions .hv-btn:focus-visible { outline-color: #b1f5c5; }
+:root[data-theme='dark'] .hv-hero .hv-quiz {
+  --hv-ink: #effbf1;
+  --hv-ink-2: #b7d1bf;
+  --hv-border: #315c40;
+  --hv-border-strong: #659572;
+  --hv-surface: #13291b;
+  --hv-warm: #1b3b27;
+  --hv-green-text: #a6f0ba;
+  --hv-green-soft: #1c4930;
+  border-color: #427352;
+  background: rgba(17, 39, 25, 0.98);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.48);
+}
+:root[data-theme='dark'] .hv-hero .hv-quiz__feedback { background: #1c4029; }
+:root[data-theme='dark'] .hv-hero .hv-quiz__cursor path { fill: #f5fff7; stroke: #17311e; }
+
+@media (max-width: 767px) {
+  :root[data-theme='dark'] .hv-hero__mobile-visual { background-image: url('/images/imported/hero-banner-dark-v1.png'); }
 }
