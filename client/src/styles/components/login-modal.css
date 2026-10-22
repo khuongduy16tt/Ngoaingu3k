@@ -126,6 +126,7 @@
   width: 120px;
   height: auto;
   margin-bottom: 8px;
+  border-radius: 10px;
 }
 
 .login-modal__head h2 {
@@ -467,13 +468,6 @@
   stroke: currentColor;
   stroke-width: 1.8;
   stroke-linejoin: round;
-}
-
-/* Nền tối: logo chữ navy chìm vào nền — đặt trên một khay sáng nhỏ. */
-:root[data-theme='dark'] .login-modal__logo {
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: #ffffff;
 }
 
 /* ── Điện thoại ────────────────────────────────────────────────────────── */

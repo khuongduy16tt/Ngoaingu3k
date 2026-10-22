@@ -14,7 +14,7 @@ import {
 // (signInWithEmail, signUpWithEmail, signInWithGoogle, sendPasswordReset), cùng
 // RPC update_own_contact_profile để bổ sung hồ sơ. Chỉ đổi cách trình bày.
 
-const LOGO_SRC = '/images/imported/logo-ngoaingu3k-clean.webp';
+const LOGO_SRC = '/images/imported/logo-ngoaingu3k-brand.png';
 // Khớp thời lượng hiệu ứng đóng trong login-modal.css.
 const EXIT_DURATION_MS = 180;
 // Sau khi đăng nhập, chờ AuthProvider nạp xong hồ sơ để biết có cần bổ sung

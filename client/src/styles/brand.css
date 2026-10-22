@@ -4,14 +4,11 @@
    Nạp sau các file trang/thành phần và TRƯỚC mobile.css (mobile chỉ đổi bố cục).
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Logo trên nền brand ──────────────────────────────────────────────────
-   File logo hiện có là bản màu cũ (xanh lá, chữ teal đậm) — đặt lên nền navy
-   #385791 thì chữ "ngoaingu3k" gần như chìm (tương phản < 2:1). Chưa có file
-   logo mới nên hiển thị bản đơn sắc trắng: sạch, đúng quy chuẩn dùng logo trên
-   nền màu, và tự hết khi thay file logo mới (bỏ filter ở đây). */
+/* ── 1. Logo màu chính thức ──────────────────────────────────────────────────
+   Giữ nguyên màu xanh lam–xanh lá và nền tối của ảnh logo người dùng cung cấp. */
 .site-header__logo img,
 .site-nav__head img {
-  filter: brightness(0) invert(1);
+  border-radius: 10px;
 }
 
 /* ── 2. Tiêu đề: navy brand ở theme sáng ─────────────────────────────────────

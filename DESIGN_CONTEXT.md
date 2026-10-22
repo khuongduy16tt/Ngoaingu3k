@@ -16,8 +16,9 @@
 - Soft
 - Balanced and modern
 
-## Brand identity (10/2026 — all green, matching the logo)
-- Navy `#385791` and blue `#59B3E1` are retired. Do not reintroduce them.
+## Brand identity (10/2026)
+- Use the supplied blue–green logo from `client/public/images/imported/logo-ngoaingu3k-brand.png` at its original colors. Do not apply a white or monochrome filter to it.
+- Navy `#385791` and blue `#59B3E1` are retired from the UI palette. Do not reintroduce them as interface colors.
 - Primary dark green `#15803D` (hover `#16A34A`, deep `#14532D`) — header, navigation, primary CTA, links. White text on it is 5.0:1.
 - Bright green `#22C55E` — secondary CTA, selected/active state, highlights, progress. Never put white text on it (2.3:1); use green-black ink `#052E16` (8.6:1).
 - Light green `#DCFCE7` — soft fills, badges.
