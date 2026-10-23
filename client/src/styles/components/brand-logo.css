@@ -1,0 +1,26 @@
+/* Preserve the original symbol and wordmark together; each PNG has true alpha. */
+.brand-logo {
+  --brand-logo-width: 80px;
+  display: inline-block;
+  flex: none;
+  width: var(--brand-logo-width);
+  vertical-align: middle;
+}
+
+.brand-logo__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.brand-logo__image--dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .brand-logo__image--light {
+  display: none;
+}
+
+:root[data-theme='dark'] .brand-logo__image--dark {
+  display: block;
+}

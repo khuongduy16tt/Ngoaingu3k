@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════════════
    SITE v2 (10/2026) — đưa ngôn ngữ thiết kế của trang chủ mới ra MỌI trang:
-   nền trắng ấm, chữ đen, xanh lá logo làm màu nhấn, tiêu đề serif, thẻ bo
+   nền xanh trắng, chữ navy, xanh biển làm màu nhấn, tiêu đề serif, thẻ bo
    tròn lớn, nút pill "bấm lún" 3D, ô nhập bo 14px.
 
    Chỉ restyle các thành phần DÙNG CHUNG (.page, .section-head, .button,
@@ -10,7 +10,7 @@
    bằng !important nên ở đây buộc phải dùng !important để đè.
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Token nút dùng chung: xanh lá tươi + chữ xanh đen (8.6:1) ─────────── */
+/* ── 1. Token nút dùng chung: xanh biển + chữ navy ─────────── */
 :root,
 :root[data-theme='light'],
 :root[data-theme='dark'] {
@@ -212,7 +212,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Thanh tiến độ: xanh lá, bo tròn. */
+/* Thanh tiến độ hoàn thành: xanh lá trạng thái, bo tròn. */
 .meter {
   border-radius: var(--hv-radius-pill);
   background: var(--hv-warm) !important;
@@ -221,7 +221,7 @@ body {
 
 .meter span {
   border-radius: inherit;
-  background: var(--hv-green) !important;
+  background: var(--color-success) !important;
 }
 
 /* ── 6. Ô nhập ─────────────────────────────────────────────────────────── */
@@ -705,7 +705,7 @@ body {
 
 .header-mascot__arm {
   fill: none;
-  stroke: #15803d;
+  stroke: var(--color-primary);
   stroke-width: 5;
   stroke-linecap: round;
 }
@@ -771,7 +771,7 @@ body {
 }
 
 .header-mascot__buddy:focus-visible {
-  outline: 2px solid #22c55e;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: 12px;
 }
@@ -789,7 +789,7 @@ body {
   top: 14px;
   right: calc(100% + 6px);
   padding: 7px 12px;
-  border: 1.5px solid #22c55e;
+  border: 1.5px solid var(--color-secondary);
   border-radius: 14px 14px 4px 14px;
   background: var(--hv-surface);
   color: var(--hv-ink);

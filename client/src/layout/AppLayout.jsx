@@ -9,6 +9,7 @@ import { ConsultationFab, OPEN_CONSULTATION_EVENT } from '../components/Consulta
 import { AuthModalLink } from '../providers/AuthModalProvider';
 import { ConsultationPopup } from '../components/ConsultationPopup';
 import { HeaderMascot } from '../components/HeaderMascot';
+import { BrandLogo } from '../components/BrandLogo';
 import { getCourseCatalog, isHskCourse, getHskLevel, groupHskCourses } from '../lib/courseService';
 
 export function AppLayout({ children }) {
@@ -852,8 +853,6 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
-const LOGO_SRC = '/images/imported/logo-ngoaingu3k-brand.png';
-
 function TopBar({ theme, setTheme, themeLabel }) {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
@@ -896,13 +895,13 @@ function TopBar({ theme, setTheme, themeLabel }) {
       <div className="site-header__inner" ref={topbarRef}>
         <HeaderMascot hidden={mobileOpen} />
         <Link className="site-header__logo" to="/home" onClick={closeMobileMenu}>
-          <img src={LOGO_SRC} alt={contact.companyName} />
+          <BrandLogo />
         </Link>
 
         <nav id="site-nav" className={`site-nav ${mobileOpen ? 'is-open' : ''}`} aria-label="Menu chính">
           {/* Đầu drawer, chỉ hiện ở ≤767px */}
           <div className="site-nav__head">
-            <img src={LOGO_SRC} alt="" />
+            <BrandLogo />
             <button type="button" className="site-nav__close" aria-label="Đóng menu" onClick={closeMobileMenu}>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 6l12 12" />

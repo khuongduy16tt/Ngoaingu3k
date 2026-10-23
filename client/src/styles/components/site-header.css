@@ -9,8 +9,8 @@
      CTA      xanh lá sáng, chữ xanh đen
      mobile   drawer off-canvas 350px trượt từ phải ở ≤767px
 
-   Bộ nhận diện hiện tại: nền header xanh lá đậm ở cả 2 theme,
-   mục đang chọn xanh lá sáng, chữ xanh đen; nút chính dùng màu secondary. Màu
+   Bộ nhận diện hiện tại: nền header navy ở cả 2 theme,
+   mục đang chọn xanh biển, chữ navy; nút chính dùng màu secondary. Màu
    lấy từ tokens.css — không viết cứng HEX ở đây nữa. */
 
 :root {
@@ -63,11 +63,8 @@
   text-decoration: none;
 }
 
-.site-header__logo img {
-  height: 72px;
-  width: auto;
-  display: block;
-  object-fit: contain;
+.site-header__logo .brand-logo {
+  --brand-logo-width: 80px;
 }
 
 /* ── Menu chính ─────────────────────────────────────────────────────────── */
@@ -496,8 +493,8 @@
     gap: 16px;
   }
 
-  .site-header__logo img {
-    height: 60px;
+  .site-header__logo .brand-logo {
+    --brand-logo-width: 68px;
   }
 
   .site-menu__item {
@@ -525,8 +522,8 @@
     gap: 12px;
   }
 
-  .site-header__logo img {
-    height: 56px;
+  .site-header__logo .brand-logo {
+    --brand-logo-width: 62px;
   }
 
   .site-menu__item {
@@ -564,8 +561,8 @@
     gap: 6px;
   }
 
-  .site-header__logo img {
-    height: 44px;
+  .site-header__logo .brand-logo {
+    --brand-logo-width: 52px;
   }
 
   .site-menu__item {
@@ -609,8 +606,8 @@
     gap: 12px;
   }
 
-  .site-header__logo img {
-    height: 56px;
+  .site-header__logo .brand-logo {
+    --brand-logo-width: 58px;
   }
 
   .site-header__burger {
@@ -658,9 +655,8 @@
     background: var(--header-green);
   }
 
-  .site-nav__head img {
-    height: 56px;
-    width: auto;
+  .site-nav__head .brand-logo {
+    --brand-logo-width: 58px;
   }
 
   .site-nav__close {
@@ -816,8 +812,8 @@
     padding: 0 14px;
   }
 
-  .site-header__logo img {
-    height: 52px;
+  .site-header__logo .brand-logo {
+    --brand-logo-width: 54px;
   }
 }
 

@@ -7,43 +7,37 @@
    letter-spacing kèm !important cho toàn site, nên tiêu đề ở đây buộc phải
    dùng !important để đè.
 
-   Tương phản (WCAG 2.1):
-     #111111 / #F6F4F0 ............ 17.6:1
-     #5B5B5B / #FFFFFF ............ 6.8:1   · / #F6F4F0 6.1:1
-     #052E16 / #22C55E (chữ nút) .. 8.6:1   — chữ TRẮNG trên #22C55E chỉ 2.3:1
-                                              nên nút xanh dùng chữ xanh đen
-     #15803D / #FFFFFF (chữ link) . 5.0:1   · / #F6F4F0 4.6:1
-     #FFFFFF / #14532D (CTA) ...... 9.9:1
-     dark: #F3F4F6 / #13221A 15:1 · #A6B8AD / #13221A 8:1 · #4ADE80 / #0B1410 10:1
+   Tương phản: navy #385791 với chữ trắng đạt 7.14:1. Nền blue #59B3E1
+   dùng chữ navy #0F2140; liên kết ở dark mode dùng xanh sáng #8FB0E6.
    ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. Design tokens ─────────────────────────────────────────────────────── */
 /* Từ 10/2026 là token của CẢ SITE (site-v2.css dùng lại), không chỉ trang chủ. */
 :root {
-  --hv-bg: #f6f4f0;
+  --hv-bg: #f5f8fc;
   --hv-surface: #ffffff;
-  --hv-ink: #111111;
-  --hv-ink-2: #5b5b5b;
-  --hv-border: #e7e4df;
-  --hv-border-strong: #d6d2cb;
+  --hv-ink: #14223f;
+  --hv-ink-2: #5b6a85;
+  --hv-border: #dce5f1;
+  --hv-border-strong: #bfcee2;
   --hv-hover: rgba(17, 17, 17, 0.05);
 
-  --hv-green: #22c55e;
-  --hv-green-hover: #16a34a;
-  --hv-green-deep: #15803d; /* bóng 3D của nút */
-  --hv-green-dark: #14532d;
-  --hv-green-soft: #dcfce7;
-  --hv-green-text: #15803d; /* xanh lá dùng làm CHỮ trên nền sáng */
-  --hv-on-green: #052e16;
+  --hv-green: var(--brand-blue);
+  --hv-green-hover: #47a3d3;
+  --hv-green-deep: var(--brand-primary); /* bóng 3D của nút */
+  --hv-green-dark: var(--brand-primary-700);
+  --hv-green-soft: #e4f3fc;
+  --hv-green-text: #385791; /* alias cũ: navy dùng làm chữ trên nền sáng */
+  --hv-on-green: var(--brand-ink);
   --hv-danger-bg: #fee2e2;
   --hv-danger-text: #b91c1c;
 
   --hv-peach: #fbede3;
-  --hv-mint: #e6f6ec;
-  --hv-warm: #efede9;
+  --hv-mint: #e4f3fc;
+  --hv-warm: #eaf0f8;
   --hv-sky: #e3eefb;
 
-  --hv-focus: #15803d;
+  --hv-focus: #385791;
 
   --hv-font-display: 'Fraunces', 'Lora', Georgia, 'Times New Roman', serif;
   --hv-font-sans: 'Be Vietnam Pro', Nunito, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -66,25 +60,25 @@
 }
 
 :root[data-theme='dark'] {
-  --hv-bg: #0b1410;
-  --hv-surface: #13221a;
-  --hv-ink: #f3f4f6;
-  --hv-ink-2: #a6b8ad;
-  --hv-border: #22362b;
-  --hv-border-strong: #2e4739;
+  --hv-bg: #0e1729;
+  --hv-surface: #16243f;
+  --hv-ink: #eef3fb;
+  --hv-ink-2: #a9b8d0;
+  --hv-border: #30415f;
+  --hv-border-strong: #405576;
   --hv-hover: rgba(255, 255, 255, 0.06);
 
-  --hv-green-text: #4ade80;
-  --hv-green-soft: #12301f;
+  --hv-green-text: #74c1e8;
+  --hv-green-soft: #1b3656;
   --hv-danger-bg: #3a1620;
   --hv-danger-text: #fca5a5;
 
   --hv-peach: #2a221d;
-  --hv-mint: #12301f;
-  --hv-warm: #17251d;
-  --hv-sky: #13282a;
+  --hv-mint: #1b3656;
+  --hv-warm: #1b2a44;
+  --hv-sky: #17334f;
 
-  --hv-focus: #4ade80;
+  --hv-focus: #74c1e8;
 
   --hv-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.2);
   --hv-shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
@@ -611,7 +605,7 @@
 }
 
 .hv-quiz__cursor path {
-  fill: #111111;
+  fill: #14223f;
   stroke: #ffffff;
   stroke-width: 1.6;
   stroke-linejoin: round;
@@ -1575,7 +1569,7 @@
   padding: 88px 32px;
   overflow: hidden;
   border-radius: var(--hv-radius-block);
-  background: #14532d;
+  background: #253c63;
   color: #ffffff;
   text-align: center;
 }
@@ -1640,7 +1634,7 @@
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.22);
+  background: rgba(89, 179, 225, 0.22);
   animation-duration: 17s;
   animation-delay: -6s;
 }
@@ -2094,12 +2088,12 @@
 /* Homepage banner with a compact, interactive lesson card. */
 .hv-hero {
   padding: calc(var(--site-header-height) + env(safe-area-inset-top)) 0 0;
-  background: #f8fff9;
+  background: #f5f8fc;
 }
 
 .hv-hero::before { display: none; }
 .hv-hero__inner { max-width: none; }
-.hv-hero__banner { display: block; width: 100%; aspect-ratio: 1923 / 818; background: url('/images/imported/hero-banner-clean-v2.png') center / cover no-repeat; }
+.hv-hero__banner { display: block; width: 100%; aspect-ratio: 1923 / 818; background: url('/images/imported/hero-banner-blue-v3.png') center / cover no-repeat; }
 .hv-hero__mobile-visual { display: none; }
 .hv-hero__mobile-copy {
   position: absolute;
@@ -2109,15 +2103,15 @@
   width: 35%;
   text-align: left;
 }
-.hv-hero h1.hv-hero__mobile-title { max-width: none; margin: 0; color: #101c14; font-size: clamp(32px, 4vw, 68px) !important; font-weight: 700; line-height: 1.08 !important; letter-spacing: -0.035em !important; text-align: left; }
-.hv-hero h1.hv-hero__mobile-title em { color: #064e32; background: none; }
-.hv-hero .hv-hero__lead { max-width: 43ch; margin: 20px 0 0; color: #44584b; font-size: clamp(14px, 1.12vw, 19px); line-height: 1.55; }
+.hv-hero h1.hv-hero__mobile-title { max-width: none; margin: 0; color: #14223f; font-size: clamp(32px, 4vw, 68px) !important; font-weight: 700; line-height: 1.08 !important; letter-spacing: -0.035em !important; text-align: left; }
+.hv-hero h1.hv-hero__mobile-title em { color: #253c63; background: none; }
+.hv-hero .hv-hero__lead { max-width: 43ch; margin: 20px 0 0; color: #42506b; font-size: clamp(14px, 1.12vw, 19px); line-height: 1.55; }
 .hv-hero .hv-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; margin: 22px 0 0; }
 .hv-hero__actions .hv-btn { min-height: 52px; padding: 0 23px; border-radius: 999px; font-size: clamp(13px, 1.1vw, 17px); font-weight: 700; white-space: nowrap; }
-.hv-hero__actions .hv-btn--primary { border: 1px solid #078a49; background: linear-gradient(135deg, #08b65d, #008643); color: #fff; box-shadow: 0 9px 20px rgba(0, 123, 65, 0.25); }
-.hv-hero__actions .hv-btn--light { border: 1.5px solid #07884d; background: #fff; color: #075932; box-shadow: 0 7px 18px rgba(0, 100, 52, 0.12); }
-.hv-hero__actions .hv-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0, 100, 52, 0.25); }
-.hv-hero__actions .hv-btn:focus-visible { outline: 3px solid #064e3b; outline-offset: 3px; }
+.hv-hero__actions .hv-btn--primary { border: 1px solid #385791; background: linear-gradient(135deg, #385791, #2d4876); color: #fff; box-shadow: 0 9px 20px rgba(56, 87, 145, 0.25); }
+.hv-hero__actions .hv-btn--light { border: 1.5px solid #385791; background: #fff; color: #253c63; box-shadow: 0 7px 18px rgba(56, 87, 145, 0.12); }
+.hv-hero__actions .hv-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(56, 87, 145, 0.25); }
+.hv-hero__actions .hv-btn:focus-visible { outline: 3px solid #253c63; outline-offset: 3px; }
 
 .hv-hero__demo {
   position: absolute;
@@ -2137,10 +2131,10 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  filter: drop-shadow(0 4px 5px rgba(0, 100, 50, 0.18));
+  filter: drop-shadow(0 4px 5px rgba(56, 87, 145, 0.18));
 }
 .hv-hero__mascot-art { width: 100%; height: auto; }
-.hv-hero__mascot:focus-visible { outline: 3px solid #22c55e; outline-offset: 3px; border-radius: 20px; }
+.hv-hero__mascot:focus-visible { outline: 3px solid #59b3e1; outline-offset: 3px; border-radius: 20px; }
 .hv-hero__mascot-message {
   position: absolute;
   right: 70%;
@@ -2148,29 +2142,29 @@
   width: max-content;
   max-width: 180px;
   padding: 7px 11px;
-  border: 1px solid #76d99a;
+  border: 1px solid #59b3e1;
   border-radius: 14px 14px 4px 14px;
-  background: #f5fff7;
-  color: #075932;
-  box-shadow: 0 8px 24px rgba(0, 58, 25, 0.16);
+  background: #f5f8fc;
+  color: #253c63;
+  box-shadow: 0 8px 24px rgba(56, 87, 145, 0.16);
   font: 700 12px/1.35 var(--hv-font-sans);
   white-space: normal;
   pointer-events: none;
 }
 .hv-hero .hv-quiz {
-  --hv-ink: #14251a;
-  --hv-ink-2: #53685a;
-  --hv-border: #d8e9dc;
-  --hv-border-strong: #a9cbb2;
+  --hv-ink: #14223f;
+  --hv-ink-2: #5b6a85;
+  --hv-border: #dce5f1;
+  --hv-border-strong: #a9bfdc;
   --hv-surface: #ffffff;
-  --hv-warm: #eff9f1;
-  --hv-green-text: #08703d;
-  --hv-green-soft: #e5f8eb;
+  --hv-warm: #eaf0f8;
+  --hv-green-text: #385791;
+  --hv-green-soft: #e4f3fc;
   padding: 16px 18px 16px;
-  border: 1px solid #dcefe1;
+  border: 1px solid #dceaf8;
   border-radius: 26px;
   background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 20px 55px rgba(9, 94, 47, 0.19);
+  box-shadow: 0 20px 55px rgba(56, 87, 145, 0.19);
 }
 .hv-hero .hv-quiz__tag { font-size: 12px; padding: 4px 9px; }
 .hv-hero .hv-quiz__prompt { margin: 14px 0 4px; font-size: 13px; }
@@ -2178,7 +2172,7 @@
 .hv-hero .hv-quiz__slot { min-width: 70px; padding: 0 8px; }
 .hv-hero .hv-quiz__options { gap: 7px; }
 .hv-hero .hv-chip { flex: 1 1 0; min-width: 0; min-height: 39px; padding: 0 7px; border-radius: 10px; font-size: 15px; }
-.hv-hero .hv-quiz__feedback { min-height: 42px; margin-top: 12px; padding: 6px 10px; border-radius: 12px; background: #effaf2; font-size: 13px; }
+.hv-hero .hv-quiz__feedback { min-height: 42px; margin-top: 12px; padding: 6px 10px; border-radius: 12px; background: #eef5fc; font-size: 13px; }
 .hv-hero .hv-quiz__ghost { height: 39px; padding: 0 8px; font-size: 15px; }
 
 @media (max-width: 1050px) and (min-width: 768px) {
@@ -2200,11 +2194,11 @@
   .hv-hero__banner { display: none; }
   .hv-hero__mobile-copy { position: relative; top: auto; left: auto; box-sizing: border-box; width: 100%; padding: 34px 20px 0; }
   .hv-hero h1.hv-hero__mobile-title { max-width: 16ch; font-size: clamp(34px, 9vw, 48px) !important; line-height: 1.1 !important; }
-  .hv-hero__mobile-title em { color: #08713e; font-style: normal; }
-  .hv-hero .hv-hero__lead { max-width: 42ch; margin: 16px 0 0; color: #426052; font-size: 15px; line-height: 1.55; }
+  .hv-hero__mobile-title em { color: #385791; font-style: normal; }
+  .hv-hero .hv-hero__lead { max-width: 42ch; margin: 16px 0 0; color: #42506b; font-size: 15px; line-height: 1.55; }
   .hv-hero .hv-hero__actions { gap: 10px; margin-top: 20px; }
   .hv-hero__actions .hv-btn { min-height: 44px; padding-inline: 18px; font-size: 13px; }
-  .hv-hero__mobile-visual { display: block; height: clamp(180px, 52vw, 290px); margin-top: 12px; background: url('/images/imported/hero-banner-clean-v2.png') 54% center / cover no-repeat; }
+  .hv-hero__mobile-visual { display: block; height: clamp(180px, 52vw, 290px); margin-top: 12px; background: url('/images/imported/hero-banner-blue-v3.png') 54% center / cover no-repeat; }
   .hv-hero__demo { position: relative; top: auto; left: auto; width: min(390px, calc(100% - 28px)); min-width: 0; margin: -22px auto 0; }
   .hv-hero__mascot { top: -57px; left: 43%; right: auto; width: 74px; }
   .hv-hero .hv-quiz { padding: 16px; }
@@ -2212,29 +2206,29 @@
 }
 
 /* The hero has its own art direction in dark mode. */
-:root[data-theme='dark'] .hv-hero { background: #08150e; }
+:root[data-theme='dark'] .hv-hero { background: #0a1222; }
 :root[data-theme='dark'] .hv-hero__banner { background-image: url('/images/imported/hero-banner-dark-v1.png'); }
-:root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title { color: #f4fff6; }
-:root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title em { color: #9aefb5; }
-:root[data-theme='dark'] .hv-hero .hv-hero__lead { color: #c7ddce; }
-:root[data-theme='dark'] .hv-hero__actions .hv-btn--primary { border-color: #4ade80; background: #4ade80; color: #052e16; box-shadow: 0 10px 26px rgba(18, 215, 98, 0.2); }
-:root[data-theme='dark'] .hv-hero__actions .hv-btn--light { border-color: #74d99a; background: rgba(5, 31, 17, 0.75); color: #e6ffed; box-shadow: 0 9px 22px rgba(0, 0, 0, 0.25); }
-:root[data-theme='dark'] .hv-hero__actions .hv-btn:focus-visible { outline-color: #b1f5c5; }
+:root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title { color: #eef3fb; }
+:root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title em { color: #b3c9ee; }
+:root[data-theme='dark'] .hv-hero .hv-hero__lead { color: #c5d0e2; }
+:root[data-theme='dark'] .hv-hero__actions .hv-btn--primary { border-color: #74c1e8; background: #74c1e8; color: #0f2140; box-shadow: 0 10px 26px rgba(89, 179, 225, 0.2); }
+:root[data-theme='dark'] .hv-hero__actions .hv-btn--light { border-color: #74c1e8; background: rgba(15, 33, 64, 0.75); color: #eef3fb; box-shadow: 0 9px 22px rgba(0, 0, 0, 0.25); }
+:root[data-theme='dark'] .hv-hero__actions .hv-btn:focus-visible { outline-color: #b3c9ee; }
 :root[data-theme='dark'] .hv-hero .hv-quiz {
-  --hv-ink: #effbf1;
-  --hv-ink-2: #b7d1bf;
-  --hv-border: #315c40;
-  --hv-border-strong: #659572;
-  --hv-surface: #13291b;
-  --hv-warm: #1b3b27;
-  --hv-green-text: #a6f0ba;
-  --hv-green-soft: #1c4930;
-  border-color: #427352;
-  background: rgba(17, 39, 25, 0.98);
+  --hv-ink: #eef3fb;
+  --hv-ink-2: #a9b8d0;
+  --hv-border: #405576;
+  --hv-border-strong: #6a83ab;
+  --hv-surface: #16243f;
+  --hv-warm: #1b3656;
+  --hv-green-text: #8fb0e6;
+  --hv-green-soft: #1b3656;
+  border-color: #405576;
+  background: rgba(22, 36, 63, 0.98);
   box-shadow: 0 24px 58px rgba(0, 0, 0, 0.48);
 }
-:root[data-theme='dark'] .hv-hero .hv-quiz__feedback { background: #1c4029; }
-:root[data-theme='dark'] .hv-hero .hv-quiz__cursor path { fill: #f5fff7; stroke: #17311e; }
+:root[data-theme='dark'] .hv-hero .hv-quiz__feedback { background: #1b3656; }
+:root[data-theme='dark'] .hv-hero .hv-quiz__cursor path { fill: #f5f8fc; stroke: #0f2140; }
 
 @media (max-width: 767px) {
   :root[data-theme='dark'] .hv-hero__mobile-visual { background-image: url('/images/imported/hero-banner-dark-v1.png'); }

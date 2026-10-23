@@ -943,7 +943,7 @@
   }
 
   .hero-slideshow__cta:focus-visible {
-    outline: 3px solid var(--color-focus, #22c55e);
+    outline: 3px solid var(--color-focus, #59b3e1);
     outline-offset: 3px;
   }
 

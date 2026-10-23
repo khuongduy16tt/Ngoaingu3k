@@ -121,18 +121,18 @@ export function HeaderMascot({ hidden = false }) {
             <path className="header-mascot__arm" d="M24 20c-2-5-3-9-3-13" />
             <path className="header-mascot__arm" d="M56 20c2-5 3-9 3-13" />
             <g className="header-mascot__hand">
-              <ellipse cx="21" cy="6" rx="8.5" ry="4.8" fill="#22C55E" stroke="#15803D" strokeWidth="2.5" />
-              <path d="M17.5 2.5v4M21 1.5v4.5M24.5 2.5v4" stroke="#15803D" strokeWidth="1.6" strokeLinecap="round" />
+              <ellipse cx="21" cy="6" rx="8.5" ry="4.8" fill="#59B3E1" stroke="#385791" strokeWidth="2.5" />
+              <path d="M17.5 2.5v4M21 1.5v4.5M24.5 2.5v4" stroke="#385791" strokeWidth="1.6" strokeLinecap="round" />
             </g>
             <g className="header-mascot__hand">
-              <ellipse cx="59" cy="6" rx="8.5" ry="4.8" fill="#22C55E" stroke="#15803D" strokeWidth="2.5" />
-              <path d="M55.5 2.5v4M59 1.5v4.5M62.5 2.5v4" stroke="#15803D" strokeWidth="1.6" strokeLinecap="round" />
+              <ellipse cx="59" cy="6" rx="8.5" ry="4.8" fill="#59B3E1" stroke="#385791" strokeWidth="2.5" />
+              <path d="M55.5 2.5v4M59 1.5v4.5M62.5 2.5v4" stroke="#385791" strokeWidth="1.6" strokeLinecap="round" />
             </g>
             {/* thân bong bóng chat */}
             <path
               d="M14 30c0-9 7-16 16-16h20c9 0 16 7 16 16v16c0 9-7 16-16 16H44l-10 10V62h-4c-9 0-16-7-16-16V30Z"
-              fill="#22C55E"
-              stroke="#15803D"
+              fill="#59B3E1"
+              stroke="#385791"
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
@@ -141,15 +141,15 @@ export function HeaderMascot({ hidden = false }) {
               <ellipse cx="31" cy="36" rx="5.5" ry="6.5" fill="#fff" />
               <ellipse cx="49" cy="36" rx="5.5" ry="6.5" fill="#fff" />
               <g className="header-mascot__pupils">
-                <circle cx="32" cy="37.5" r="3" fill="#0B1F12" />
-                <circle cx="50" cy="37.5" r="3" fill="#0B1F12" />
+                <circle cx="32" cy="37.5" r="3" fill="#0F2140" />
+                <circle cx="50" cy="37.5" r="3" fill="#0F2140" />
               </g>
             </g>
             <circle cx="24" cy="46" r="3" fill="#FDA4AF" opacity="0.75" />
             <circle cx="56" cy="46" r="3" fill="#FDA4AF" opacity="0.75" />
             <circle cx="21" cy="43" r="1.2" fill="#fff" opacity="0.85" />
             <circle cx="53" cy="43" r="1.2" fill="#fff" opacity="0.85" />
-            <path className="header-mascot__mouth" d="M35 46c2 3.5 8 3.5 10 0" fill="none" stroke="#0B1F12" strokeWidth="2.6" strokeLinecap="round" />
+            <path className="header-mascot__mouth" d="M35 46c2 3.5 8 3.5 10 0" fill="none" stroke="#0F2140" strokeWidth="2.6" strokeLinecap="round" />
             <path className="header-mascot__sparkle" d="m8 33 1.5-4L11 33l4 1.5-4 1.5-1.5 4L8 36l-4-1.5Z" fill="#facc15" />
           </svg>
         </button>

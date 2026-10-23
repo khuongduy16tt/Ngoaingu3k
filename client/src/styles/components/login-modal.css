@@ -122,11 +122,8 @@
 }
 
 .login-modal__logo {
-  display: block;
-  width: 120px;
-  height: auto;
+  --brand-logo-width: 106px;
   margin-bottom: 8px;
-  border-radius: 10px;
 }
 
 .login-modal__head h2 {
@@ -493,7 +490,7 @@
   }
 
   .login-modal__logo {
-    width: 96px;
+    --brand-logo-width: 88px;
     margin-bottom: 4px;
   }
 

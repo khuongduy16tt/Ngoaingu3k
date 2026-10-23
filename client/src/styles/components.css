@@ -187,7 +187,7 @@
   background: rgba(11, 16, 32, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.09);
   font-size: 0.8rem;
-  color: #dcfce7;
+  color: #e4f3fc;
 }
 
 .hero-visual__image {
@@ -225,7 +225,7 @@
     linear-gradient(135deg, rgba(10, 16, 28, 0.18), rgba(10, 16, 28, 0.4)),
     radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--color-secondary) 28%, transparent), transparent 30%),
     radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--color-secondary) 24%, transparent), transparent 28%),
-    linear-gradient(135deg, #0b1f14 0%, #123222 38%, #07140d 100%);
+    linear-gradient(135deg, #14223f 0%, #253c63 38%, #0a1222 100%);
   position: relative;
 }
 
@@ -261,7 +261,7 @@
   background-image:
     radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--color-secondary) 24%, transparent), transparent 26%),
     radial-gradient(circle at 75% 35%, color-mix(in srgb, var(--color-secondary) 16%, transparent), transparent 28%),
-    linear-gradient(135deg, #143323 0%, #0b1a12 100%);
+    linear-gradient(135deg, #253c63 0%, #0e1729 100%);
 }
 
 .hero-visual__caption {
@@ -1554,7 +1554,7 @@
   aspect-ratio: 16 / 9;
   border-radius: 1.3rem;
   overflow: hidden;
-  background: #08140d;
+  background: var(--color-background);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }

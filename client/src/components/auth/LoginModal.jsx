@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../providers/AuthProvider';
+import { BrandLogo } from '../BrandLogo';
 import {
   isValidEmail,
   isValidPhone,
@@ -14,7 +15,6 @@ import {
 // (signInWithEmail, signUpWithEmail, signInWithGoogle, sendPasswordReset), cùng
 // RPC update_own_contact_profile để bổ sung hồ sơ. Chỉ đổi cách trình bày.
 
-const LOGO_SRC = '/images/imported/logo-ngoaingu3k-brand.png';
 // Khớp thời lượng hiệu ứng đóng trong login-modal.css.
 const EXIT_DURATION_MS = 180;
 // Sau khi đăng nhập, chờ AuthProvider nạp xong hồ sơ để biết có cần bổ sung
@@ -801,7 +801,7 @@ function LoginDialog({ initialView, closing, onClose, onSuccess, returnFocusRef 
           <div key={view} className="login-modal__view">
             <header className="login-modal__head">
               {view === 'forgot' ? null : (
-                <img className="login-modal__logo" src={LOGO_SRC} alt="Ngoaingu3K" width="120" height="86" />
+                <BrandLogo className="login-modal__logo" variant="theme" />
               )}
               <h2 id={titleId}>{copy.title}</h2>
               <p id={descId}>{copy.subtitle}</p>

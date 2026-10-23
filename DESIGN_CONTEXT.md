@@ -16,17 +16,18 @@
 - Soft
 - Balanced and modern
 
-## Brand identity (10/2026)
-- Use the supplied blue–green logo from `client/public/images/imported/logo-ngoaingu3k-brand.png` at its original colors. Do not apply a white or monochrome filter to it.
-- Navy `#385791` and blue `#59B3E1` are retired from the UI palette. Do not reintroduce them as interface colors.
-- Primary dark green `#15803D` (hover `#16A34A`, deep `#14532D`) — header, navigation, primary CTA, links. White text on it is 5.0:1.
-- Bright green `#22C55E` — secondary CTA, selected/active state, highlights, progress. Never put white text on it (2.3:1); use green-black ink `#052E16` (8.6:1).
-- Light green `#DCFCE7` — soft fills, badges.
-- All colors live in `client/src/styles/tokens.css` (primitive → semantic `--color-*` → legacy aliases). Components must use tokens, never raw HEX.
-- Keep neutral surfaces and whitespace dominant; brand colors are accents, not backgrounds everywhere.
+## Brand identity (restored 10/2026)
+- Source: commit `15a0e9a` in this repository, “Doi brand sang bo nhan dien moi (#385791 / #59B3E1 / #52BD87)”. Use this exact palette across public pages, learner views, teacher and admin views, and both themes.
+- Primary navy `#385791`: header, navigation, primary actions, headings, links. Hover `#2D4876`; pressed `#253C63`. White text on navy has 7.14:1 contrast.
+- Ocean blue `#59B3E1`: secondary actions, active states, focus, informational highlights. Dark navy text `#0F2140` on this fill; white text has insufficient contrast.
+- Success green `#52BD87`: correct answers, completed work, progress and achievement only. Use navy text `#0F2140` on green fills or dark green `#1F7A50` for text on light surfaces.
+- Light theme: background `#F5F8FC`, muted surface `#F2F6FB`, body text `#14223F`, subtle blue-gray borders. Dark theme: background `#0E1729`, surfaces `#16243F`, text `#EEF3FB`, lighter blue for links and focus.
+- The canonical color map is `client/src/styles/tokens.css`: brand primitives → semantic `--color-*` → compatibility aliases. The home and site v2 styles use the same palette through historical `--hv-green-*` aliases; their names are legacy, while their visual value is blue.
+- Use the exact original logo geometry, including its original wordmark, from the three transparent files in `client/public/images/imported/`: `logo-ngoaingu3k-white-transparent.png` (inverse on navy/dark backgrounds), `logo-ngoaingu3k-black-transparent.png` (positive on light backgrounds), and `logo-ngoaingu3k-color-transparent.png` (full-color on light backgrounds). These are background-extracted from `logo-ngoaingu3k-brand.png` without retyping or redrawing. `BrandLogo.jsx` displays the white version in the header and switches between color and white with the login modal's theme. Keep the lockup proportional and within the header height. Use the recolored `hero-banner-blue-v3.png` on desktop and mobile home hero.
+- Keep light surfaces and whitespace dominant. Apply blue to interaction and emphasis; reserve warning and error hues for their meanings.
 
 ## Visual direction
-- Calm, modern, trustworthy educational UI: green brand header, light warm-neutral surfaces, green for interaction and progress.
+- Calm, modern, trustworthy educational UI: navy header, cool light surfaces, ocean blue for interaction, success green for progress.
 - Use color strategically to highlight calls to action, course importance, and progress states.
 - Strong hierarchy, generous spacing, and crisp content structure are more important than decorative effects.
 
@@ -41,7 +42,7 @@
 5. Support accessibility through strong contrast, readable typography, and reduced-motion behavior.
 
 ## Visual language guidance
-- Good directions: brand green accents, rounded surfaces (12px cards), subtle elevation, gentle transitions. Gradients only between brand colors and sparingly.
+- Good directions: navy and ocean-blue accents, rounded surfaces, subtle elevation, gentle transitions. Gradients only between brand colors and sparingly.
 - Avoid: the retired green/orange brand (#6bcf49, #ec6e23), monotone gray UI, overly saturated or neon colors, heavy animation, cluttered hero sections, generic enterprise styling.
 
 ## Content and tone

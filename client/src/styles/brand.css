@@ -4,13 +4,6 @@
    Nạp sau các file trang/thành phần và TRƯỚC mobile.css (mobile chỉ đổi bố cục).
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Logo màu chính thức ──────────────────────────────────────────────────
-   Giữ nguyên màu xanh lam–xanh lá và nền tối của ảnh logo người dùng cung cấp. */
-.site-header__logo img,
-.site-nav__head img {
-  border-radius: 10px;
-}
-
 /* ── 2. Tiêu đề: navy brand ở theme sáng ─────────────────────────────────────
    Độ đặc hiệu (0,1,1) — đủ thắng các quy tắc tiêu đề cũ (vd. .x h2) vốn đặt
    màu chữ thường, nhưng CTA band (!important) vẫn giữ chữ trắng. Loại trừ các
