@@ -294,6 +294,8 @@ export default function FlashcardsPage() {
   const [deleteError, setDeleteError] = useState('');
   const [ownedCourseCount, setOwnedCourseCount] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
+  // Không tải lại khi token tự làm mới, chỉ khi có/mất phiên.
+  const hasAccessToken = Boolean(auth.session?.access_token);
 
   useEffect(() => {
     let active = true;
@@ -341,7 +343,7 @@ export default function FlashcardsPage() {
     return () => {
       active = false;
     };
-  }, [auth.user?.id, auth.session?.access_token, canImport, role, reloadKey]);
+  }, [auth.user?.id, hasAccessToken, canImport, role, reloadKey]);
 
   function focusImportPanel() {
     const panel = document.getElementById('fc-import');

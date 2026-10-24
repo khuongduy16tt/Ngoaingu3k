@@ -135,15 +135,22 @@ function readLearningRoomCache(courseKey, scope = 'global') {
 // lưu thì vài khóa đã lấp đầy localStorage và chặn luôn việc lưu phiên đăng
 // nhập. Quá ngưỡng thì bỏ lưu đệm, phòng học vẫn tải từ server như thường.
 const LEARNING_ROOM_CACHE_MAX_CHARS = 1_000_000;
+// Khóa đã biết là quá cỡ thì khỏi JSON.stringify lại cả khóa (vài MB) mỗi lần
+// học viên bấm sang bài khác — việc đó làm khựng giao diện rồi cũng bị bỏ đi.
+const oversizedLearningRoomCacheKeys = new Set();
 
 function writeLearningRoomCache(courseKey, scope = 'global', snapshot) {
   const key = getLearningRoomCacheKey(courseKey, scope);
+  if (oversizedLearningRoomCacheKeys.has(key)) {
+    return;
+  }
   try {
     const value = JSON.stringify({
       ...snapshot,
       savedAt: new Date().toISOString()
     });
     if (value.length > LEARNING_ROOM_CACHE_MAX_CHARS) {
+      oversizedLearningRoomCacheKeys.add(key);
       localStorage.removeItem(key);
       return;
     }
@@ -1178,6 +1185,11 @@ function isPassageNote(note) {
   return text.length > 160 || text.includes('\n');
 }
 
+// Dạng câu chỉ cần bấm chọn một đáp án → chấm ngay khi bấm.
+function isInstantCheckQuestion(question) {
+  return !['fill_blank', 'listening', 'matching', 'writing', 'reading'].includes(question.type);
+}
+
 // `tab` là một tab bài tập của chủ đề (model mới). Không truyền `tab` thì rơi về
 // danh sách câu hỏi phẳng trên lesson (model cũ) — giữ nguyên cách gọi cũ.
 export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
@@ -1187,11 +1199,14 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
     [source?.exercises]
   );
   const [answers, setAnswers] = useState({});
+  // Chấm từng câu ngay khi làm xong câu đó: { [questionId]: true }.
+  const [checked, setChecked] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
   // Đổi chủ đề hoặc đổi tab bài tập đều phải xóa đáp án đang làm dở.
   useEffect(() => {
     setAnswers({});
+    setChecked({});
     setSubmitted(false);
   }, [lesson?.id, tab?.id]);
 
@@ -1206,14 +1221,39 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
   const audioUrl = source?.audioUrl || lesson?.audioUrl || '';
   const imageUrl = source?.imageUrl || lesson?.imageUrl || '';
 
-  const answeredCount = questions.filter((question) =>
-    isLessonQuestionAnswered(question, answers[question.id])
-  ).length;
+  // Câu luyện đọc không có gì để chấm → coi như đã xong.
+  const isQuestionChecked = (question, checkedMap = checked) =>
+    question.type === 'reading' || Boolean(checkedMap[question.id]);
+  const checkedCount = questions.filter((question) => isQuestionChecked(question)).length;
   const result = scoreLessonQuestions(questions, answers);
-  const canSubmit = questions.length > 0 && answeredCount === questions.length;
 
-  function setAnswer(questionId, value) {
-    setAnswers((previous) => ({ ...previous, [questionId]: value }));
+  function resetAll() {
+    setAnswers({});
+    setChecked({});
+    setSubmitted(false);
+  }
+
+  // Chấm một câu; khi câu cuối cùng được chấm thì báo điểm cả bài (một lần).
+  function checkQuestion(questionId, nextAnswers) {
+    const nextChecked = { ...checked, [questionId]: true };
+    setChecked(nextChecked);
+    if (!submitted && questions.every((question) => isQuestionChecked(question, nextChecked))) {
+      setSubmitted(true);
+      const finalResult = scoreLessonQuestions(questions, nextAnswers);
+      // Điểm được đẩy lên để lưu kèm tiến độ → số sao của bài học.
+      // Kèm tabId để điểm của các tab trong cùng chủ đề được cộng
+      // dồn thay vì tab nộp sau ghi đè tab nộp trước.
+      onSubmitted?.({ score: finalResult.score, maxScore: finalResult.maxScore, tabId: tab?.id || '' });
+    }
+  }
+
+  function setAnswer(question, value) {
+    const nextAnswers = { ...answers, [question.id]: value };
+    setAnswers(nextAnswers);
+    // Câu chọn đáp án (trắc nghiệm, đúng/sai): bấm là chấm luôn.
+    if (!isTeacher && isInstantCheckQuestion(question)) {
+      checkQuestion(question.id, nextAnswers);
+    }
   }
 
   return (
@@ -1293,12 +1333,26 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
             <LessonQuestionInput
               question={question}
               answer={answers[question.id]}
-              onChange={(value) => setAnswer(question.id, value)}
-              disabled={isTeacher || submitted}
-              revealAnswer={isTeacher || submitted}
+              onChange={(value) => setAnswer(question, value)}
+              disabled={isTeacher || isQuestionChecked(question)}
+              revealAnswer={isTeacher || isQuestionChecked(question)}
             />
 
-            {submitted && !isTeacher ? (
+            {/* Câu gõ chữ / nối / viết: làm xong bấm kiểm tra riêng câu đó. */}
+            {!isTeacher && !isQuestionChecked(question) && !isInstantCheckQuestion(question) ? (
+              <div className="excel-exercise-row__check">
+                <button
+                  type="button"
+                  className="button-ghost"
+                  onClick={() => checkQuestion(question.id, answers)}
+                  disabled={!isLessonQuestionAnswered(question, answers[question.id])}
+                >
+                  Kiểm tra câu này
+                </button>
+              </div>
+            ) : null}
+
+            {!isTeacher && checked[question.id] ? (
               <LessonQuestionFeedback question={question} answer={answers[question.id]} />
             ) : null}
 
@@ -1320,36 +1374,14 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
                 ? `Kết quả: ${result.score}/${result.maxScore} điểm${
                     result.selfGradedCount ? ` · ${result.selfGradedCount} câu tự đối chiếu` : ''
                   }`
-                : 'Đã nộp — hãy tự đối chiếu với đáp án mẫu.'
-              : `${answeredCount}/${questions.length} câu đã trả lời`}
+                : 'Đã xong — hãy tự đối chiếu với đáp án mẫu.'
+              : `${checkedCount}/${questions.length} câu đã làm`}
           </span>
-          {submitted ? (
-            <button
-              type="button"
-              className="button-ghost"
-              onClick={() => {
-                setAnswers({});
-                setSubmitted(false);
-              }}
-            >
+          {checkedCount > 0 ? (
+            <button type="button" className="button-ghost" onClick={resetAll}>
               Làm lại
             </button>
-          ) : (
-            <button
-              type="button"
-              className="button"
-              onClick={() => {
-                setSubmitted(true);
-                // Điểm được đẩy lên để lưu kèm tiến độ → số sao của bài học.
-                // Kèm tabId để điểm của các tab trong cùng chủ đề được cộng
-                // dồn thay vì tab nộp sau ghi đè tab nộp trước.
-                onSubmitted?.({ score: result.score, maxScore: result.maxScore, tabId: tab?.id || '' });
-              }}
-              disabled={!canSubmit}
-            >
-              Kiểm tra đáp án
-            </button>
-          )}
+          ) : null}
         </div>
       ) : null}
     </section>

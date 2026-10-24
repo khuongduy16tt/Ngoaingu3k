@@ -916,6 +916,11 @@
   align-items: center;
 }
 
+.excel-exercise-row__check {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .excel-exercise-row__meta small {
   color: var(--muted);
   line-height: 1.5;

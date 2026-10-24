@@ -2093,7 +2093,7 @@
 
 .hv-hero::before { display: none; }
 .hv-hero__inner { max-width: none; }
-.hv-hero__banner { display: block; width: 100%; aspect-ratio: 1923 / 818; background: url('/images/imported/hero-banner-blue-v3.png') center / cover no-repeat; }
+.hv-hero__banner { display: block; width: 100%; aspect-ratio: 1923 / 818; background: url('/images/imported/hero-banner-blue-v3.webp') center / cover no-repeat; }
 .hv-hero__mobile-visual { display: none; }
 .hv-hero__mobile-copy {
   position: absolute;
@@ -2198,7 +2198,7 @@
   .hv-hero .hv-hero__lead { max-width: 42ch; margin: 16px 0 0; color: #42506b; font-size: 15px; line-height: 1.55; }
   .hv-hero .hv-hero__actions { gap: 10px; margin-top: 20px; }
   .hv-hero__actions .hv-btn { min-height: 44px; padding-inline: 18px; font-size: 13px; }
-  .hv-hero__mobile-visual { display: block; height: clamp(180px, 52vw, 290px); margin-top: 12px; background: url('/images/imported/hero-banner-blue-v3.png') 54% center / cover no-repeat; }
+  .hv-hero__mobile-visual { display: block; height: clamp(180px, 52vw, 290px); margin-top: 12px; background: url('/images/imported/hero-banner-blue-v3.webp') 54% center / cover no-repeat; }
   .hv-hero__demo { position: relative; top: auto; left: auto; width: min(390px, calc(100% - 28px)); min-width: 0; margin: -22px auto 0; }
   .hv-hero__mascot { top: -57px; left: 43%; right: auto; width: 74px; }
   .hv-hero .hv-quiz { padding: 16px; }
@@ -2207,7 +2207,7 @@
 
 /* The hero has its own art direction in dark mode. */
 :root[data-theme='dark'] .hv-hero { background: #0a1222; }
-:root[data-theme='dark'] .hv-hero__banner { background-image: url('/images/imported/hero-banner-dark-v1.png'); }
+:root[data-theme='dark'] .hv-hero__banner { background-image: url('/images/imported/hero-banner-dark-v1.webp'); }
 :root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title { color: #eef3fb; }
 :root[data-theme='dark'] .hv-hero h1.hv-hero__mobile-title em { color: #b3c9ee; }
 :root[data-theme='dark'] .hv-hero .hv-hero__lead { color: #c5d0e2; }
@@ -2231,5 +2231,5 @@
 :root[data-theme='dark'] .hv-hero .hv-quiz__cursor path { fill: #f5f8fc; stroke: #0f2140; }
 
 @media (max-width: 767px) {
-  :root[data-theme='dark'] .hv-hero__mobile-visual { background-image: url('/images/imported/hero-banner-dark-v1.png'); }
+  :root[data-theme='dark'] .hv-hero__mobile-visual { background-image: url('/images/imported/hero-banner-dark-v1.webp'); }
 }

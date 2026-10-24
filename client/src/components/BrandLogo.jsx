@@ -8,15 +8,15 @@ export function BrandLogo({ className = '', variant = 'white' }) {
   if (variant === 'theme') {
     return (
       <span className={classes}>
-        <img className="brand-logo__image brand-logo__image--light" src={`${LOGO_DIR}logo-ngoaingu3k-color-transparent.png`} alt="ngoaingu3k" />
-        <img className="brand-logo__image brand-logo__image--dark" src={`${LOGO_DIR}logo-ngoaingu3k-white-transparent.png`} alt="ngoaingu3k" />
+        <img className="brand-logo__image brand-logo__image--light" src={`${LOGO_DIR}logo-ngoaingu3k-color-transparent-sm.webp`} alt="ngoaingu3k" />
+        <img className="brand-logo__image brand-logo__image--dark" src={`${LOGO_DIR}logo-ngoaingu3k-white-transparent-sm.webp`} alt="ngoaingu3k" />
       </span>
     );
   }
 
   return (
     <span className={classes}>
-      <img className="brand-logo__image" src={`${LOGO_DIR}logo-ngoaingu3k-${variant}-transparent.png`} alt="ngoaingu3k" />
+      <img className="brand-logo__image" src={`${LOGO_DIR}logo-ngoaingu3k-${variant}-transparent-sm.webp`} alt="ngoaingu3k" />
     </span>
   );
 }

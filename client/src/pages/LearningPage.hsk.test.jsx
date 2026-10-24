@@ -78,7 +78,30 @@ describe('LessonExercisePreview', () => {
     expect(screen.getByText(/audio phát âm sẽ được cập nhật/)).toBeInTheDocument(); // câu nghe chờ audio
   });
 
-  it('calls onSubmitted (auto mark complete) after answering all and submitting', () => {
+  it('shows right/wrong and explanation right after each answer', () => {
+    const lesson = {
+      id: 'l3',
+      exercises: [
+        { id: 'q1', type: 'true_false', prompt: 'Nhận định 1?', correctAnswer: 'false', explanation: 'Giải thích câu 1.' },
+        { id: 'q2', type: 'fill_blank', prompt: 'Điền từ?', acceptedAnswers: ['好'], explanation: 'Giải thích câu 2.' }
+      ]
+    };
+    render(<LessonExercisePreview lesson={lesson} isTeacher={false} />);
+
+    fireEvent.click(screen.getByText('Đúng'));
+    expect(screen.getByText(/Chưa đúng/)).toBeInTheDocument();
+    expect(screen.getByText('Giải thích câu 1.')).toBeInTheDocument();
+    expect(screen.queryByText('Giải thích câu 2.')).not.toBeInTheDocument();
+
+    const checkButton = screen.getByRole('button', { name: 'Kiểm tra câu này' });
+    expect(checkButton).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText('Gõ đáp án của bạn...'), { target: { value: '好' } });
+    fireEvent.click(checkButton);
+    expect(screen.getByText('Chính xác.')).toBeInTheDocument();
+    expect(screen.getByText('Giải thích câu 2.')).toBeInTheDocument();
+  });
+
+  it('calls onSubmitted (auto mark complete) once every question is answered', () => {
     const onSubmitted = vi.fn();
     const lesson = {
       id: 'l2',
@@ -99,11 +122,13 @@ describe('LessonExercisePreview', () => {
     };
     render(<LessonExercisePreview lesson={lesson} isTeacher={false} onSubmitted={onSubmitted} />);
 
-    // trả lời hết rồi nộp
+    // mỗi câu được chấm ngay; câu cuối xong thì báo điểm cả bài
     fireEvent.click(screen.getByText('A. Đáp án A'));
+    expect(onSubmitted).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Đúng'));
-    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra đáp án' }));
 
     expect(onSubmitted).toHaveBeenCalledTimes(1);
+    expect(onSubmitted).toHaveBeenCalledWith({ score: 2, maxScore: 2, tabId: '' });
+    expect(screen.getByText('Kết quả: 2/2 điểm')).toBeInTheDocument();
   });
 });

@@ -931,6 +931,10 @@ export function TeacherDashboardPage() {
   const [activeCoursesOpen, setActiveCoursesOpen] = useState(false);
   const [expandedCourseId, setExpandedCourseId] = useState('');
   const importLessonStripRef = useRef(null);
+  // Chỉ chạy lại khi có/mất phiên, KHÔNG chạy lại khi token tự làm mới
+  // (Supabase làm mới khoảng mỗi giờ và khi quay lại tab) — trước đây mỗi lần
+  // như vậy lại tải lại toàn bộ dữ liệu và nháy màn hình đang chờ.
+  const hasAccessToken = Boolean(auth.session?.access_token);
 
   useEffect(() => {
     let active = true;
@@ -970,7 +974,7 @@ export function TeacherDashboardPage() {
     return () => {
       active = false;
     };
-  }, [teacherId, auth.session?.access_token]);
+  }, [teacherId, hasAccessToken]);
 
   // Số học sinh thật của các khóa mình dạy (server lọc theo teacher_id). Roster
   // demo (không gọi được server) thì bỏ qua — không đưa số bịa lên chỉ số.
@@ -985,7 +989,7 @@ export function TeacherDashboardPage() {
     return () => {
       active = false;
     };
-  }, [auth.session?.access_token]);
+  }, [hasAccessToken]);
 
   useEffect(() => {
     setDraftHydratedTeacherId('');
