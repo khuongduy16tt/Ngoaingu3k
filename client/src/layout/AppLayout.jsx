@@ -13,7 +13,6 @@ import { BrandLogo } from '../components/BrandLogo';
 import { getCourseCatalog, isHskCourse, getHskLevel, groupHskCourses } from '../lib/courseService';
 
 export function AppLayout({ children }) {
-  const [theme, setTheme] = useState(() => readStoredTheme());
   // Mở/đóng cụm kênh liên hệ: nút nổi (desktop) và thanh điều hướng dưới đáy
   // (mobile) cùng điều khiển một danh sách nên state nằm ở đây.
   const [contactOpen, setContactOpen] = useState(false);
@@ -39,16 +38,15 @@ export function AppLayout({ children }) {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [location.pathname, location.hash]);
 
+  // Site chỉ dùng giao diện sáng.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.theme = 'light';
     try {
-      localStorage.setItem('theme', theme);
+      localStorage.removeItem('theme');
     } catch {
       // ignore storage failures
     }
-  }, [theme]);
-
-  const themeLabel = useMemo(() => (theme === 'dark' ? ui.darkMode : ui.lightMode), [theme]);
+  }, []);
 
   if (immersive) {
     return (
@@ -69,7 +67,7 @@ export function AppLayout({ children }) {
       <a className="skip-link" href="#main-content">
         Bỏ qua điều hướng, tới nội dung chính
       </a>
-      <TopBar theme={theme} setTheme={setTheme} themeLabel={themeLabel} />
+      <TopBar />
       <main id="main-content" tabIndex={-1} className="site-frame site-main">
         {children}
       </main>
@@ -317,43 +315,6 @@ function FloatingContactButtons({ isOpen, setIsOpen }) {
   );
 }
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
-function readStoredTheme() {
-  try {
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme === 'light' || storedTheme === 'dark') {
-      return storedTheme;
-    }
-  } catch {
-    // ignore storage errors
-  }
-
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
-
-// Icon phản ánh theme ĐANG hiển thị, không phải hành động sẽ xảy ra: mặt
-// trời khi đang ở light mode, mặt trăng khi đang ở dark mode.
-function ThemeIcon({ theme }) {
-  if (theme === 'light') {
-    return (
-      <svg className="theme-icon theme-icon--sun" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="4.6" fill="currentColor" stroke="none" />
-        <path
-          d="M12 1.5v2.75M12 19.75v2.75M4.22 4.22l1.94 1.94M17.84 17.84l1.94 1.94M1.5 12h2.75M19.75 12h2.75M4.22 19.78l1.94-1.94M17.84 6.16l1.94-1.94"
-          fill="none"
-          stroke="currentColor"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className="theme-icon theme-icon--moon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none">
-      <path d="M20.2 15.25A7.35 7.35 0 0 1 8.75 3.8a8.35 8.35 0 1 0 11.45 11.45Z" />
-    </svg>
-  );
-}
-
 // ─── UserAvatar mini dropdown ─────────────────────────────────────────────────
 function UserAvatar() {
   const auth = useAuth();
@@ -468,8 +429,8 @@ function UserAvatar() {
 const coursesNavSubmenu = [
   {
     to: '/courses#khoa-hoc-ielts',
-    title: 'Khóa học IELTS',
-    subtitle: 'Tiếng Anh · nền tảng, giao tiếp, luyện thi'
+    title: 'Khóa học tiếng Anh',
+    subtitle: 'IELTS, giao tiếp, TOEIC'
   },
   {
     to: '/courses#khoa-hoc-hsk',
@@ -853,7 +814,7 @@ function CoursesNavItem({ label, to, group, muteActive, onNavigate }) {
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
-function TopBar({ theme, setTheme, themeLabel }) {
+function TopBar() {
   const auth = useAuth();
   const [activeHeaderLink, setActiveHeaderLink] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -984,22 +945,6 @@ function TopBar({ theme, setTheme, themeLabel }) {
         </nav>
 
         <div className="site-header__actions">
-          <button
-            className={`theme-toggle ${theme === 'dark' ? 'is-dark' : ''}`}
-            type="button"
-            role="switch"
-            aria-checked={theme === 'dark'}
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            aria-label={theme === 'dark' ? ui.switchToLight : ui.switchToDark}
-            title={themeLabel}
-          >
-            <span className="theme-toggle__track">
-              <span className="theme-toggle__thumb">
-                <ThemeIcon theme={theme} />
-              </span>
-            </span>
-          </button>
-
           {signedIn ? (
             <UserAvatar />
           ) : (

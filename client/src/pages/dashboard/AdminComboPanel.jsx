@@ -8,6 +8,8 @@ import {
   saveAdminCombo
 } from '../../lib/comboService';
 import { isHskCourse } from '../../lib/courseService';
+import { toFriendlyError } from '../../lib/friendlyError';
+import { confirmDialog } from '../../lib/confirmDialog';
 
 const STATUS_LABELS = { draft: 'Nháp', published: 'Đang bán', hidden: 'Ẩn' };
 
@@ -65,7 +67,7 @@ export function AdminComboPanel({ courses }) {
     try {
       setCombos(await getAdminCombos(sellableCourses));
     } catch (error) {
-      setLoadError(error?.message || 'Chưa tải được danh sách combo.');
+      setLoadError(toFriendlyError(error, 'Chưa tải được danh sách combo.'));
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,7 @@ export function AdminComboPanel({ courses }) {
       resetDraft();
       await reload();
     } catch (error) {
-      setMessage({ type: 'error', text: error?.message || 'Chưa lưu được combo.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa lưu được combo.') });
     } finally {
       setSaving(false);
     }
@@ -149,7 +151,7 @@ export function AdminComboPanel({ courses }) {
 
   async function handleDelete(combo) {
     // Đơn đã bán vẫn giữ nguyên (orders.combo_id chuyển về NULL), học viên không mất khóa.
-    if (!window.confirm(`Xóa ${combo.title}? Học viên đã mua vẫn giữ các khóa của mình.`)) {
+    if (!await confirmDialog(`Xóa ${combo.title}? Học viên đã mua vẫn giữ các khóa của mình.`)) {
       return;
     }
     setSaving(true);
@@ -158,7 +160,7 @@ export function AdminComboPanel({ courses }) {
       if (draft.id === combo.id) resetDraft();
       await reload();
     } catch (error) {
-      setMessage({ type: 'error', text: error?.message || 'Chưa xóa được combo.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa xóa được combo.') });
     } finally {
       setSaving(false);
     }

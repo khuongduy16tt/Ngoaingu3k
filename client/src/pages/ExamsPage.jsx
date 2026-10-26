@@ -13,6 +13,7 @@ import {
   getSectionTypeLabel
 } from '../lib/examService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { toFriendlyError } from '../lib/friendlyError';
 
 function ExamCard({ exam, attempt, role }) {
   const isDone = attempt && attempt.status !== 'in_progress';
@@ -102,7 +103,7 @@ export default function ExamsPage() {
         // Thiếu catch thì trang kẹt ở "Đang tải danh sách đề thi..." vĩnh viễn.
         console.warn('[ExamsPage load]', error?.message || error);
         if (alive) {
-          setLoadError(error?.message || 'Chưa tải được danh sách đề thi.');
+          setLoadError(toFriendlyError(error, 'Chưa tải được danh sách đề thi.'));
         }
       } finally {
         if (alive) {

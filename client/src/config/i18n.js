@@ -38,12 +38,6 @@ export const ui = {
   testPageTitle: 'Bài test',
   testPageMessage: 'Trang bài test đang được chuẩn bị.',
 
-  // Theme
-  darkMode: 'Chế độ tối',
-  lightMode: 'Chế độ sáng',
-  switchToDark: 'Chuyển sang chế độ tối',
-  switchToLight: 'Chuyển sang chế độ sáng',
-
   // Contact floating
   zaloLabel: 'Zalo',
   zaloDesc: 'Nhắn tin tư vấn',

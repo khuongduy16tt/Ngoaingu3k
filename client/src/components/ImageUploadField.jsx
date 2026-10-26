@@ -49,7 +49,7 @@ export function ImageUploadField({
       if (uploaded?.url) {
         onUploaded({ imageUrl: uploaded.url, imageName: file.name });
       } else {
-        setError(`Không thể tải ảnh lên. Kiểm tra bucket "${bucketHint}" trong Supabase Storage.`);
+        setError('Không tải được ảnh lên. Kiểm tra mạng rồi thử lại — nếu vẫn lỗi, hãy báo quản trị viên.');
       }
     } finally {
       setUploading(false);

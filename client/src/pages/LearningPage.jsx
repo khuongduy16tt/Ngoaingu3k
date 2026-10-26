@@ -58,11 +58,15 @@ import { AudioUploadField } from '../components/AudioUploadField';
 import { ImageUploadField } from '../components/ImageUploadField';
 import { logActivity } from '../lib/activityService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useUnsavedChangesWarning } from '../hooks/useUnsavedChangesWarning';
 import { PaginationControls, usePagination } from '../components/Pagination';
+import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 // Thư viện đọc Excel nặng 142KB gzip và chỉ giảng viên mới dùng tới (nút "Nhập
 // Excel" khi soạn câu hỏi). Nạp lúc bấm nút, không gói kèm phần học.
 import { getEmbeddableVideoUrl, getGoogleDriveViewUrl, getVideoAccessHint, getVideoEmbedIssue, getVideoSourceLabel, isGoogleDriveUrl } from '../lib/videoLinks';
 import { courseDetail as mockCourseDetail } from '../data/mock';
+import { toFriendlyError } from '../lib/friendlyError';
+import { confirmDialog } from '../lib/confirmDialog';
 
 const fallbackLessons = [
   { id: 'lesson-1', title: 'Bài 1. Giới thiệu bản thân', status: 'done', note: 'Khởi động và mẫu câu chào hỏi cơ bản' },
@@ -85,7 +89,7 @@ const ocrFallbackPairs = [
 
 const ocrStatusLabels = {
   idle: 'Chờ tài liệu',
-  processing: 'Đang giải nén / OCR',
+  processing: 'Đang đọc nội dung tài liệu',
   ready: 'Đã sinh bài tập',
   error: 'Cần kiểm tra lại'
 };
@@ -118,6 +122,19 @@ function writeStoredJson(key, value) {
   } catch {
     // ignore storage failures
   }
+}
+
+function removeStoredValue(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+// Bài làm dở của một tab bài tập trong chủ đề (xem LessonExercisePreview).
+function getExerciseProgressKey(lessonId, tabId) {
+  return lessonId ? `ngoaingu3k-lesson-answers:${lessonId}:${tabId || 'video'}` : '';
 }
 
 function readLearningRoomCache(courseKey, scope = 'global') {
@@ -221,7 +238,7 @@ function getInitialTeacherDraft() {
   return {
     courseKey: firstCourse.key,
     courseTitle: firstCourse.title,
-    title: 'Bài tập từ tài liệu OCR',
+    title: 'Bài tập từ tài liệu',
     description: 'Học viên hoàn thành các câu hỏi được tạo từ PDF, ảnh hoặc tài liệu Drive của giáo viên.',
     assignmentScope: 'course_buyers',
     recipientsText: '',
@@ -295,7 +312,7 @@ function buildOcrExercises(text, sourceName = 'tài liệu') {
     prompt: `Theo ${sourceName}, "${pair.term}" có nghĩa là gì?`,
     options: makeQuestionOptions(pair.answer, index),
     correctAnswer: pair.answer,
-    explanation: `Câu hỏi được tạo từ nội dung OCR của ${sourceName}.`
+    explanation: `Câu hỏi được tạo từ nội dung đọc được trong ${sourceName}.`
   }));
 }
 
@@ -807,7 +824,7 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', p
             target="_blank"
             rel="noreferrer"
           >
-            ⚠️ Nếu video không phát được, bấm đây để mở video trong tab mới
+            Video không phát được? Mở trong tab mới
           </a>
           {isTeacher && accessHint ? (
             <p className="lesson-video-panel__access-hint">{accessHint}</p>
@@ -1185,11 +1202,6 @@ function isPassageNote(note) {
   return text.length > 160 || text.includes('\n');
 }
 
-// Dạng câu chỉ cần bấm chọn một đáp án → chấm ngay khi bấm.
-function isInstantCheckQuestion(question) {
-  return !['fill_blank', 'listening', 'matching', 'writing', 'reading'].includes(question.type);
-}
-
 // `tab` là một tab bài tập của chủ đề (model mới). Không truyền `tab` thì rơi về
 // danh sách câu hỏi phẳng trên lesson (model cũ) — giữ nguyên cách gọi cũ.
 export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
@@ -1198,17 +1210,46 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
     () => (Array.isArray(source?.exercises) ? source.exercises : []).map(normalizeLessonQuestion),
     [source?.exercises]
   );
-  const [answers, setAnswers] = useState({});
+  // Bài làm dở được giữ trên máy theo từng chủ đề + tab: đổi sang tab khác,
+  // xem video rồi quay lại, hay lỡ tải lại trang đều không mất câu đã làm.
+  const progressKey = isTeacher ? '' : getExerciseProgressKey(lesson?.id, tab?.id);
+  const restoreProgress = () => {
+    const stored = progressKey ? readStoredJson(progressKey, null) : null;
+    const storedChecked = stored?.checked || {};
+    return {
+      answers: stored?.answers || {},
+      checked: storedChecked,
+      // Giáo viên thêm câu sau khi học viên làm xong thì bài chưa tính là xong.
+      submitted:
+        Boolean(stored?.submitted) &&
+        questions.every((question) => question.type === 'reading' || storedChecked[question.id])
+    };
+  };
+  const [answers, setAnswers] = useState(() => restoreProgress().answers);
   // Chấm từng câu ngay khi làm xong câu đó: { [questionId]: true }.
-  const [checked, setChecked] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  const [checked, setChecked] = useState(() => restoreProgress().checked);
+  const [submitted, setSubmitted] = useState(() => restoreProgress().submitted);
+  const loadedKeyRef = useRef(progressKey);
 
-  // Đổi chủ đề hoặc đổi tab bài tập đều phải xóa đáp án đang làm dở.
+  // Đổi chủ đề hoặc đổi tab bài tập: nạp bài làm của chủ đề/tab mới.
   useEffect(() => {
-    setAnswers({});
-    setChecked({});
-    setSubmitted(false);
-  }, [lesson?.id, tab?.id]);
+    if (loadedKeyRef.current === progressKey) return;
+    loadedKeyRef.current = progressKey;
+    const restored = restoreProgress();
+    setAnswers(restored.answers);
+    setChecked(restored.checked);
+    setSubmitted(restored.submitted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressKey]);
+
+  useEffect(() => {
+    if (!progressKey || loadedKeyRef.current !== progressKey) return;
+    if (!Object.keys(answers).length && !Object.keys(checked).length) {
+      removeStoredValue(progressKey);
+      return;
+    }
+    writeStoredJson(progressKey, { answers, checked, submitted });
+  }, [progressKey, answers, checked, submitted]);
 
   if (!questions.length) {
     return null;
@@ -1250,10 +1291,6 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
   function setAnswer(question, value) {
     const nextAnswers = { ...answers, [question.id]: value };
     setAnswers(nextAnswers);
-    // Câu chọn đáp án (trắc nghiệm, đúng/sai): bấm là chấm luôn.
-    if (!isTeacher && isInstantCheckQuestion(question)) {
-      checkQuestion(question.id, nextAnswers);
-    }
   }
 
   return (
@@ -1326,7 +1363,7 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
               </div>
             ) : question.audioPending ? (
               <div className="lesson-question__audio-pending">
-                🎧 Câu nghe — audio phát âm sẽ được cập nhật. Đáp án đúng đã được thiết lập sẵn.
+                🎧 Câu nghe — file âm thanh sẽ sớm được cập nhật. Bạn vẫn có thể chọn đáp án.
               </div>
             ) : null}
 
@@ -1338,8 +1375,8 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
               revealAnswer={isTeacher || isQuestionChecked(question)}
             />
 
-            {/* Câu gõ chữ / nối / viết: làm xong bấm kiểm tra riêng câu đó. */}
-            {!isTeacher && !isQuestionChecked(question) && !isInstantCheckQuestion(question) ? (
+            {/* Chọn/gõ đáp án xong (vẫn đổi được) rồi bấm kiểm tra riêng câu đó. */}
+            {!isTeacher && !isQuestionChecked(question) ? (
               <div className="excel-exercise-row__check">
                 <button
                   type="button"
@@ -1586,9 +1623,20 @@ export function VideoQuestionEditor({ lesson, saving, status, onSave }) {
   const [pasteText, setPasteText] = useState('');
   const [pasteStatus, setPasteStatus] = useState('');
   const [importStatus, setImportStatus] = useState('');
+  // Mốc so sánh lấy từ chính bản nháp lúc nạp (câu thiếu id được sinh id theo
+  // giờ, dựng lại từ lesson sẽ ra id khác và luôn bị coi là đã sửa).
+  const savedQuestionsRef = useRef(null);
+  if (savedQuestionsRef.current === null) {
+    savedQuestionsRef.current = JSON.stringify(draftQuestions);
+  }
+  useUnsavedChangesWarning(
+    JSON.stringify(draftQuestions) !== savedQuestionsRef.current || Boolean(pasteText.trim())
+  );
 
   useEffect(() => {
-    setDraftQuestions((lesson?.exercises || []).map(normalizeVideoQuestionDraft));
+    const nextDraft = (lesson?.exercises || []).map(normalizeVideoQuestionDraft);
+    savedQuestionsRef.current = JSON.stringify(nextDraft);
+    setDraftQuestions(nextDraft);
     setPasteText('');
     setPasteStatus('');
     setImportStatus('');
@@ -2012,6 +2060,7 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
     () => JSON.stringify(serializeLessonTabs(draftTabs)) !== JSON.stringify(serializeLessonTabs(buildLessonTabs(lesson))),
     [draftTabs, lesson]
   );
+  useUnsavedChangesWarning(hasUnsavedStructure);
 
   const tabPagination = usePagination(exerciseTabs, { pageSize: 5, resetKey: lesson?.id || '' });
 
@@ -2195,10 +2244,10 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
                       // Trình soạn câu hỏi ngay bên dưới cũng có nút "Xóa" cho
                       // từng lựa chọn — nhãn này để không ai nhầm hai thứ.
                       aria-label={`Xóa tab ${selectedTab.title}`}
-                      onClick={() => {
+                      onClick={async () => {
                         if (
                           countLessonTabQuestions(selectedTab) > 0 &&
-                          !window.confirm(
+                          !await confirmDialog(
                             `Xóa tab "${selectedTab.title}" cùng ${countLessonTabQuestions(selectedTab)} câu hỏi bên trong?`
                           )
                         ) {
@@ -2271,18 +2320,28 @@ export function LessonTabManager({ lesson, saving, status, onSave }) {
   );
 }
 
-function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
+function StudentAssignmentPlayer({ assignment, attempt, saving, error, onSubmit }) {
   const questions = useMemo(() => getAssignmentQuestions(assignment), [assignment]);
   const [answers, setAnswers] = useState(() => attempt?.answers || {});
+  // Đã nộp thì khóa bài và hiện đáp án; bấm "Làm lại" mới mở ô nhập và ẩn đáp
+  // án đi — không thì học viên vừa nhìn đáp án vừa sửa bài rồi nộp lại.
+  const [retrying, setRetrying] = useState(false);
+  const showResult = Boolean(attempt) && !retrying;
 
   useEffect(() => {
     setAnswers(attempt?.answers || {});
+    setRetrying(false);
   }, [assignment.id, attempt?.submittedAt]);
+
+  function startRetry() {
+    setAnswers({});
+    setRetrying(true);
+  }
 
   const answeredCount = questions.filter((question) =>
     isLessonQuestionAnswered(question, answers[question.id])
   ).length;
-  const canSubmit = questions.length > 0 && answeredCount === questions.length;
+  const canSubmit = !showResult && questions.length > 0 && answeredCount === questions.length;
 
   function updateAnswer(questionId, answer) {
     setAnswers((previous) => ({
@@ -2306,7 +2365,7 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
 
   return (
     <div className="assignment-player">
-      {attempt ? (
+      {showResult ? (
         <div className="exercise-feedback success">
           Lần nộp gần nhất: {attempt.score}/{attempt.maxScore} điểm.
         </div>
@@ -2330,20 +2389,40 @@ function StudentAssignmentPlayer({ assignment, attempt, saving, onSubmit }) {
               question={question}
               answer={answers[question.id]}
               onChange={(value) => updateAnswer(question.id, value)}
-              disabled={false}
-              revealAnswer={Boolean(attempt)}
+              disabled={showResult || saving}
+              revealAnswer={showResult}
             />
 
-            {attempt ? <LessonQuestionFeedback question={question} answer={answers[question.id]} /> : null}
+            {showResult ? <LessonQuestionFeedback question={question} answer={answers[question.id]} /> : null}
           </article>
         ))}
       </div>
 
+      {error ? (
+        <p className="auth-message auth-message--error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       <div className="assignment-player__footer">
-        <span>{answeredCount}/{questions.length} câu đã trả lời</span>
-        <button type="button" className="button" onClick={handleSubmit} disabled={!canSubmit || saving}>
-          {saving ? 'Đang nộp...' : attempt ? 'Nộp lại bài' : 'Nộp bài'}
-        </button>
+        {showResult ? (
+          <>
+            <span>Đã nộp bài</span>
+            <button type="button" className="button-ghost" onClick={startRetry} disabled={saving}>
+              Làm lại
+            </button>
+          </>
+        ) : (
+          <>
+            <span>
+              {answeredCount}/{questions.length} câu đã trả lời
+              {answeredCount < questions.length ? ' — trả lời hết các câu để nộp bài' : ''}
+            </span>
+            <button type="button" className="button" onClick={handleSubmit} disabled={!canSubmit || saving}>
+              {saving ? 'Đang nộp...' : attempt ? 'Nộp lại bài' : 'Nộp bài'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -2445,11 +2524,11 @@ export default function LearningPage() {
   const [assignmentRefreshTick, setAssignmentRefreshTick] = useState(0);
   const [showTeacherStudentView, setShowTeacherStudentView] = useState(false);
   const [teacherDraft, setTeacherDraft] = useState(getInitialTeacherDraft);
-  const [teacherSource, setTeacherSource] = useState({ type: 'sample', name: 'Mẫu OCR', url: '' });
+  const [teacherSource, setTeacherSource] = useState({ type: 'sample', name: 'Tài liệu mẫu', url: '' });
   const [driveLink, setDriveLink] = useState('');
   const [ocrText, setOcrText] = useState(defaultOcrText);
   const [ocrStatus, setOcrStatus] = useState('ready');
-  const [generatedExercises, setGeneratedExercises] = useState(() => buildOcrExercises(defaultOcrText, 'Mẫu OCR'));
+  const [generatedExercises, setGeneratedExercises] = useState(() => buildOcrExercises(defaultOcrText, 'Tài liệu mẫu'));
   const [teacherSaving, setTeacherSaving] = useState(false);
   const [teacherSaveStatus, setTeacherSaveStatus] = useState({ type: '', text: '' });
   const [assignmentStudioOpen, setAssignmentStudioOpen] = useState(false);
@@ -2459,7 +2538,9 @@ export default function LearningPage() {
   const [reorderStatus, setReorderStatus] = useState({ type: '', text: '' });
   const [lessonProgressMap, setLessonProgressMap] = useState({});
   const [progressSaving, setProgressSaving] = useState(false);
+  const [progressError, setProgressError] = useState('');
   const [assignmentSavingId, setAssignmentSavingId] = useState('');
+  const [assignmentErrors, setAssignmentErrors] = useState({});
   const [lessonQuestionSaving, setLessonQuestionSaving] = useState(false);
   const [lessonQuestionStatus, setLessonQuestionStatus] = useState({ type: '', text: '' });
 
@@ -2844,6 +2925,7 @@ export default function LearningPage() {
       ? 'Đang khóa'
       : 'Đang học';
   const nextLesson = useMemo(() => lessonIndex >= 0 ? lessons[lessonIndex + 1] : lessons[1], [lessonIndex, lessons]);
+  const previousLesson = useMemo(() => (lessonIndex > 0 ? lessons[lessonIndex - 1] : null), [lessonIndex, lessons]);
   // Nhóm theo sectionIndex (ổn định) chứ không theo title (chuỗi có thể trùng
   // giữa 2 chương) — cần để tick "hoàn thành chương" không gộp nhầm 2 chương
   // trùng tên thành một.
@@ -2874,8 +2956,22 @@ export default function LearningPage() {
     resetKey: `${currentCourseId}|${currentRole}|${visibleAssignments.length}`
   });
 
+  // Vào từ "Làm bài trong phòng học" (#bai-tap-duoc-giao): danh sách chỉ dựng
+  // xong sau khi tải bài giao, nên trình duyệt không tự cuộn tới được.
+  const scrolledToAssignmentsRef = useRef(false);
+  useEffect(() => {
+    if (scrolledToAssignmentsRef.current || window.location.hash !== '#bai-tap-duoc-giao') return;
+    if (loadingAssignments || !visibleAssignments.length) return;
+    const target = document.getElementById('bai-tap-duoc-giao');
+    if (target) {
+      scrolledToAssignmentsRef.current = true;
+      scrollIntoViewRespectingMotion(target, { block: 'start' });
+    }
+  }, [loadingAssignments, visibleAssignments.length]);
+
   useEffect(() => {
     setLessonQuestionStatus({ type: '', text: '' });
+    setProgressError('');
   }, [currentLesson?.id]);
 
   useEffect(() => {
@@ -2928,7 +3024,7 @@ export default function LearningPage() {
     setTeacherSource({ type: 'file', name: sourceName, url: sourceUrl });
     setTeacherDraft((previous) => ({
       ...previous,
-      title: previous.title === 'Bài tập từ tài liệu OCR' ? `Bài tập từ ${sourceName.replace(/\.[^.]+$/, '')}` : previous.title,
+      title: previous.title === 'Bài tập từ tài liệu' ? `Bài tập từ ${sourceName.replace(/\.[^.]+$/, '')}` : previous.title,
       attachmentName: sourceName,
       attachmentUrl: sourceUrl
     }));
@@ -2987,13 +3083,13 @@ export default function LearningPage() {
     setTeacherSaveStatus({ type: '', text: '' });
   }
 
-  function regenerateExercisesFromOcr() {
+  async function regenerateExercisesFromOcr() {
     // Sinh lại là ghi đè: mọi câu hỏi, đáp án và lựa chọn đúng mà giảng viên đã
     // sửa tay đều mất. Hỏi trước khi có gì để mất.
     if (
       generatedExercises.length &&
-      !window.confirm(
-        `Sinh lại sẽ dựng ${generatedExercises.length} câu hỏi mới từ nội dung OCR và xóa mọi chỉnh sửa tay hiện có. Tiếp tục?`
+      !await confirmDialog(
+        `Sinh lại sẽ dựng ${generatedExercises.length} câu hỏi mới từ nội dung tài liệu và xóa mọi chỉnh sửa tay hiện có. Tiếp tục?`
       )
     ) {
       return;
@@ -3085,7 +3181,7 @@ export default function LearningPage() {
           courseKey: teacherDraft.courseKey,
           courseTitle: teacherDraft.courseTitle,
           lessonTitle: currentLesson.title,
-          title: teacherDraft.title || `${currentLesson.title} - bài tập OCR`,
+          title: teacherDraft.title || `${currentLesson.title} - bài tập từ tài liệu`,
           description: teacherDraft.description,
           assignmentScope: teacherDraft.assignmentScope,
           audioName: audioMap[lessonStorageId]?.name || '',
@@ -3131,7 +3227,7 @@ export default function LearningPage() {
     } catch (submissionError) {
       setTeacherSaveStatus({
         type: 'error',
-        text: submissionError.message || 'Chưa thể giao bài. Vui lòng kiểm tra kết nối Supabase.'
+        text: toFriendlyError(submissionError, 'Chưa thể giao bài. Vui lòng kiểm tra kết nối mạng rồi thử lại.')
       });
     } finally {
       setTeacherSaving(false);
@@ -3203,7 +3299,7 @@ export default function LearningPage() {
     } catch (error) {
       setLessonQuestionStatus({
         type: 'error',
-        text: error.message || 'Chưa thể lưu cấu trúc tab lên Supabase.'
+        text: toFriendlyError(error, 'Chưa lưu được các tab bài tập. Vui lòng thử lại.')
       });
     } finally {
       setLessonQuestionSaving(false);
@@ -3236,7 +3332,7 @@ export default function LearningPage() {
     if (moves.some((move) => !move.lessonId || !move.chapterId)) {
       setReorderStatus({
         type: 'error',
-        text: 'Khóa này chưa đồng bộ Supabase nên chưa lưu được thứ tự bài.'
+        text: 'Khóa này chưa được lưu lên hệ thống nên chưa đổi được thứ tự bài. Hãy lưu khóa trong bảng giảng viên trước.'
       });
       return;
     }
@@ -3263,7 +3359,7 @@ export default function LearningPage() {
       setLessons(previousLessons);
       setReorderStatus({
         type: 'error',
-        text: error.message || 'Chưa lưu được thứ tự bài học nên đã trả về như cũ.'
+        text: toFriendlyError(error, 'Chưa lưu được thứ tự bài học nên đã trả về như cũ.')
       });
     }
   }
@@ -3288,7 +3384,7 @@ export default function LearningPage() {
     if (moves.some((move) => !move.chapterId)) {
       setReorderStatus({
         type: 'error',
-        text: 'Khóa này chưa đồng bộ Supabase nên chưa lưu được thứ tự chương.'
+        text: 'Khóa này chưa được lưu lên hệ thống nên chưa đổi được thứ tự chương. Hãy lưu khóa trong bảng giảng viên trước.'
       });
       return;
     }
@@ -3326,7 +3422,7 @@ export default function LearningPage() {
       setExpandedSections(previousExpanded);
       setReorderStatus({
         type: 'error',
-        text: error.message || 'Chưa lưu được thứ tự chương nên đã trả về như cũ.'
+        text: toFriendlyError(error, 'Chưa lưu được thứ tự chương nên đã trả về như cũ.')
       });
     }
   }
@@ -3337,6 +3433,7 @@ export default function LearningPage() {
     }
 
     setProgressSaving(true);
+    setProgressError('');
     try {
       const savedProgress = await saveLessonProgress({
         studentId: auth.user?.id,
@@ -3358,6 +3455,10 @@ export default function LearningPage() {
           courseKey: currentCourseId
         });
       }
+    } catch (error) {
+      // Trước đây lưu hỏng là im lặng: học viên tưởng đã xong, tải lại thì mất tiến độ.
+      console.warn('[handleMarkLessonComplete]', error?.message || error);
+      setProgressError('Chưa lưu được tiến độ bài học. Kiểm tra kết nối mạng rồi bấm "Đánh dấu hoàn thành" để thử lại.');
     } finally {
       setProgressSaving(false);
     }
@@ -3369,10 +3470,6 @@ export default function LearningPage() {
   // các tab đã nộp: trước đây tab nộp sau ghi đè tab nộp trước, nên làm đúng
   // hết tab 1 rồi sai một câu ở tab 2 là tụt từ 3 sao xuống 1 sao.
   function handleLessonExercisesSubmitted(result) {
-    if (progressSaving) {
-      return;
-    }
-
     const lessonKey = currentLesson?.id || '';
     const submittedTabs = {
       ...(lessonTabScoresRef.current[lessonKey] || {}),
@@ -3396,6 +3493,7 @@ export default function LearningPage() {
 
   async function handleSubmitAssignment(assignment, answers, result) {
     setAssignmentSavingId(assignment.id);
+    setAssignmentErrors((previous) => ({ ...previous, [assignment.id]: '' }));
     try {
       const savedAttempt = await saveAssignmentAttempt({
         assignmentId: assignment.id,
@@ -3419,7 +3517,17 @@ export default function LearningPage() {
         });
       }
 
-      await handleMarkLessonComplete(result);
+      // Bài giao gắn với một bài học cụ thể: chỉ tính hoàn thành cho đúng bài
+      // đó, không ghi điểm sang bài đang mở nếu là bài khác.
+      if (currentLesson && assignment.lessonTitle === currentLesson.title) {
+        await handleMarkLessonComplete(result);
+      }
+    } catch (error) {
+      console.warn('[handleSubmitAssignment]', error?.message || error);
+      setAssignmentErrors((previous) => ({
+        ...previous,
+        [assignment.id]: 'Chưa nộp được bài. Kiểm tra kết nối mạng rồi bấm nộp lại — câu trả lời vẫn được giữ nguyên.'
+      }));
     } finally {
       setAssignmentSavingId('');
     }
@@ -3454,6 +3562,12 @@ export default function LearningPage() {
       handleSelectLesson(nextLesson.id);
     }
   }, [handleSelectLesson, nextLesson]);
+
+  const handleGoToPreviousLesson = useCallback(() => {
+    if (previousLesson) {
+      handleSelectLesson(previousLesson.id);
+    }
+  }, [handleSelectLesson, previousLesson]);
 
   const showBlockingLoading = loadingCourse && !currentCourse;
 
@@ -3772,7 +3886,7 @@ export default function LearningPage() {
                         </label>
 
                         <div className="ocr-pipeline">
-                          {['Nhận tài liệu', 'Giải nén / OCR', 'Sinh câu hỏi'].map((step, index) => (
+                          {['Nhận tài liệu', 'Đọc nội dung', 'Sinh câu hỏi'].map((step, index) => (
                             <span
                               key={step}
                               className={
@@ -3886,7 +4000,7 @@ export default function LearningPage() {
                         </div>
 
                         <label className="auth-field auth-field--full">
-                          <span>Nội dung OCR</span>
+                          <span>Nội dung đọc được từ tài liệu</span>
                           <textarea
                             rows="8"
                             value={ocrText}
@@ -3922,7 +4036,7 @@ export default function LearningPage() {
                         <div className="ocr-question-list">
                           {!generatedExercises.length ? (
                             <p className="empty-state">
-                              Chưa có câu hỏi nào. Thả tài liệu vào ô bên trái hoặc sửa nội dung OCR rồi bấm{' '}
+                              Chưa có câu hỏi nào. Thả tài liệu vào ô bên trái hoặc sửa nội dung tài liệu rồi bấm{' '}
                               <strong>Sinh lại câu hỏi</strong>.
                             </p>
                           ) : null}
@@ -3991,7 +4105,7 @@ export default function LearningPage() {
                           <div className="student-view-preview">
                             <div className="section-head">
                               <div>
-                                <span className="eyebrow">Student view</span>
+                                <span className="eyebrow">Xem như học viên</span>
                                 <h3>Học sinh sẽ thấy bộ bài này</h3>
                               </div>
                               <span className="pill">{teacherDraft.courseTitle}</span>
@@ -4046,7 +4160,7 @@ export default function LearningPage() {
                             className="button-ghost"
                             onClick={() => setShowTeacherStudentView((value) => !value)}
                           >
-                            {showTeacherStudentView ? 'Ẩn Student view' : 'Xem Student view'}
+                            {showTeacherStudentView ? 'Ẩn bản xem của học viên' : 'Xem như học viên'}
                           </button>
                           <button
                             type="button"
@@ -4074,6 +4188,11 @@ export default function LearningPage() {
                         ? 'Tiến độ đã được lưu cho tài khoản học viên này.'
                         : 'Hoàn thành bài luyện rồi lưu tiến độ tại đây.'}
                     </p>
+                    {progressError ? (
+                      <p className="auth-message auth-message--error" role="alert">
+                        {progressError}
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     type="button"
@@ -4082,6 +4201,14 @@ export default function LearningPage() {
                     disabled={progressSaving || isCurrentLessonCompleted}
                   >
                     {progressSaving ? 'Đang lưu...' : isCurrentLessonCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    onClick={handleGoToPreviousLesson}
+                    disabled={!previousLesson}
+                  >
+                    <span aria-hidden="true">←</span> Bài trước
                   </button>
                   <button
                     type="button"
@@ -4097,7 +4224,7 @@ export default function LearningPage() {
             </>
           ) : (
             <section className="content-card content-card--enterprise lesson-lock">
-              <span className="eyebrow">Quản lý quyền truy cập</span>
+              <span className="eyebrow">Chưa mở khóa</span>
               <h2>Bạn chưa có quyền học bài này.</h2>
               <p>Học viên chỉ nhận được học liệu khi đã mua khóa học hoặc được giảng viên cấp quyền trực tiếp.</p>
               <div className="lesson-lock__chips">
@@ -4119,6 +4246,57 @@ export default function LearningPage() {
             </section>
           )}
 
+          {/* Bài giảng viên giao riêng: bảng điều khiển học viên dẫn về đây
+              ("Làm bài trong phòng học") nên học viên phải làm được ngay tại chỗ. */}
+          {!isTeacher && !showStrokePractice && (loadingAssignments || visibleAssignments.length) ? (
+            <section id="bai-tap-duoc-giao" className="content-card content-card--enterprise">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">Nhiệm vụ của tôi</span>
+                  <h2>Bài tập được giao</h2>
+                  <p>Bài giảng viên giao riêng cho bạn trong khóa này. Làm xong bấm "Nộp bài" để lưu điểm.</p>
+                </div>
+                <span className="pill">{loadingAssignments ? 'Đang tải' : `${visibleAssignments.length} bài`}</span>
+              </div>
+
+              {visibleAssignments.length ? (
+                <>
+                  <div className="assignment-list">
+                    {assignmentPagination.pageItems.map((assignment) => (
+                      <article key={assignment.id} className="assignment-card">
+                        <div className="assignment-card__head">
+                          <div>
+                            <h3>{assignment.title}</h3>
+                            {assignment.lessonTitle ? <p>Bài học: {assignment.lessonTitle}</p> : null}
+                          </div>
+                          {assignmentAttempts[assignment.id] ? (
+                            <span className="pill">
+                              Đã nộp · {assignmentAttempts[assignment.id].score}/{assignmentAttempts[assignment.id].maxScore}
+                            </span>
+                          ) : (
+                            <span className="pill pill--warning">Chưa làm</span>
+                          )}
+                        </div>
+                        {assignment.description ? (
+                          <p className="assignment-card__description">{assignment.description}</p>
+                        ) : null}
+                        <StudentAssignmentPlayer
+                          assignment={assignment}
+                          attempt={assignmentAttempts[assignment.id]}
+                          saving={assignmentSavingId === assignment.id}
+                          error={assignmentErrors[assignment.id]}
+                          onSubmit={handleSubmitAssignment}
+                        />
+                      </article>
+                    ))}
+                  </div>
+                  <PaginationControls {...assignmentPagination} label="bài tập" />
+                </>
+              ) : (
+                <p className="empty-state">Đang tải bài tập được giao...</p>
+              )}
+            </section>
+          ) : null}
         </div>
       </section>
     </div>

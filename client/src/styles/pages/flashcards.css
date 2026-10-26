@@ -150,6 +150,33 @@
   line-height: 1.45;
 }
 
+.fc-set-card__open:disabled {
+  cursor: progress;
+}
+
+.fc-set-card__stats {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fc-set-card .fc-set-card__meter {
+  display: block;
+  margin-top: 4px;
+}
+
+.fc-set-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fc-import__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* ─── Vỏ ngoài phần học ───────────────────────────────────────────────────── */
 
 .fc-study {

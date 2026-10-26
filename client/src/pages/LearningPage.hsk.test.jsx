@@ -75,10 +75,10 @@ describe('LessonExercisePreview', () => {
     expect(screen.getByText('Chữ Hán là chữ tượng hình')).toBeInTheDocument();
     expect(screen.getByText('Đúng')).toBeInTheDocument();
     expect(screen.getByText('Sai')).toBeInTheDocument();
-    expect(screen.getByText(/audio phát âm sẽ được cập nhật/)).toBeInTheDocument(); // câu nghe chờ audio
+    expect(screen.getByText(/file âm thanh sẽ sớm được cập nhật/)).toBeInTheDocument(); // câu nghe chờ audio
   });
 
-  it('shows right/wrong and explanation right after each answer', () => {
+  it('chọn đáp án vẫn đổi được, chỉ chấm khi bấm Kiểm tra câu này', () => {
     const lesson = {
       id: 'l3',
       exercises: [
@@ -88,12 +88,19 @@ describe('LessonExercisePreview', () => {
     };
     render(<LessonExercisePreview lesson={lesson} isTeacher={false} />);
 
+    const [checkQ1, checkQ2] = screen.getAllByRole('button', { name: 'Kiểm tra câu này' });
+    expect(checkQ1).toBeDisabled();
+    fireEvent.click(screen.getByText('Sai'));
+    // chọn nhầm rồi đổi ý: chưa chấm gì cả
     fireEvent.click(screen.getByText('Đúng'));
+    expect(screen.queryByText(/Chưa đúng/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Giải thích câu 1.')).not.toBeInTheDocument();
+    fireEvent.click(checkQ1);
     expect(screen.getByText(/Chưa đúng/)).toBeInTheDocument();
     expect(screen.getByText('Giải thích câu 1.')).toBeInTheDocument();
     expect(screen.queryByText('Giải thích câu 2.')).not.toBeInTheDocument();
 
-    const checkButton = screen.getByRole('button', { name: 'Kiểm tra câu này' });
+    const checkButton = checkQ2;
     expect(checkButton).toBeDisabled();
     fireEvent.change(screen.getByPlaceholderText('Gõ đáp án của bạn...'), { target: { value: '好' } });
     fireEvent.click(checkButton);
@@ -122,10 +129,14 @@ describe('LessonExercisePreview', () => {
     };
     render(<LessonExercisePreview lesson={lesson} isTeacher={false} onSubmitted={onSubmitted} />);
 
-    // mỗi câu được chấm ngay; câu cuối xong thì báo điểm cả bài
+    // chọn xong bấm kiểm tra từng câu; câu cuối xong thì báo điểm cả bài
+    const [checkQ1, checkQ2] = screen.getAllByRole('button', { name: 'Kiểm tra câu này' });
     fireEvent.click(screen.getByText('A. Đáp án A'));
+    fireEvent.click(checkQ1);
     expect(onSubmitted).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Đúng'));
+    expect(onSubmitted).not.toHaveBeenCalled();
+    fireEvent.click(checkQ2);
 
     expect(onSubmitted).toHaveBeenCalledTimes(1);
     expect(onSubmitted).toHaveBeenCalledWith({ score: 2, maxScore: 2, tabId: '' });

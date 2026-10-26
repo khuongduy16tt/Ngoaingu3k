@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getEffectiveRole } from '../lib/permissions';
 import { getCourseCatalog, getMyCourses, getOwnedCourseIds } from '../lib/courseService';
 import {
   deleteFlashcardSet,
+  getFlashcardMasteredCounts,
   getFlashcardProgress,
   getFlashcardSetById,
   getFlashcardSets,
@@ -21,6 +22,8 @@ import { createEmptyProgress } from '../lib/flashcardStudy';
 import { FlashcardStudy } from './flashcards/FlashcardStudy';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
+import { toFriendlyError } from '../lib/friendlyError';
+import { confirmDialog } from '../lib/confirmDialog';
 
 const SAMPLE = `你好\txin chào\n谢谢\tcảm ơn\n再见\ttạm biệt`;
 
@@ -45,9 +48,14 @@ function resolveCourseUuids(identifiers = [], catalog = []) {
   return [...new Set(identifiers.map((id) => byKey.get(String(id))).filter(Boolean))];
 }
 
+// Bộ thẻ đang sửa → nội dung dán lại dạng "thuật ngữ<TAB>định nghĩa" mỗi dòng.
+function cardsToImportText(cards = []) {
+  return cards.map((card) => `${card.term}\t${card.definition}`).join('\n');
+}
+
 // Panel nhập bộ thẻ — chỉ giảng viên/admin thấy. Dán text, chọn dấu phân cách,
 // xem trước rồi mới lưu, đúng luồng của Quizlet.
-function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
+function FlashcardImportPanel({ courses, onSaved, autoFocus, editingSet = null, onCancelEdit }) {
   const auth = useAuth();
   const panelRef = useRef(null);
   const [courseId, setCourseId] = useState(courses[0]?.id || '');
@@ -60,6 +68,29 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
   const [rowCustomSeparator, setRowCustomSeparator] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: '', text: '' });
+
+  // Bấm "Sửa" ở một bộ thẻ → đổ nội dung bộ đó vào panel để chỉnh rồi lưu đè.
+  useEffect(() => {
+    if (!editingSet) {
+      return;
+    }
+    setCourseId(editingSet.courseId || '');
+    setTitle(editingSet.title || '');
+    setDescription(editingSet.description || '');
+    setText(cardsToImportText(editingSet.cards));
+    setTermSeparator('tab');
+    setRowSeparator('newline');
+    setStatus({ type: '', text: '' });
+    if (panelRef.current) {
+      scrollIntoViewRespectingMotion(panelRef.current, { block: 'start' });
+    }
+  }, [editingSet]);
+
+  function resetForm() {
+    setText('');
+    setTitle('');
+    setDescription('');
+  }
 
   useEffect(() => {
     const first = getCourseKey(courses[0]);
@@ -100,19 +131,24 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
 
     try {
       await saveFlashcardSet({
+        setId: editingSet?.id,
         courseId,
         title,
         description,
         cards: parsed.cards,
         userId: auth.user?.id
       });
-      setStatus({ type: 'success', text: `Đã nhập ${parsed.cards.length} thẻ vào bộ "${title}".` });
-      setText('');
-      setTitle('');
-      setDescription('');
+      const savedCount = parsed.cards.filter((card) => card.term && card.definition).length;
+      setStatus({
+        type: 'success',
+        text: editingSet
+          ? `Đã lưu thay đổi bộ "${title}" (${savedCount} thẻ).`
+          : `Đã nhập ${savedCount} thẻ vào bộ "${title}".`
+      });
+      resetForm();
       onSaved?.();
     } catch (error) {
-      setStatus({ type: 'error', text: error.message || 'Chưa thể lưu bộ thẻ.' });
+      setStatus({ type: 'error', text: toFriendlyError(error, 'Chưa thể lưu bộ thẻ.') });
     } finally {
       setSaving(false);
     }
@@ -125,8 +161,12 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
       <div className="section-head">
         <div>
           <span className="eyebrow">Chỉ giảng viên</span>
-          <h2>Nhập bộ thẻ</h2>
-          <p>Dán danh sách từ Excel, Google Sheets hoặc Word. Mỗi dòng thành một thẻ.</p>
+          <h2>{editingSet ? `Sửa bộ thẻ "${editingSet.title}"` : 'Nhập bộ thẻ'}</h2>
+          <p>
+            {editingSet
+              ? 'Sửa trực tiếp trong ô bên dưới: mỗi dòng một thẻ, thuật ngữ và định nghĩa cách nhau bằng dấu Tab. Lưu lại thì tiến độ học của học viên với bộ này sẽ bắt đầu lại.'
+              : 'Dán danh sách từ Excel, Google Sheets hoặc Word. Mỗi dòng thành một thẻ.'}
+          </p>
         </div>
       </div>
 
@@ -263,9 +303,25 @@ function FlashcardImportPanel({ courses, onSaved, autoFocus }) {
 
           <div className="excel-lesson-panel__footer">
             <span>{parsed.cards.length ? `${parsed.cards.length} thẻ sẵn sàng` : 'Chưa có thẻ nào'}</span>
-            <button type="button" className="button" onClick={handleSave} disabled={!canSave || saving}>
-              {saving ? 'Đang lưu...' : 'Nhập bộ thẻ'}
-            </button>
+            <div className="fc-import__actions">
+              {editingSet ? (
+                <button
+                  type="button"
+                  className="button-ghost"
+                  disabled={saving}
+                  onClick={() => {
+                    resetForm();
+                    setStatus({ type: '', text: '' });
+                    onCancelEdit?.();
+                  }}
+                >
+                  Hủy sửa
+                </button>
+              ) : null}
+              <button type="button" className="button" onClick={handleSave} disabled={!canSave || saving}>
+                {saving ? 'Đang lưu...' : editingSet ? 'Lưu thay đổi' : 'Nhập bộ thẻ'}
+              </button>
+            </div>
           </div>
         </>
       ) : (
@@ -283,14 +339,25 @@ export default function FlashcardsPage() {
   const auth = useAuth();
   const role = getEffectiveRole(auth);
   const canImport = role === 'teacher' || role === 'admin';
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const wantsCreate = searchParams.get('create') === '1';
+  // Bộ đang học nằm trên URL (?set=...) để nút Back của trình duyệt quay về
+  // danh sách thay vì thoát khỏi trang Flashcard.
+  const activeSetId = searchParams.get('set') || '';
 
   const [sets, setSets] = useState([]);
   const [teacherCourses, setTeacherCourses] = useState([]);
   const [activeSet, setActiveSet] = useState(null);
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [openingSetId, setOpeningSetId] = useState('');
+  const [openError, setOpenError] = useState('');
+  const [masteredCounts, setMasteredCounts] = useState({});
+  const [editingSet, setEditingSet] = useState(null);
+  const requestedSetIdRef = useRef('');
   const [deleteError, setDeleteError] = useState('');
   const [ownedCourseCount, setOwnedCourseCount] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
@@ -302,6 +369,7 @@ export default function FlashcardsPage() {
 
     async function load() {
       setLoading(true);
+      setLoadError('');
       try {
         const catalog = await getCourseCatalog();
 
@@ -334,6 +402,11 @@ export default function FlashcardsPage() {
           setSets(nextSets);
           setOwnedCourseCount(visibleCourseIds.length);
         }
+      } catch (error) {
+        console.warn('[FlashcardsPage load]', error?.message || error);
+        if (active) {
+          setLoadError(toFriendlyError(error, 'Chưa tải được danh sách bộ thẻ.'));
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -352,14 +425,109 @@ export default function FlashcardsPage() {
     panel.querySelector('textarea')?.focus({ preventScroll: true });
   }
 
-  async function openSet(setId) {
-    const full = await getFlashcardSetById(setId);
-    if (!full) {
+  // Số thẻ đã thuộc của từng bộ (học viên). Tính lại mỗi lần quay về danh sách
+  // để thấy ngay tiến độ vừa học.
+  useEffect(() => {
+    if (canImport || activeSetId || !sets.length) {
+      return undefined;
+    }
+
+    let active = true;
+    getFlashcardMasteredCounts({ userId: auth.user?.id, sets })
+      .then((counts) => {
+        if (active) setMasteredCounts(counts);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [auth.user?.id, canImport, activeSetId, sets]);
+
+  function closeSetUrl() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('set');
+    setSearchParams(next, { replace: true });
+  }
+
+  // Mở bộ thẻ theo URL: bấm từ danh sách, bấm Back/Forward hoặc mở link trực tiếp.
+  useEffect(() => {
+    if (!activeSetId) {
+      requestedSetIdRef.current = '';
+      setActiveSet(null);
+      setOpeningSetId('');
       return;
     }
-    const stored = await getFlashcardProgress({ userId: auth.user?.id, setId });
-    setActiveSet(full);
-    setProgress(Object.keys(stored).length ? stored : createEmptyProgress(full.cards));
+
+    if (activeSet?.id === activeSetId || requestedSetIdRef.current === activeSetId) {
+      return;
+    }
+
+    requestedSetIdRef.current = activeSetId;
+    setOpeningSetId(activeSetId);
+    setOpenError('');
+
+    (async () => {
+      try {
+        const full = await getFlashcardSetById(activeSetId);
+        if (requestedSetIdRef.current !== activeSetId) return;
+        if (!full) {
+          setOpenError('Không mở được bộ thẻ này. Có thể bộ thẻ đã bị xóa hoặc bạn chưa có quyền xem.');
+          requestedSetIdRef.current = '';
+          setOpeningSetId('');
+          closeSetUrl();
+          return;
+        }
+        const stored = await getFlashcardProgress({ userId: auth.user?.id, setId: activeSetId });
+        if (requestedSetIdRef.current !== activeSetId) return;
+        setActiveSet(full);
+        setProgress(Object.keys(stored).length ? stored : createEmptyProgress(full.cards));
+        setOpeningSetId('');
+      } catch (error) {
+        if (requestedSetIdRef.current !== activeSetId) return;
+        setOpenError(toFriendlyError(error, 'Chưa mở được bộ thẻ. Vui lòng thử lại.'));
+        requestedSetIdRef.current = '';
+        setOpeningSetId('');
+        closeSetUrl();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSetId]);
+
+  function openSet(setId) {
+    if (openingSetId) return;
+    setOpenError('');
+    const next = new URLSearchParams(searchParams);
+    next.delete('create');
+    next.set('set', setId);
+    setSearchParams(next, { state: { fromFlashcardList: true } });
+  }
+
+  function backToList() {
+    // Mở từ danh sách → lùi lịch sử (giống bấm Back); mở bằng link thẳng → bỏ ?set.
+    if (location.state?.fromFlashcardList) {
+      navigate(-1);
+    } else {
+      closeSetUrl();
+    }
+  }
+
+  async function startEditSet(setId) {
+    if (openingSetId) return;
+    setOpenError('');
+    setOpeningSetId(setId);
+    try {
+      const full = await getFlashcardSetById(setId);
+      if (!full) {
+        setOpenError('Không tải được bộ thẻ để sửa. Có thể bộ thẻ đã bị xóa.');
+        return;
+      }
+      setEditingSet(full);
+    } catch (error) {
+      setOpenError(toFriendlyError(error, 'Không tải được bộ thẻ để sửa. Vui lòng thử lại.'));
+    } finally {
+      setOpeningSetId('');
+    }
   }
 
   // Tiến độ Learn phải xuống DB, không thì mất khi rời trang. Có `changedCardId`
@@ -380,7 +548,7 @@ export default function FlashcardsPage() {
   }
 
   async function handleDelete(setId, title) {
-    if (!window.confirm(`Xóa bộ thẻ "${title}"? Thao tác này không hoàn tác được.`)) {
+    if (!await confirmDialog(`Xóa bộ thẻ "${title}"? Thao tác này không hoàn tác được.`)) {
       return;
     }
 
@@ -388,20 +556,22 @@ export default function FlashcardsPage() {
 
     try {
       await deleteFlashcardSet(setId);
-      setActiveSet(null);
+      if (editingSet?.id === setId) {
+        setEditingSet(null);
+      }
       setReloadKey((value) => value + 1);
     } catch (error) {
       // Không bắt lỗi thì xóa hỏng cũng im lặng: bộ thẻ vẫn nằm đó và giảng
       // viên tưởng mình bấm hụt, bấm lại nhiều lần.
       console.warn('[handleDelete flashcard set]', error?.message || error);
-      setDeleteError(error?.message || `Chưa xóa được bộ thẻ "${title}". Vui lòng thử lại.`);
+      setDeleteError(toFriendlyError(error, `Chưa xóa được bộ thẻ "${title}". Vui lòng thử lại.`));
     }
   }
 
   if (activeSet) {
     return (
       <div className="page flashcards-page">
-        <button type="button" className="button-ghost" onClick={() => setActiveSet(null)}>
+        <button type="button" className="button-ghost" onClick={backToList}>
           ← Về danh sách bộ thẻ
         </button>
         <FlashcardStudy set={activeSet} progress={progress} onProgressChange={handleProgressChange} />
@@ -424,8 +594,19 @@ export default function FlashcardsPage() {
         <FlashcardImportPanel
           courses={teacherCourses}
           autoFocus={wantsCreate && !loading}
-          onSaved={() => setReloadKey((v) => v + 1)}
+          editingSet={editingSet}
+          onCancelEdit={() => setEditingSet(null)}
+          onSaved={() => {
+            setEditingSet(null);
+            setReloadKey((v) => v + 1);
+          }}
         />
+      ) : null}
+
+      {openError ? (
+        <div className="auth-message auth-message--error" role="alert">
+          {openError}
+        </div>
       ) : null}
 
       {deleteError ? (
@@ -436,23 +617,58 @@ export default function FlashcardsPage() {
 
       {loading ? (
         <p className="empty-state">Đang tải bộ thẻ...</p>
+      ) : loadError ? (
+        <div className="empty-state fc-empty">
+          <p role="alert">{loadError}</p>
+          <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>
+            Thử lại
+          </button>
+        </div>
       ) : sets.length ? (
         <div className="fc-set-list">
           {sets.map((set) => (
             <article key={set.id} className="fc-set-card">
-              <button type="button" className="fc-set-card__open" onClick={() => openSet(set.id)}>
+              <button
+                type="button"
+                className="fc-set-card__open"
+                onClick={() => openSet(set.id)}
+                disabled={Boolean(openingSetId)}
+                aria-busy={openingSetId === set.id}
+              >
                 <strong>{set.title}</strong>
                 {set.courseTitle ? <span className="fc-set-card__course">{set.courseTitle}</span> : null}
                 {set.description ? <small>{set.description}</small> : null}
+                <span className="fc-set-card__stats">
+                  {openingSetId === set.id
+                    ? 'Đang mở...'
+                    : !canImport && set.cardCount
+                      ? `${set.cardCount} thẻ · đã thuộc ${masteredCounts[set.id] || 0}/${set.cardCount}`
+                      : `${set.cardCount} thẻ`}
+                </span>
+                {!canImport && set.cardCount ? (
+                  <span className="meter fc-set-card__meter" aria-hidden="true">
+                    <span style={{ width: `${Math.round(((masteredCounts[set.id] || 0) / set.cardCount) * 100)}%` }} />
+                  </span>
+                ) : null}
               </button>
               {canImport ? (
-                <button
-                  type="button"
-                  className="button-ghost"
-                  onClick={() => handleDelete(set.id, set.title)}
-                >
-                  Xóa
-                </button>
+                <div className="fc-set-card__actions">
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    disabled={Boolean(openingSetId)}
+                    onClick={() => startEditSet(set.id)}
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    onClick={() => handleDelete(set.id, set.title)}
+                  >
+                    Xóa
+                  </button>
+                </div>
               ) : null}
             </article>
           ))}

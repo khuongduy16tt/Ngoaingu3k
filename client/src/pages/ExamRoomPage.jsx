@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { ListeningAudio } from '../components/ListeningAudio';
 import { getEffectiveRole } from '../lib/permissions';
@@ -17,6 +17,7 @@ import {
 } from '../lib/examService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
+import { toFriendlyError } from '../lib/friendlyError';
 
 const TICK_MS = 500;
 
@@ -291,17 +292,123 @@ function ExamResult({ exam, attempt }) {
   );
 }
 
+// ─── Lưu tạm bài làm trên máy ───────────────────────────────────────────────
+// Lỡ tải lại trang, tắt tab hay điện thoại tự đóng trình duyệt thì vào lại đề
+// vẫn làm tiếp được. Hạn giờ lưu dạng mốc tuyệt đối nên đồng hồ không "đứng"
+// trong lúc rời đi.
+const EXAM_SESSION_PREFIX = 'ngoaingu3k-exam-session';
+
+function getExamSessionKey(examId, userKey) {
+  return `${EXAM_SESSION_PREFIX}:${userKey || 'guest'}:${examId}`;
+}
+
+function readExamSession(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeExamSession(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Bộ nhớ bị chặn/đầy: vẫn thi được, chỉ là không khôi phục được khi tải lại.
+  }
+}
+
+function clearExamSession(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+// Hộp thoại dùng chung của phòng thi: Esc để đóng, con trỏ vào nút an toàn,
+// Tab không thoát ra ngoài, đóng xong trả con trỏ về chỗ cũ.
+function ExamDialog({ title, children, cancelLabel, confirmLabel, onCancel, onConfirm }) {
+  const titleId = useId();
+  const cardRef = useRef(null);
+  const cancelRef = useRef(null);
+  // Phòng thi render lại mỗi nửa giây (đồng hồ) — giữ hàm đóng trong ref để
+  // effect không chạy lại và giật con trỏ về nút đầu.
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
+  useEffect(() => {
+    const returnFocusTo = document.activeElement;
+    cancelRef.current?.focus();
+
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancelRef.current?.();
+        return;
+      }
+      if (event.key !== 'Tab' || !cardRef.current) return;
+      const focusables = [...cardRef.current.querySelectorAll('button:not([disabled])')];
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!cardRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      if (returnFocusTo && returnFocusTo.isConnected) {
+        returnFocusTo.focus?.({ preventScroll: true });
+      }
+    };
+  }, []);
+
+  return (
+    <div className="exam-confirm" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className="exam-confirm__card" ref={cardRef}>
+        <h2 id={titleId}>{title}</h2>
+        {children}
+        <div className="exam-confirm__actions">
+          <button ref={cancelRef} type="button" className="button-ghost" onClick={onCancel}>
+            {cancelLabel}
+          </button>
+          <button type="button" className="button" onClick={onConfirm}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Exam room page ───────────────────────────────────────────────────────────
 
 export default function ExamRoomPage() {
   usePageTitle('Phòng thi');
   const { examId } = useParams();
+  const navigate = useNavigate();
   const auth = useAuth();
   const role = getEffectiveRole(auth);
+  // Giảng viên/admin vào đề là để xem trước: làm thử được nhưng không lưu
+  // thành lượt thi, không làm bẩn bảng kết quả.
+  const isPreview = role !== 'student';
 
   const [exam, setExam] = useState(null);
-  const [phase, setPhase] = useState('loading'); // loading | blocked | lobby | room | saving | result
+  const [phase, setPhase] = useState('loading'); // loading | blocked | lobby | room | break | saving | result
   const [blockedMessage, setBlockedMessage] = useState('');
+  const [canRetryLoad, setCanRetryLoad] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [attempt, setAttempt] = useState(null);
 
   const [sectionIndex, setSectionIndex] = useState(0);
@@ -309,6 +416,8 @@ export default function ExamRoomPage() {
   const [deadline, setDeadline] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [resumed, setResumed] = useState(false);
   const [saveError, setSaveError] = useState('');
   const autoSubmittedRef = useRef(false);
   const sectionTimesRef = useRef({});
@@ -321,6 +430,7 @@ export default function ExamRoomPage() {
 
   const studentId = auth.user?.id || '';
   const studentEmail = auth.user?.email || '';
+  const sessionKey = getExamSessionKey(examId, studentId || studentEmail);
 
   // Load exam + previous attempt.
   useEffect(() => {
@@ -330,55 +440,97 @@ export default function ExamRoomPage() {
 
     let alive = true;
 
+    function restoreSession(saved) {
+      startedAtRef.current = saved.startedAt || new Date().toISOString();
+      sectionTimesRef.current = saved.sectionTimes || {};
+      sectionStartedAtRef.current = saved.sectionStartedAt || Date.now();
+      autoSubmittedRef.current = Boolean(saved.autoSubmitted);
+      setSectionIndex(saved.sectionIndex);
+      setAnswers(saved.answers || {});
+      setDeadline(saved.phase === 'room' ? saved.deadline : null);
+      setNow(Date.now());
+      setResumed(true);
+      setPhase(saved.phase === 'break' ? 'break' : 'room');
+    }
+
     async function load() {
-      const loadedExam = await getExamById(examId);
+      setPhase('loading');
+      setCanRetryLoad(false);
 
-      if (!alive) return;
+      try {
+        const loadedExam = await getExamById(examId);
 
-      if (!loadedExam) {
-        setPhase('blocked');
-        setBlockedMessage('Không tìm thấy đề thi hoặc bạn không có quyền truy cập.');
-        return;
-      }
+        if (!alive) return;
 
-      const isOwnerTeacher = role !== 'student' && loadedExam.teacherId === studentId;
-      const isAdmin = role === 'admin';
-
-      if (loadedExam.status !== 'published' && !isOwnerTeacher && !isAdmin) {
-        setPhase('blocked');
-        setBlockedMessage('Đề thi này chưa được mở.');
-        return;
-      }
-
-      if (role === 'student') {
-        // Catalog để map uuid ↔ slug, khớp course_key của đề với orders đã mua.
-        const ownedCourseIds = await getOwnedCourseIds(studentId, await getCourseCatalog());
-        const normalizedEmail = studentEmail.toLowerCase();
-        const assigned =
-          loadedExam.assignmentScope === 'course_buyers'
-            ? ownedCourseIds.map((id) => String(id).toLowerCase()).includes(String(loadedExam.courseKey).toLowerCase())
-            : loadedExam.recipients.some((recipient) => recipient.studentEmail.toLowerCase() === normalizedEmail);
-
-        if (!assigned && !alive) return;
-        if (!assigned) {
+        if (!loadedExam) {
           setPhase('blocked');
-          setBlockedMessage('Bạn chưa được giao đề thi này. Hãy liên hệ giảng viên của bạn.');
+          setBlockedMessage('Không tìm thấy đề thi hoặc bạn không có quyền truy cập.');
           return;
         }
-      }
 
-      const previousAttempts = await getExamAttemptsForStudent(studentId, studentEmail);
-      if (!alive) return;
+        const isOwnerTeacher = role !== 'student' && loadedExam.teacherId === studentId;
+        const isAdmin = role === 'admin';
 
-      const previous = previousAttempts.find((item) => item.examId === loadedExam.id);
+        if (loadedExam.status !== 'published' && !isOwnerTeacher && !isAdmin) {
+          setPhase('blocked');
+          setBlockedMessage('Đề thi này chưa được mở.');
+          return;
+        }
 
-      setExam(loadedExam);
+        if (role === 'student') {
+          // Catalog để map uuid ↔ slug, khớp course_key của đề với orders đã mua.
+          const ownedCourseIds = await getOwnedCourseIds(studentId, await getCourseCatalog());
+          const normalizedEmail = studentEmail.toLowerCase();
+          const assigned =
+            loadedExam.assignmentScope === 'course_buyers'
+              ? ownedCourseIds.map((id) => String(id).toLowerCase()).includes(String(loadedExam.courseKey).toLowerCase())
+              : loadedExam.recipients.some((recipient) => recipient.studentEmail.toLowerCase() === normalizedEmail);
 
-      if (previous && previous.status !== 'in_progress') {
-        setAttempt(previous);
-        setPhase('result');
-      } else {
-        setPhase('lobby');
+          if (!alive) return;
+          if (!assigned) {
+            setPhase('blocked');
+            setBlockedMessage('Bạn chưa được giao đề thi này. Hãy liên hệ giảng viên của bạn.');
+            return;
+          }
+        }
+
+        const previousAttempts = isPreview ? [] : await getExamAttemptsForStudent(studentId, studentEmail);
+        if (!alive) return;
+
+        const previous = previousAttempts.find((item) => item.examId === loadedExam.id);
+
+        setExam(loadedExam);
+
+        if (previous && previous.status !== 'in_progress') {
+          clearExamSession(sessionKey);
+          setAttempt(previous);
+          setPhase('result');
+          return;
+        }
+
+        const saved = readExamSession(sessionKey);
+        const savedIsUsable =
+          saved &&
+          saved.examId === loadedExam.id &&
+          Number.isInteger(saved.sectionIndex) &&
+          saved.sectionIndex >= 0 &&
+          saved.sectionIndex < loadedExam.sections.length &&
+          (saved.phase === 'break' || (saved.phase === 'room' && Number(saved.deadline) > 0));
+
+        if (savedIsUsable) {
+          restoreSession(saved);
+        } else {
+          if (saved) clearExamSession(sessionKey);
+          setPhase('lobby');
+        }
+      } catch (error) {
+        // Không bắt lỗi ở đây thì trang đứng mãi ở "Đang chuẩn bị phòng thi...".
+        console.warn('[ExamRoomPage load]', error?.message || error);
+        if (alive) {
+          setPhase('blocked');
+          setBlockedMessage('Chưa tải được đề thi. Kiểm tra kết nối mạng rồi thử lại.');
+          setCanRetryLoad(true);
+        }
       }
     }
 
@@ -387,7 +539,8 @@ export default function ExamRoomPage() {
     return () => {
       alive = false;
     };
-  }, [auth.ready, examId, role, studentId, studentEmail]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.ready, examId, role, studentId, studentEmail, reloadKey]);
 
   const currentSection = exam?.sections[sectionIndex] || null;
   const remainingSeconds = deadline ? Math.ceil((deadline - now) / 1000) : 0;
@@ -402,8 +555,28 @@ export default function ExamRoomPage() {
     return () => clearInterval(intervalId);
   }, [phase, deadline]);
 
-  // Warn before leaving mid-exam — và cả khi bài đã nộp nhưng lưu hỏng, vì lúc
-  // đó đóng tab là mất bài làm đang chờ lưu lại.
+  // Ghi bài làm xuống máy mỗi khi có thay đổi trong lúc thi.
+  useEffect(() => {
+    if (!exam || (phase !== 'room' && phase !== 'break')) {
+      return;
+    }
+
+    writeExamSession(sessionKey, {
+      examId: exam.id,
+      phase,
+      sectionIndex,
+      answers,
+      deadline,
+      startedAt: startedAtRef.current,
+      sectionTimes: sectionTimesRef.current,
+      sectionStartedAt: sectionStartedAtRef.current,
+      autoSubmitted: autoSubmittedRef.current,
+      savedAt: Date.now()
+    });
+  }, [exam, phase, sectionIndex, answers, deadline, sessionKey]);
+
+  // Vẫn nhắc trước khi đóng tab giữa giờ thi (bài làm được giữ nhưng đồng hồ
+  // vẫn chạy) — và cả khi bài đã nộp nhưng lưu hỏng.
   useEffect(() => {
     if (phase !== 'room' && !saveError) {
       return undefined;
@@ -421,12 +594,23 @@ export default function ExamRoomPage() {
   function startExam() {
     startedAtRef.current = new Date().toISOString();
     sectionStartedAtRef.current = Date.now();
+    sectionTimesRef.current = {};
     autoSubmittedRef.current = false;
+    setResumed(false);
     setSectionIndex(0);
     setAnswers({});
     setDeadline(Date.now() + exam.sections[0].durationMinutes * 60_000);
     setNow(Date.now());
     setPhase('room');
+  }
+
+  function startNextSection() {
+    sectionStartedAtRef.current = Date.now();
+    setResumed(false);
+    setDeadline(Date.now() + exam.sections[sectionIndex].durationMinutes * 60_000);
+    setNow(Date.now());
+    setPhase('room');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }
 
   async function finishExam(finalAnswers, wasAutoSubmitted) {
@@ -444,27 +628,38 @@ export default function ExamRoomPage() {
         ...section,
         timeSpentSeconds: sectionTimesRef.current[section.sectionId] || 0
       }));
+      const status = wasAutoSubmitted ? 'auto_submitted' : 'submitted';
 
-      const savedAttempt = await saveExamAttempt({
-        examId: exam.id,
-        studentId,
-        studentEmail,
-        answers: finalAnswers,
-        sectionScores,
-        score: result.score,
-        maxScore: result.maxScore,
-        status: wasAutoSubmitted ? 'auto_submitted' : 'submitted',
-        startedAt: startedAtRef.current
-      });
+      const savedAttempt = isPreview
+        ? {
+            examId: exam.id,
+            answers: finalAnswers,
+            sectionScores,
+            score: result.score,
+            maxScore: result.maxScore,
+            status
+          }
+        : await saveExamAttempt({
+            examId: exam.id,
+            studentId,
+            studentEmail,
+            answers: finalAnswers,
+            sectionScores,
+            score: result.score,
+            maxScore: result.maxScore,
+            status,
+            startedAt: startedAtRef.current
+          });
 
       pendingSubmissionRef.current = null;
+      clearExamSession(sessionKey);
       setAttempt(savedAttempt);
       setPhase('result');
     } catch (error) {
       // Không bắt lỗi ở đây thì màn "đang lưu" quay mãi và finishingRef kẹt ở
       // true — thí sinh vừa thi xong mất trắng bài, không có cách nào nộp lại.
       console.warn('[finishExam]', error?.message || error);
-      setSaveError(error?.message || 'Chưa lưu được bài thi. Vui lòng kiểm tra kết nối mạng rồi thử lại.');
+      setSaveError(toFriendlyError(error, 'Chưa lưu được bài thi. Vui lòng kiểm tra kết nối mạng rồi thử lại.'));
     } finally {
       finishingRef.current = false;
     }
@@ -489,20 +684,20 @@ export default function ExamRoomPage() {
     }
 
     setConfirmOpen(false);
+    setExitOpen(false);
+    setDeadline(null);
 
     const isLastSection = sectionIndex >= exam.sections.length - 1;
 
     if (isLastSection) {
-      setDeadline(null);
       void finishExam(answers, autoSubmittedRef.current);
       return;
     }
 
-    const nextIndex = sectionIndex + 1;
-    sectionStartedAtRef.current = Date.now();
-    setSectionIndex(nextIndex);
-    setDeadline(Date.now() + exam.sections[nextIndex].durationMinutes * 60_000);
-    setNow(Date.now());
+    // Nghỉ giữa hai phần: đồng hồ phần sau chỉ chạy khi thí sinh bấm bắt đầu,
+    // không bị ném thẳng vào phần mới (nhất là phần nghe) khi chưa sẵn sàng.
+    setSectionIndex(sectionIndex + 1);
+    setPhase('break');
   }
 
   // Auto-submit when the section clock hits zero.
@@ -521,6 +716,11 @@ export default function ExamRoomPage() {
     scrollIntoViewRespectingMotion(document.getElementById(`exam-question-${questionId}`), { block: 'center' });
   }
 
+  function leaveRoom() {
+    setExitOpen(false);
+    navigate('/exams');
+  }
+
   // ─── Render phases ───────────────────────────────────────────────────────────
 
   if (phase === 'loading') {
@@ -536,10 +736,17 @@ export default function ExamRoomPage() {
       <div className="page centered exam-room-page">
         <div className="exam-lobby__card">
           <h1>Không thể vào phòng thi</h1>
-          <p>{blockedMessage}</p>
-          <Link className="button" to="/exams">
-            Về danh sách đề thi
-          </Link>
+          <p role={canRetryLoad ? 'alert' : undefined}>{blockedMessage}</p>
+          <div className="exam-confirm__actions">
+            {canRetryLoad ? (
+              <button type="button" className="button" onClick={() => setReloadKey((value) => value + 1)}>
+                Thử lại
+              </button>
+            ) : null}
+            <Link className={canRetryLoad ? 'button-ghost' : 'button'} to="/exams">
+              Về danh sách đề thi
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -548,6 +755,11 @@ export default function ExamRoomPage() {
   if (phase === 'result' && attempt) {
     return (
       <div className="page exam-room-page">
+        {isPreview ? (
+          <p className="auth-message" role="status">
+            Đây là bản xem trước của giảng viên — kết quả không được lưu và không hiện trong bảng kết quả.
+          </p>
+        ) : null}
         <ExamResult exam={exam} attempt={attempt} />
       </div>
     );
@@ -557,7 +769,7 @@ export default function ExamRoomPage() {
     return (
       <div className="page centered exam-room-page">
         <div className="exam-lobby__card">
-          <span className="eyebrow">Phòng thi mô phỏng</span>
+          <span className="eyebrow">{isPreview ? 'Xem trước đề thi' : 'Phòng thi mô phỏng'}</span>
           <h1>{exam.title}</h1>
           {exam.description ? <p>{exam.description}</p> : null}
 
@@ -579,14 +791,66 @@ export default function ExamRoomPage() {
           </ol>
 
           <ul className="exam-lobby__rules">
-            <li>Mỗi phần thi có đồng hồ riêng, hết giờ hệ thống tự nộp và chuyển phần tiếp theo.</li>
+            {isPreview ? (
+              <li>Bạn đang xem trước với vai trò giảng viên: làm thử được, nhưng bài làm không được lưu thành lượt thi.</li>
+            ) : null}
+            <li>Mỗi phần thi có đồng hồ riêng, hết giờ hệ thống tự nộp phần đó.</li>
+            <li>Giữa hai phần có màn nghỉ — đồng hồ phần sau chỉ chạy khi bạn bấm bắt đầu.</li>
             <li>Không thể quay lại phần thi đã nộp.</li>
-            <li>Không tải lại trang trong khi làm bài — bài làm sẽ bị mất.</li>
+            <li>
+              Lỡ tải lại trang hoặc tắt trình duyệt, bài làm vẫn được giữ trên thiết bị này. Đồng hồ vẫn chạy trong lúc
+              bạn rời đi.
+            </li>
           </ul>
 
-          <button type="button" className="button exam-lobby__start" onClick={startExam}>
-            Bắt đầu làm bài
-          </button>
+          <div className="exam-confirm__actions">
+            <Link className="button-ghost" to="/exams">
+              Về danh sách đề thi
+            </Link>
+            <button type="button" className="button exam-lobby__start" onClick={startExam}>
+              Bắt đầu làm bài
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'break') {
+    const finishedSection = exam.sections[sectionIndex - 1];
+
+    return (
+      <div className="page centered exam-room-page">
+        <div className="exam-lobby__card">
+          <span className="eyebrow">
+            Đã nộp phần {sectionIndex}/{exam.sections.length}
+          </span>
+          <h1>Phần tiếp theo: {currentSection.title}</h1>
+          {resumed ? (
+            <p className="auth-message auth-message--success" role="status">
+              Đã khôi phục bài làm đang dở trên thiết bị này.
+            </p>
+          ) : null}
+          <p>
+            {finishedSection ? `Phần "${finishedSection.title}" đã được nộp. ` : ''}
+            Nghỉ một chút nếu cần — đồng hồ của phần tiếp theo chỉ bắt đầu khi bạn bấm nút bên dưới.
+          </p>
+          <div className="exam-lobby__facts">
+            <span>{getSectionTypeLabel(currentSection.type)}</span>
+            <span>{currentSection.durationMinutes} phút</span>
+            <span>{currentSection.questions.length} câu</span>
+          </div>
+          {currentSection.type === 'listening' ? (
+            <p>Phần nghe có file âm thanh — hãy chuẩn bị tai nghe trước khi bắt đầu.</p>
+          ) : null}
+          <div className="exam-confirm__actions">
+            <Link className="button-ghost" to="/exams">
+              Tạm rời phòng thi
+            </Link>
+            <button type="button" className="button exam-lobby__start" onClick={startNextSection}>
+              Bắt đầu phần {sectionIndex + 1}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -600,8 +864,8 @@ export default function ExamRoomPage() {
             <h1>Chưa lưu được bài thi</h1>
             <p role="alert">{saveError}</p>
             <p>
-              Bài làm vẫn còn nguyên trong phiên thi này. Đừng đóng hoặc tải lại tab — hãy bấm thử lại khi
-              mạng đã ổn định.
+              Bài làm vẫn được giữ trên thiết bị này. Hãy bấm thử lại khi mạng đã ổn định — nếu lỡ đóng tab, mở lại đề
+              thi trên thiết bị này để nộp tiếp.
             </p>
             <button type="button" className="button" onClick={retrySaveExam}>
               Thử lưu lại
@@ -617,6 +881,12 @@ export default function ExamRoomPage() {
   // phase === 'room'
   const isLastSection = sectionIndex >= exam.sections.length - 1;
   const lowTime = remainingSeconds <= 300;
+  const answeredInSection = currentSection.questions.filter((question) =>
+    isQuestionAnswered(question, answers[question.id])
+  ).length;
+  // Chỉ đọc cho trình đọc màn hình ở các mốc 5 phút và 1 phút, không đọc mỗi giây.
+  const timeAnnouncement =
+    remainingSeconds <= 60 ? 'Còn 1 phút cho phần thi này.' : remainingSeconds <= 300 ? 'Còn 5 phút cho phần thi này.' : '';
 
   return (
     <div className="exam-room">
@@ -628,14 +898,28 @@ export default function ExamRoomPage() {
           </span>
         </div>
 
-        <div className={`exam-room__timer ${lowTime ? 'is-low' : ''}`} aria-live="polite">
+        <div className={`exam-room__timer ${lowTime ? 'is-low' : ''}`} role="timer" aria-label="Thời gian còn lại">
           {formatClock(remainingSeconds)}
         </div>
+        <span className="exam-room__sr-only" aria-live="assertive">
+          {timeAnnouncement}
+        </span>
 
-        <button type="button" className="button exam-room__submit" onClick={() => setConfirmOpen(true)}>
-          {isLastSection ? 'Nộp bài' : 'Nộp phần này'}
-        </button>
+        <div className="exam-room__actions">
+          <button type="button" className="button-ghost" onClick={() => setExitOpen(true)}>
+            Thoát
+          </button>
+          <button type="button" className="button exam-room__submit" onClick={() => setConfirmOpen(true)}>
+            {isLastSection ? 'Nộp bài' : 'Nộp phần này'}
+          </button>
+        </div>
       </header>
+
+      {resumed ? (
+        <p className="auth-message auth-message--success exam-room__resume-note" role="status">
+          Đã khôi phục bài làm đang dở trên thiết bị này. Đồng hồ vẫn chạy trong lúc bạn rời đi.
+        </p>
+      ) : null}
 
       <div className="exam-room__body">
         <main className="exam-room__main">
@@ -696,33 +980,42 @@ export default function ExamRoomPage() {
             ))}
           </div>
           <p className="exam-room__palette-hint">
-            {currentSection.questions.filter((question) => isQuestionAnswered(question, answers[question.id])).length}/
-            {currentSection.questions.length} câu đã trả lời
+            {answeredInSection}/{currentSection.questions.length} câu đã trả lời
           </p>
         </aside>
       </div>
 
       {confirmOpen ? (
-        <div className="exam-confirm" role="dialog" aria-modal="true" aria-label="Xác nhận nộp bài">
-          <div className="exam-confirm__card">
-            <h2>{isLastSection ? 'Nộp bài thi?' : `Nộp phần "${currentSection.title}"?`}</h2>
-            <p>
-              {currentSection.questions.filter((question) => isQuestionAnswered(question, answers[question.id])).length}/
-              {currentSection.questions.length} câu đã trả lời.{' '}
-              {isLastSection
-                ? 'Sau khi nộp, bài thi sẽ được chấm ngay.'
-                : 'Bạn sẽ không thể quay lại phần này sau khi nộp.'}
-            </p>
-            <div className="exam-confirm__actions">
-              <button type="button" className="button-ghost" onClick={() => setConfirmOpen(false)}>
-                Tiếp tục làm bài
-              </button>
-              <button type="button" className="button" onClick={() => endCurrentSection(false)}>
-                Xác nhận nộp
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExamDialog
+          title={isLastSection ? 'Nộp bài thi?' : `Nộp phần "${currentSection.title}"?`}
+          cancelLabel="Tiếp tục làm bài"
+          confirmLabel="Xác nhận nộp"
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={() => endCurrentSection(false)}
+        >
+          <p>
+            {answeredInSection}/{currentSection.questions.length} câu đã trả lời.{' '}
+            {isLastSection
+              ? 'Sau khi nộp, bài thi sẽ được chấm ngay.'
+              : 'Bạn sẽ không thể quay lại phần này sau khi nộp.'}
+          </p>
+        </ExamDialog>
+      ) : null}
+
+      {exitOpen ? (
+        <ExamDialog
+          title="Tạm rời phòng thi?"
+          cancelLabel="Ở lại làm bài"
+          confirmLabel="Rời phòng thi"
+          onCancel={() => setExitOpen(false)}
+          onConfirm={leaveRoom}
+        >
+          <p>
+            Bài làm đã được lưu trên thiết bị này, mở lại đề là làm tiếp được. Đồng hồ của phần thi{' '}
+            <strong>vẫn tiếp tục chạy</strong> khi bạn ra ngoài — hết giờ mà chưa quay lại thì phần này được nộp với
+            các câu đã làm.
+          </p>
+        </ExamDialog>
       ) : null}
     </div>
   );

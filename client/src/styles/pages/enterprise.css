@@ -130,14 +130,6 @@ small,
     var(--bg);
 }
 
-:root[data-theme='dark'] .app-shell {
-  background:
-    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--accent-warm) 12%, transparent), transparent 300px),
-    radial-gradient(circle at 88% 4%, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 340px),
-    linear-gradient(180deg, rgba(38, 48, 61, 0.42) 0, transparent 280px),
-    var(--bg);
-}
-
 .background-accent {
   display: none !important;
 }
@@ -238,78 +230,6 @@ small,
   color: var(--text);
   font-size: 18px;
   font-weight: 850;
-}
-
-/* Theme toggle dạng nút gạt (switch) thay cho icon-button đơn: track pill +
-   thumb tròn trượt trái/phải, có icon mặt trời/mặt trăng ngay trong thumb —
-   trạng thái rõ ràng hơn nút icon đơn trước đây. Luôn đặt trên mặt kính tối
-   của topbar pill nên dùng màu trắng/rgba cố định, không phụ thuộc theme. */
-.theme-toggle {
-  position: relative;
-  min-width: 46px;
-  width: 46px;
-  height: 25px;
-  padding: 0;
-  border-radius: 999px !important;
-  background: transparent !important;
-  border: 0 !important;
-  cursor: pointer;
-}
-
-.theme-toggle__track {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.theme-toggle.is-dark .theme-toggle__track {
-  background: color-mix(in srgb, var(--accent) 50%, rgba(0, 0, 0, 0.35));
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-}
-
-.theme-toggle:hover .theme-toggle__track {
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.theme-toggle.is-dark:hover .theme-toggle__track {
-  border-color: color-mix(in srgb, var(--accent) 75%, transparent);
-}
-
-.theme-toggle__thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 19px;
-  height: 19px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #ffffff;
-  color: var(--color-text-muted);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  transition: transform 0.22s ease, background-color 0.22s ease, color 0.22s ease;
-}
-
-.theme-toggle.is-dark .theme-toggle__thumb {
-  transform: translateX(21px);
-  background: var(--brand-ink);
-  color: var(--accent);
-}
-
-.theme-icon {
-  width: 12px;
-  height: 12px;
-  display: block;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-:root[data-theme='light'] .theme-toggle__thumb {
-  border: 1px solid rgba(20, 20, 15, 0.12);
 }
 
 .button,
@@ -2910,15 +2830,13 @@ textarea:focus-visible {
   }
 
   /* ─── Vùng chạm tối thiểu 44px ───────────────────────────────────────────
-     Nút gạt theme (46×25) và hamburger (40×40) nhỏ hơn ngưỡng chạm khuyến
+     Hamburger (40×40) nhỏ hơn ngưỡng chạm khuyến
      nghị. Nới vùng chạm bằng pseudo-element để không phải phóng to phần
      nhìn thấy (giữ nguyên tỉ lệ thanh header). */
-  .theme-toggle,
   .site-header__burger {
     position: relative;
   }
 
-  .theme-toggle::after,
   .site-header__burger::after,
   .testimonial-carousel__dot::after,
   .import-lesson-pill__remove::after {

@@ -116,11 +116,6 @@
   background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface));
 }
 
-/* Nền tối: icon navy chìm vào nền — dùng xanh dương sáng. */
-:root[data-theme='dark'] .home-stat__icon {
-  color: var(--color-secondary) !important;
-}
-
 .home-stat__icon svg {
   width: 28px;
   height: 28px;
@@ -545,7 +540,6 @@
   .testimonial-carousel {
     padding: 28px 20px 24px;
   }
-
 
   .cta-band__actions {
     flex-direction: column;

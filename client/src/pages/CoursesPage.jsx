@@ -19,6 +19,7 @@ import { ComboSection } from '../components/ComboSection';
 import { PackagePicker } from '../components/PackagePicker';
 import { getPublishedCombos, purchaseCombo } from '../lib/comboService';
 import { AuthModalLink } from '../providers/AuthModalProvider';
+import { toFriendlyError } from '../lib/friendlyError';
 
 // Ảnh khoá học từ brief "Check ảnh web" (#11 Tiếng Anh, #12 Tiếng Trung) — dùng
 // làm ảnh minh hoạ cho khoá chưa có bannerUrl riêng, luân phiên theo vị trí thẻ
@@ -121,7 +122,6 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
           ) : course.topicsCount ? (
             <span>{course.topicsCount} chủ đề</span>
           ) : null}
-          <span>Video bài giảng + bài tập</span>
         </div>
 
         {typeof course.studentsCount === 'number' && course.studentsCount > 0 ? (
@@ -236,6 +236,10 @@ function CourseGroupSection({
   );
 }
 
+function isPendingPaymentOrder(order) {
+  return !['paid', 'failed', 'cancelled'].includes(order?.status);
+}
+
 export default function CoursesPage() {
   usePageTitle('Khóa học');
   const auth = useAuth();
@@ -251,6 +255,7 @@ export default function CoursesPage() {
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [paymentCheckNote, setPaymentCheckNote] = useState('');
   const [feedback, setFeedback] = useState({ courseId: '', text: '' });
 
   useEffect(() => {
@@ -281,7 +286,7 @@ export default function CoursesPage() {
         // vĩnh viễn mà không báo gì.
         console.warn('[loadMarketplace]', error?.message || error);
         if (alive) {
-          setLoadError(error?.message || 'Chưa tải được danh mục khóa học.');
+          setLoadError(toFriendlyError(error, 'Chưa tải được danh mục khóa học.'));
         }
       } finally {
         if (alive) {
@@ -318,13 +323,18 @@ export default function CoursesPage() {
   );
   const hskCourses = useMemo(() => sortCoursesDefault(courses.filter(isHskCourse)), [courses]);
 
+  // Nhịp tự hỏi chạy ngầm, không đổi chữ trên màn hình; chỉ khi học viên bấm
+  // "Kiểm tra ngay" mới hiện "Đang kiểm tra..." và báo kết quả.
   const syncPaymentStatus = useCallback(
-    async (order) => {
+    async (order, { manual = false } = {}) => {
       if (!order?.id || order.status === 'paid') {
         return;
       }
 
-      setCheckingPayment(true);
+      if (manual) {
+        setCheckingPayment(true);
+        setPaymentCheckNote('');
+      }
 
       try {
         const result = await checkCoursePaymentStatus({
@@ -334,6 +344,10 @@ export default function CoursesPage() {
 
         if (result.order) {
           setActivePaymentOrder(result.order);
+        }
+
+        if (manual && !result.paid) {
+          setPaymentCheckNote('Chưa thấy tiền về. Ngân hàng có thể chậm vài phút — màn hình này sẽ tự cập nhật.');
         }
 
         if (result.paid) {
@@ -347,8 +361,13 @@ export default function CoursesPage() {
         // Mạng chập chờn giữa hai nhịp hỏi là chuyện thường, đừng dựng báo lỗi
         // đỏ giữa màn thanh toán — nhịp sau hỏi lại.
         console.warn('[checkCoursePaymentStatus]', error?.message || error);
+        if (manual) {
+          setPaymentCheckNote(toFriendlyError(error, 'Chưa kiểm tra được giao dịch. Vui lòng thử lại sau ít phút.'));
+        }
       } finally {
-        setCheckingPayment(false);
+        if (manual) {
+          setCheckingPayment(false);
+        }
       }
     },
     [auth.session?.access_token, auth.user?.id, courses]
@@ -385,11 +404,11 @@ export default function CoursesPage() {
       setFeedback({
         courseId: course.id,
         text: result.requiresPayment
-          ? `Đã tạo đơn thanh toán cho ${course.title}. Vui lòng chuyển khoản theo hướng dẫn để mở khóa học.`
+          ? `Đã tạo đơn thanh toán cho ${course.title}. Quét QR để chuyển khoản, khóa học tự mở khi tiền về.`
           : `Bạn đã sở hữu ${course.title}.`
       });
     } catch (error) {
-      setFeedback({ courseId: course.id, text: error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.' });
+      setFeedback({ courseId: course.id, text: toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.') });
     } finally {
       setPurchasingCourseId('');
     }
@@ -422,11 +441,11 @@ export default function CoursesPage() {
       setFeedback({
         courseId: combo.id,
         text: result.requiresPayment
-          ? `Đã tạo đơn thanh toán cho ${combo.title}. Vui lòng chuyển khoản theo hướng dẫn để mở khóa học.`
+          ? `Đã tạo đơn thanh toán cho ${combo.title}. Quét QR để chuyển khoản, khóa học tự mở khi tiền về.`
           : `Bạn đã sở hữu toàn bộ khóa trong ${combo.title}.`
       });
     } catch (error) {
-      setFeedback({ courseId: combo.id, text: error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.' });
+      setFeedback({ courseId: combo.id, text: toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.') });
     } finally {
       setPurchasingCourseId('');
     }
@@ -437,11 +456,32 @@ export default function CoursesPage() {
       <PaymentInstructions
         order={activePaymentOrder}
         checking={checkingPayment}
-        onCheckNow={() => syncPaymentStatus(activePaymentOrder)}
+        checkNote={paymentCheckNote}
+        onCheckNow={() => syncPaymentStatus(activePaymentOrder, { manual: true })}
+        learnHref={
+          activePaymentOrder && !activePaymentOrder.comboId
+            ? `/learn/${activePaymentOrder.localCourseId || activePaymentOrder.courseId}`
+            : ''
+        }
         variant="overlay"
         open={paymentScreenOpen}
-        onClose={() => setPaymentScreenOpen(false)}
+        onClose={() => {
+          setPaymentScreenOpen(false);
+          setPaymentCheckNote('');
+        }}
       />
+
+      {/* Lỡ đóng màn QR thì vẫn mở lại được, khỏi phải tìm lại đúng khóa để bấm mua. */}
+      {activePaymentOrder && !paymentScreenOpen && isPendingPaymentOrder(activePaymentOrder) ? (
+        <div className="inline-feedback payment-resume-banner" role="status">
+          <span>
+            Đơn <strong>{activePaymentOrder.courseTitle}</strong> đang chờ chuyển khoản.
+          </span>
+          <button type="button" className="button" onClick={() => setPaymentScreenOpen(true)}>
+            Mở lại mã QR
+          </button>
+        </div>
+      ) : null}
 
       <section className="content-card content-card--enterprise marketplace-hero marketplace-hero--compact">
         <div className="marketplace-hero__copy">
@@ -449,11 +489,11 @@ export default function CoursesPage() {
             <span className="eyebrow">Danh mục đào tạo</span>
             <h1>Khóa học</h1>
           </div>
-          <p>Chọn khóa học IELTS hoặc HSK phù hợp với bạn.</p>
+          <p>Chọn khóa tiếng Anh (IELTS, giao tiếp, TOEIC) hoặc tiếng Trung (HSK) phù hợp với bạn.</p>
 
           <div className="marketplace-hero__actions">
             <a className="button" href="#khoa-hoc-ielts">
-              Xem khóa IELTS
+              Xem khóa tiếng Anh
             </a>
             <a className="button-ghost" href="#khoa-hoc-hsk">
               Xem khóa HSK
@@ -524,11 +564,11 @@ export default function CoursesPage() {
 
             <CourseGroupSection
               id="khoa-hoc-ielts"
-              title="Khóa học IELTS"
-              eyebrow="Tiếng Anh"
+              title="Khóa học tiếng Anh"
+              eyebrow="IELTS · Giao tiếp · TOEIC"
               description="Nền tảng, giao tiếp, luyện thi IELTS/TOEIC và tiếng Anh công sở."
               courses={ieltsCourses}
-              emptyMessage="Chưa có khóa học IELTS nào được đăng."
+              emptyMessage="Chưa có khóa học tiếng Anh nào được đăng."
               ownedCourseIdSet={ownedCourseIdSet}
               authSession={auth.session}
               currentRole={currentRole}

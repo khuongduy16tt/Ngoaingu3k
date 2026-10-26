@@ -58,7 +58,7 @@ export function AudioUploadField({
       if (uploaded?.url) {
         onUploaded({ audioUrl: uploaded.url, audioName: file.name });
       } else {
-        setError('Không thể tải audio lên. Kiểm tra bucket "exam-audio" trong Supabase Storage.');
+        setError('Không tải được file âm thanh lên. Kiểm tra mạng rồi thử lại — nếu vẫn lỗi, hãy báo quản trị viên.');
       }
     } finally {
       setUploading(false);

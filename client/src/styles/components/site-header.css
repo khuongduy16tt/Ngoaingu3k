@@ -391,28 +391,6 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-/* Nút gạt theme dùng chung style cũ, chỉ ép về cặp trắng cố định vì nền dưới
-   nó luôn là nền brand primary, không còn là mặt kính đổi theo theme. */
-.site-header .theme-toggle__track,
-:root[data-theme='light'] .site-header .theme-toggle__track {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.45);
-}
-
-.site-header .theme-toggle:hover .theme-toggle__track,
-:root[data-theme='light'] .site-header .theme-toggle:hover .theme-toggle__track {
-  border-color: rgba(255, 255, 255, 0.75);
-}
-
-.site-header .theme-toggle.is-dark .theme-toggle__track {
-  background: rgba(5, 46, 22, 0.55);
-  border-color: rgba(5, 46, 22, 0.75);
-}
-
-.site-header .theme-toggle.is-dark .theme-toggle__thumb {
-  color: var(--header-ink);
-}
-
 .site-header__burger {
   display: none;
   align-items: center;

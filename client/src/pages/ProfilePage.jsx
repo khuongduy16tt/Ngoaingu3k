@@ -4,6 +4,8 @@ import { useAuth } from '../providers/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { uploadAvatarImage, validateImageFile } from '../lib/storageService';
 import { supabase } from '../lib/supabase';
+import { toFriendlyError } from '../lib/friendlyError';
+import { isValidPhone, normalizePhone, toVietnameseAuthError } from '../components/auth/authHelpers';
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
 const AVATAR_GRADIENTS = [
@@ -60,7 +62,10 @@ export default function ProfilePage() {
   const avatarUrl = profile?.avatar_url || '';
   const initials = getInitials(name, email);
   const gradient = getAvatarGradient(name || email);
-  const roleLabel = role === 'teacher' ? 'Giáo viên' : role === 'admin' ? 'Quản trị viên' : 'Học sinh';
+  const roleLabel = role === 'teacher' ? 'Giảng viên' : role === 'admin' ? 'Quản trị viên' : 'Học viên';
+  const provider = user?.app_metadata?.provider;
+  // Tài khoản Google / demo không có mật khẩu riêng để đổi.
+  const canChangePassword = provider !== 'google' && provider !== 'mock';
   const joinedAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '—';
@@ -71,6 +76,14 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Đổi mật khẩu
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
 
   // Avatar upload state
   const [uploading, setUploading] = useState(false);
@@ -79,7 +92,7 @@ export default function ProfilePage() {
   const [previewUrl, setPreviewUrl] = useState(avatarUrl);
 
   // Stats state
-  const [stats, setStats] = useState({ courses: 0, completedLessons: 0, joinedDays: 0 });
+  const [stats, setStats] = useState({ courses: 0, completedLessons: 0 });
 
   // Sync khi profile thay đổi
   useEffect(() => {
@@ -104,14 +117,9 @@ export default function ProfilePage() {
             .eq('completed', true)
         ]);
 
-        const joinedDays = user.created_at
-          ? Math.floor((Date.now() - new Date(user.created_at)) / 86400000)
-          : 0;
-
         setStats({
           courses: new Set((purchases || []).map((order) => order.course_id)).size,
-          completedLessons: completedCount || 0,
-          joinedDays
+          completedLessons: completedCount || 0
         });
       } catch {
         // ignore
@@ -122,24 +130,63 @@ export default function ProfilePage() {
 
   async function handleSave(e) {
     e.preventDefault();
-    setSaving(true);
     setSaveMsg('');
     setSaveError('');
 
+    // Cùng luật với form đăng ký: họ tên bắt buộc, số điện thoại 9–15 chữ số.
+    const errors = {};
+    if (!editName.trim()) errors.name = 'Vui lòng nhập họ và tên.';
+    if (!isValidPhone(editPhone)) errors.phone = 'Số điện thoại hợp lệ có từ 9 đến 15 chữ số.';
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      return;
+    }
+
+    setSaving(true);
+
     const updates = {
       full_name: editName.trim(),
-      phone: editPhone.trim()
+      phone: normalizePhone(editPhone)
     };
 
     const { error } = await auth.updateProfile(updates);
     setSaving(false);
 
     if (error) {
-      setSaveError('Lưu thất bại: ' + (error.message || 'Lỗi không xác định'));
+      setSaveError(toFriendlyError(error, 'Chưa lưu được thông tin. Vui lòng thử lại.'));
     } else {
       setSaveMsg('Đã lưu thông tin thành công!');
       setTimeout(() => setSaveMsg(''), 3000);
     }
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setPasswordMsg({ type: '', text: '' });
+
+    const errors = {};
+    if (newPassword.length < 6) errors.newPassword = 'Mật khẩu cần ít nhất 6 ký tự.';
+    if (confirmPassword !== newPassword) errors.confirmPassword = 'Hai mật khẩu chưa khớp nhau.';
+    setPasswordErrors(errors);
+    if (Object.keys(errors).length) {
+      return;
+    }
+
+    setPasswordSaving(true);
+    const result = await auth.updatePassword(newPassword);
+    setPasswordSaving(false);
+
+    if (result?.error) {
+      setPasswordMsg({
+        type: 'error',
+        text: toVietnameseAuthError(result.error, 'Chưa đổi được mật khẩu. Vui lòng thử lại.')
+      });
+      return;
+    }
+
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordMsg({ type: 'success', text: 'Đã đổi mật khẩu. Lần đăng nhập sau hãy dùng mật khẩu mới.' });
   }
 
   async function handleAvatarChange(e) {
@@ -271,14 +318,14 @@ export default function ProfilePage() {
                   <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
                   <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
                 </svg>
-                <span><strong>{stats.courses}</strong> khoá học</span>
+                <span><strong>{stats.courses}</strong> khoá học đã mua</span>
               </div>
               <div className="profile-hero-stat" title="Bài học hoàn thành">
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" stroke="var(--success)" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 11 12 14 22 4" />
                   <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                 </svg>
-                <span><strong>{stats.completedLessons}</strong> bài học</span>
+                <span><strong>{stats.completedLessons}</strong> bài đã học xong</span>
               </div>
               <div className="profile-hero-stat" title="Ngày tham gia">
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" stroke="var(--accent-2)" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -288,13 +335,6 @@ export default function ProfilePage() {
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
                 <span>Tham gia <strong>{joinedAt}</strong></span>
-              </div>
-              <div className="profile-hero-stat" title="Hoạt động (ngày)">
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" stroke="var(--warning)" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span><strong>{stats.joinedDays}</strong> ngày hoạt động</span>
               </div>
             </div>
           </div>
@@ -312,7 +352,7 @@ export default function ProfilePage() {
             <h2>Thông tin cá nhân</h2>
           </div>
 
-          <form className="profile-form" onSubmit={handleSave}>
+          <form className="profile-form" onSubmit={handleSave} noValidate>
             {/* Họ tên */}
             <div className="profile-form__field">
               <label htmlFor="profile-name" className="profile-form__label">
@@ -323,10 +363,20 @@ export default function ProfilePage() {
                 type="text"
                 className="profile-form__input"
                 value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  setFieldErrors((prev) => ({ ...prev, name: '' }));
+                }}
                 placeholder="Nhập họ và tên..."
                 maxLength={100}
+                aria-invalid={fieldErrors.name ? 'true' : undefined}
+                aria-describedby={fieldErrors.name ? 'profile-name-error' : undefined}
               />
+              {fieldErrors.name ? (
+                <span id="profile-name-error" className="profile-form__field-error">
+                  {fieldErrors.name}
+                </span>
+              ) : null}
             </div>
 
             {/* Email (readonly) */}
@@ -351,10 +401,21 @@ export default function ProfilePage() {
                 type="tel"
                 className="profile-form__input"
                 value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                placeholder="Nhập số điện thoại..."
+                onChange={(e) => {
+                  setEditPhone(e.target.value);
+                  setFieldErrors((prev) => ({ ...prev, phone: '' }));
+                }}
+                placeholder="VD: 0912 345 678"
+                inputMode="tel"
                 maxLength={20}
+                aria-invalid={fieldErrors.phone ? 'true' : undefined}
+                aria-describedby={fieldErrors.phone ? 'profile-phone-error' : undefined}
               />
+              {fieldErrors.phone ? (
+                <span id="profile-phone-error" className="profile-form__field-error">
+                  {fieldErrors.phone}
+                </span>
+              ) : null}
             </div>
 
             {/* Role (readonly) */}
@@ -370,7 +431,7 @@ export default function ProfilePage() {
 
             {/* Feedback */}
             {saveError && (
-              <div className="profile-form__msg profile-form__msg--error">
+              <div className="profile-form__msg profile-form__msg--error" role="alert">
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                   <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z" />
                 </svg>
@@ -423,9 +484,9 @@ export default function ProfilePage() {
             <div className="profile-security-row">
               <div className="profile-security-row__label">Phương thức đăng nhập</div>
               <div className="profile-security-row__value">
-                {user?.app_metadata?.provider === 'google' ? (
+                {provider === 'google' ? (
                   <span className="profile-badge profile-badge--google">Google</span>
-                ) : user?.app_metadata?.provider === 'mock' ? (
+                ) : provider === 'mock' ? (
                   <span className="profile-badge">Demo</span>
                 ) : (
                   <span className="profile-badge">Email &amp; Mật khẩu</span>
@@ -433,16 +494,78 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="profile-security-row">
-              <div className="profile-security-row__label">ID người dùng</div>
-              <div className="profile-security-row__value profile-security-row__value--mono">
-                {user?.id ? user.id.slice(0, 8) + '...' : '—'}
-              </div>
-            </div>
-            <div className="profile-security-row">
               <div className="profile-security-row__label">Ngày tạo tài khoản</div>
               <div className="profile-security-row__value">{joinedAt}</div>
             </div>
           </div>
+
+          {canChangePassword ? (
+            <form className="profile-form profile-password-form" onSubmit={handleChangePassword} noValidate>
+              <h3 className="profile-password-form__title">Đổi mật khẩu</h3>
+              <div className="profile-form__field">
+                <label htmlFor="profile-new-password" className="profile-form__label">
+                  Mật khẩu mới
+                </label>
+                <input
+                  id="profile-new-password"
+                  type="password"
+                  className="profile-form__input"
+                  value={newPassword}
+                  autoComplete="new-password"
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordErrors((prev) => ({ ...prev, newPassword: '' }));
+                  }}
+                  placeholder="Ít nhất 6 ký tự"
+                  aria-invalid={passwordErrors.newPassword ? 'true' : undefined}
+                  aria-describedby={passwordErrors.newPassword ? 'profile-new-password-error' : undefined}
+                />
+                {passwordErrors.newPassword ? (
+                  <span id="profile-new-password-error" className="profile-form__field-error">
+                    {passwordErrors.newPassword}
+                  </span>
+                ) : null}
+              </div>
+              <div className="profile-form__field">
+                <label htmlFor="profile-confirm-password" className="profile-form__label">
+                  Nhập lại mật khẩu mới
+                </label>
+                <input
+                  id="profile-confirm-password"
+                  type="password"
+                  className="profile-form__input"
+                  value={confirmPassword}
+                  autoComplete="new-password"
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordErrors((prev) => ({ ...prev, confirmPassword: '' }));
+                  }}
+                  aria-invalid={passwordErrors.confirmPassword ? 'true' : undefined}
+                  aria-describedby={passwordErrors.confirmPassword ? 'profile-confirm-password-error' : undefined}
+                />
+                {passwordErrors.confirmPassword ? (
+                  <span id="profile-confirm-password-error" className="profile-form__field-error">
+                    {passwordErrors.confirmPassword}
+                  </span>
+                ) : null}
+              </div>
+              {passwordMsg.text ? (
+                <div
+                  className={`profile-form__msg profile-form__msg--${passwordMsg.type}`}
+                  role={passwordMsg.type === 'error' ? 'alert' : 'status'}
+                >
+                  {passwordMsg.text}
+                </div>
+              ) : null}
+              <button type="submit" className="profile-form__submit" disabled={passwordSaving}>
+                {passwordSaving ? 'Đang đổi...' : 'Đổi mật khẩu'}
+              </button>
+            </form>
+          ) : provider === 'google' ? (
+            <p className="profile-password-form__note">
+              Bạn đăng nhập bằng Google nên không cần mật khẩu riêng cho Ngoaingu3k.
+            </p>
+          ) : null}
 
           <button
             className="profile-signout-btn"

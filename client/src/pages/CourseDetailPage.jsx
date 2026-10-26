@@ -21,6 +21,7 @@ import { CourseLessonList } from '../components/CourseLessonList';
 import { PaginationControls, usePagination } from '../components/Pagination';
 import { PaymentInstructions } from '../components/PaymentInstructions';
 import { AuthModalLink } from '../providers/AuthModalProvider';
+import { toFriendlyError } from '../lib/friendlyError';
 
 export default function CourseDetailPage() {
   const { courseId } = useParams();
@@ -38,6 +39,7 @@ export default function CourseDetailPage() {
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [paymentScreenOpen, setPaymentScreenOpen] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [paymentCheckNote, setPaymentCheckNote] = useState('');
   const [feedback, setFeedback] = useState('');
   const [lessonProgressMap, setLessonProgressMap] = useState({});
   const [withTutoring, setWithTutoring] = useState(false);
@@ -75,7 +77,7 @@ export default function CourseDetailPage() {
         // Thiếu catch thì trang kẹt ở màn "Đang tải thông tin khóa học...".
         console.warn('[loadCourse]', error?.message || error);
         if (alive) {
-          setLoadError(error?.message || 'Chưa tải được thông tin khóa học.');
+          setLoadError(toFriendlyError(error, 'Chưa tải được thông tin khóa học.'));
         }
       } finally {
         if (alive) {
@@ -101,7 +103,7 @@ export default function CourseDetailPage() {
     [courseSections]
   );
   const sectionPagination = usePagination(courseSections, {
-    pageSize: 3,
+    pageSize: 12,
     resetKey: course?.id || courseId
   });
 
@@ -134,13 +136,18 @@ export default function CourseDetailPage() {
     };
   }, [auth.user?.id, auth.user?.email, course?.id, courseLessons]);
 
+  // Nhịp tự hỏi chạy ngầm, không đổi chữ trên màn hình; chỉ khi học viên bấm
+  // "Kiểm tra ngay" mới hiện "Đang kiểm tra..." và báo kết quả.
   const syncPaymentStatus = useCallback(
-    async (order) => {
+    async (order, { manual = false } = {}) => {
       if (!order?.id || order.status === 'paid') {
         return;
       }
 
-      setCheckingPayment(true);
+      if (manual) {
+        setCheckingPayment(true);
+        setPaymentCheckNote('');
+      }
 
       try {
         const result = await checkCoursePaymentStatus({
@@ -150,6 +157,10 @@ export default function CourseDetailPage() {
 
         if (result.order) {
           setPaymentOrder(result.order);
+        }
+
+        if (manual && !result.paid) {
+          setPaymentCheckNote('Chưa thấy tiền về. Ngân hàng có thể chậm vài phút — màn hình này sẽ tự cập nhật.');
         }
 
         if (result.paid && course) {
@@ -162,8 +173,13 @@ export default function CourseDetailPage() {
       } catch (error) {
         // Rớt mạng một nhịp thì nhịp sau hỏi lại, không cần dựng báo lỗi.
         console.warn('[checkCoursePaymentStatus]', error?.message || error);
+        if (manual) {
+          setPaymentCheckNote(toFriendlyError(error, 'Chưa kiểm tra được giao dịch. Vui lòng thử lại sau ít phút.'));
+        }
       } finally {
-        setCheckingPayment(false);
+        if (manual) {
+          setCheckingPayment(false);
+        }
       }
     },
     [auth.session?.access_token, auth.user?.id, course]
@@ -205,11 +221,11 @@ export default function CourseDetailPage() {
       }
       setFeedback(
         result.requiresPayment
-          ? 'Đã tạo đơn thanh toán. Vui lòng chuyển khoản theo hướng dẫn để mở khóa học.'
+          ? 'Đã tạo đơn thanh toán. Quét QR để chuyển khoản, khóa học tự mở khi tiền về.'
           : `Bạn đã sở hữu ${course.title}.`
       );
     } catch (error) {
-      setFeedback(error?.message || 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
+      setFeedback(toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.'));
     } finally {
       setPurchasing(false);
     }
@@ -300,14 +316,14 @@ export default function CourseDetailPage() {
 
           <div className="marketplace-card__facts course-detail__facts">
             {course.level ? <span>{course.level}</span> : null}
-            <span>{course.duration || 'Lịch học linh hoạt'}</span>
+            {course.duration ? <span>{course.duration}</span> : null}
             {/* Trang chi tiết có sẵn danh sách chương (= chủ đề) nên đếm thật
                 thay vì chỉ dựa vào số đếm của danh mục. */}
             {courseSections.length || course.topicsCount ? (
               <span>{courseSections.length || course.topicsCount} chủ đề</span>
             ) : null}
             {course.lessonsCount ? <span>{course.lessonsCount} bài học</span> : null}
-            <span>{course.instructor}</span>
+            {course.instructor ? <span>{course.instructor}</span> : null}
           </div>
         </div>
 
@@ -377,10 +393,15 @@ export default function CourseDetailPage() {
       <PaymentInstructions
         order={paymentOrder}
         checking={checkingPayment}
-        onCheckNow={() => syncPaymentStatus(paymentOrder)}
+        checkNote={paymentCheckNote}
+        onCheckNow={() => syncPaymentStatus(paymentOrder, { manual: true })}
+        learnHref={`/learn/${course.id}`}
         variant="overlay"
         open={paymentScreenOpen}
-        onClose={() => setPaymentScreenOpen(false)}
+        onClose={() => {
+          setPaymentScreenOpen(false);
+          setPaymentCheckNote('');
+        }}
       />
 
       <section className="section split-layout">
@@ -406,8 +427,12 @@ export default function CourseDetailPage() {
             </>
           ) : null}
 
-          <h3>Giảng viên</h3>
-          <p>{course.instructor}</p>
+          {course.instructor ? (
+            <>
+              <h3>Giảng viên</h3>
+              <p>{course.instructor}</p>
+            </>
+          ) : null}
         </div>
       </section>
     </div>

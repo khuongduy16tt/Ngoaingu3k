@@ -13,6 +13,7 @@ import {
 import { exportStudentRosterToExcel } from '../lib/reportService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAuth } from '../providers/AuthProvider';
+import { toFriendlyError } from '../lib/friendlyError';
 
 const REFRESH_INTERVAL_MS = 30000;
 const TREND_DAYS = 30;
@@ -154,7 +155,7 @@ export default function StudentProgressPage() {
       // định kỳ hỏng thì giữ nguyên bảng đang hiển thị, không xóa trắng.
       console.warn('[loadRoster]', error?.message || error);
       if (!silent) {
-        setLoadError(error?.message || 'Chưa tải được danh sách học viên.');
+        setLoadError(toFriendlyError(error, 'Chưa tải được danh sách học viên.'));
       }
     } finally {
       if (!silent) setLoading(false);

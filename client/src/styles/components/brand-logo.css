@@ -13,14 +13,3 @@
   height: auto;
 }
 
-.brand-logo__image--dark {
-  display: none;
-}
-
-:root[data-theme='dark'] .brand-logo__image--light {
-  display: none;
-}
-
-:root[data-theme='dark'] .brand-logo__image--dark {
-  display: block;
-}

@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { contact } from '../config/contact';
 import { formatVnd } from '../lib/money';
 
-// ─── CẤU HÌNH QR & TÀI KHOẢN ─────────────────────────────────────────────────
-//
-//  1. Đặt file ảnh QR vào: client/public/payment-qr.png
-//     rồi đổi dòng bên dưới thành: const STATIC_QR_URL = '/payment-qr.png';
-//
-//  2. Hoặc dùng URL CDN:   const STATIC_QR_URL = 'https://...';
-//
-//  Để trống → placeholder cho đến khi có ảnh thật.
-//
-const STATIC_QR_URL = '/payment-qr.png'; // ảnh đặt tại client/public/payment-qr.png
+// ─── TÀI KHOẢN DỰ PHÒNG ───────────────────────────────────────────────────────
+// Server đã cấu hình SePay (SEPAY_ACCOUNT_NUMBER, SEPAY_BANK_CODE...) thì đơn
+// trả về sẵn QR động + số tài khoản và các giá trị dưới đây không được dùng.
+// Chưa cấu hình thì vẫn dựng QR VietQR động từ tài khoản này (quét là điền sẵn
+// số tiền và nội dung), chỉ là phải chờ admin mở khóa tay.
+const STATIC_QR_URL = '/payment-qr.png'; // dùng khi đơn không có mã chuyển khoản
 
 const BANK_INFO = {
   bankName:      'Vietcombank',
@@ -19,9 +17,21 @@ const BANK_INFO = {
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
+function buildFallbackQrUrl(order) {
+  if (!order?.transferCode) return '';
+  const params = new URLSearchParams({
+    acc: BANK_INFO.accountNumber,
+    bank: BANK_INFO.bankName,
+    amount: String(Math.round(Number(order.amount) || 0)),
+    des: order.transferCode,
+    template: 'compact',
+  });
+  return `https://qr.sepay.vn/img?${params.toString()}`;
+}
+
 const statusText = {
-  pending_payment: 'Chờ thanh toán',
-  pending: 'Chờ thanh toán',
+  pending_payment: 'Đang chờ chuyển khoản',
+  pending: 'Đang chờ chuyển khoản',
   awaiting_admin: 'Chờ xác nhận thanh toán',
   paid: 'Đã thanh toán — khóa học đã mở',
   failed: 'Thanh toán thất bại',
@@ -61,11 +71,10 @@ function CopyField({ label, value }) {
 
 export function PaymentInstructions({
   order,
-  // checking / onCheckNow vẫn nhận prop để không vỡ interface hiện tại.
-  // eslint-disable-next-line no-unused-vars
   checking = false,
-  // eslint-disable-next-line no-unused-vars
+  checkNote = '',
   onCheckNow,
+  learnHref = '',
   variant = 'card',
   open = true,
   onClose,
@@ -94,6 +103,12 @@ export function PaymentInstructions({
   if (isOverlay && !open) return null;
 
   const paid = order.status === 'paid';
+  // Ưu tiên thông tin server trả về (tài khoản đã nối SePay → tự mở khóa).
+  const fromServer = Boolean(order.accountNumber);
+  const qrUrl = order.qrImageUrl || buildFallbackQrUrl(order) || STATIC_QR_URL;
+  const accountNumber = fromServer ? order.accountNumber : BANK_INFO.accountNumber;
+  const bankName = fromServer ? order.bankCode || '' : BANK_INFO.bankName;
+  const accountName = fromServer ? order.accountName || '' : BANK_INFO.accountName;
 
   const content = (
     <section
@@ -105,7 +120,7 @@ export function PaymentInstructions({
         <div>
           <span className="eyebrow">Thanh toán chuyển khoản</span>
           <h3>{order.courseTitle}</h3>
-          <p>{statusText[order.status] || 'Chờ thanh toán'}</p>
+          <p>{statusText[order.status] || 'Đang chờ chuyển khoản'}</p>
         </div>
         {onClose ? (
           <button
@@ -121,30 +136,8 @@ export function PaymentInstructions({
 
       {/* ── Body ── */}
       <div className="payment-instructions__body">
-        {/* QR tĩnh */}
         <div className="payment-qr-box">
-          {STATIC_QR_URL ? (
-            <img src={STATIC_QR_URL} alt="Mã QR chuyển khoản" />
-          ) : (
-            <div
-              style={{
-                padding: '2rem 1.5rem',
-                textAlign: 'center',
-                color: 'var(--text-secondary)',
-                border: '2px dashed var(--border)',
-                borderRadius: '0.75rem',
-              }}
-            >
-              <strong style={{ display: 'block', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                QR
-              </strong>
-              <span style={{ fontSize: '0.85rem' }}>
-                Ảnh QR sẽ được cập nhật sớm.
-                <br />
-                Vui lòng chuyển khoản theo thông tin bên dưới.
-              </span>
-            </div>
-          )}
+          <img src={qrUrl} alt="Mã QR chuyển khoản" />
         </div>
 
         {/* Chi tiết tài khoản */}
@@ -161,17 +154,17 @@ export function PaymentInstructions({
             />
           ) : null}
 
-          {BANK_INFO.accountNumber ? (
+          {accountNumber ? (
             <CopyField
-              label={`Số tài khoản${BANK_INFO.bankName ? ` · ${BANK_INFO.bankName}` : ''}`}
-              value={BANK_INFO.accountNumber}
+              label={`Số tài khoản${bankName ? ` · ${bankName}` : ''}`}
+              value={accountNumber}
             />
           ) : null}
 
-          {BANK_INFO.accountName ? (
+          {accountName ? (
             <div>
               <span>Chủ tài khoản</span>
-              <strong>{BANK_INFO.accountName}</strong>
+              <strong>{accountName}</strong>
             </div>
           ) : null}
         </div>
@@ -179,17 +172,48 @@ export function PaymentInstructions({
 
       {/* ── Trạng thái ── */}
       {paid ? (
-        <p className="empty-state">
-          Đã xác nhận thanh toán. Khóa học đã mở, bạn vào học được ngay.
-        </p>
+        <div className="payment-instructions__paid" role="status">
+          <p>Đã nhận được tiền. Khóa học đã mở, bạn vào học được ngay.</p>
+          <div className="payment-instructions__paid-actions">
+            {learnHref ? (
+              <Link className="button" to={learnHref} onClick={onClose}>
+                Vào học ngay
+              </Link>
+            ) : null}
+            {onClose ? (
+              <button type="button" className={learnHref ? 'button-ghost' : 'button'} onClick={onClose}>
+                {learnHref ? 'Để sau' : 'Xem khóa đã mua'}
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : (
         <div className="payment-instructions__waiting">
           <div className="payment-instructions__waiting-row">
             <span className="payment-waiting-dot" aria-hidden="true" />
             <span>
-              Khóa học sẽ được mở sau khi trung tâm nhận được tiền, thường trong vài phút.
+              {checking
+                ? 'Đang kiểm tra giao dịch...'
+                : 'Quét QR bằng app ngân hàng. Khóa học tự mở khi tiền về, thường trong 1–2 phút.'}
             </span>
+            {onCheckNow ? (
+              <button type="button" className="button-ghost" onClick={onCheckNow} disabled={checking}>
+                Kiểm tra ngay
+              </button>
+            ) : null}
           </div>
+          {checkNote ? (
+            <p className="payment-instructions__check-note" role="status">
+              {checkNote}
+            </p>
+          ) : null}
+          <p>
+            Giữ nguyên nội dung chuyển khoản. Quá 15 phút chưa mở, gửi ảnh giao dịch cho trung tâm qua{' '}
+            <a href={contact.zaloUrl} target="_blank" rel="noreferrer">
+              Zalo
+            </a>{' '}
+            hoặc gọi <a href={`tel:${contact.phone}`}>{contact.phoneDisplay}</a>.
+          </p>
         </div>
       )}
     </section>

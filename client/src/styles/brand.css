@@ -150,10 +150,6 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-secondary) 35%, transparent);
 }
 
-:root[data-theme='dark'] :where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select, textarea):focus {
-  border-color: var(--color-secondary);
-}
-
 :where(input, select, textarea)[aria-invalid='true'],
 :where(input, select, textarea).is-invalid {
   border-color: var(--color-error) !important;
@@ -175,10 +171,6 @@ input[type='radio'],
 input[type='range'],
 progress {
   accent-color: var(--color-primary);
-}
-
-:root[data-theme='dark'] :is(input[type='checkbox'], input[type='radio'], input[type='range'], progress) {
-  accent-color: var(--color-secondary);
 }
 
 /* ── 5. Card: viền, bo góc, bóng thống nhất ──────────────────────────────────

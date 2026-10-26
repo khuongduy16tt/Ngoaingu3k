@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { submitConsultationRequest } from '../lib/leadService';
+import { toFriendlyError } from '../lib/friendlyError';
 
 export const CONSULTATION_SUBMITTED_KEY = 'ngoaingu3k-consultation-submitted';
 
@@ -39,7 +40,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
     try {
       const result = await submitConsultationRequest(values);
       setStatus('success');
-      setMessage(result?.message || 'Đăng ký tư vấn thành công, chúng tôi sẽ liên hệ sớm.');
+      setMessage(toFriendlyError(result, 'Đăng ký tư vấn thành công, chúng tôi sẽ liên hệ sớm.'));
       setValues(emptyConsultForm);
       try {
         localStorage.setItem(CONSULTATION_SUBMITTED_KEY, '1');
@@ -49,7 +50,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
       onSuccess?.();
     } catch (error) {
       setStatus('error');
-      setMessage(error.message || 'Không thể gửi thông tin lúc này, vui lòng thử lại sau.');
+      setMessage(toFriendlyError(error, 'Không thể gửi thông tin lúc này, vui lòng thử lại sau.'));
     }
   }
 

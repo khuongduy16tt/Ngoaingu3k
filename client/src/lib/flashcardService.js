@@ -20,6 +20,8 @@ function isUuid(value) {
 }
 
 export function normalizeFlashcardSet(set, index = 0) {
+  const cards = normalizeFlashcards(set?.cards || set?.flashcards || []);
+  const cardIds = Array.isArray(set?.cardIds) ? set.cardIds.map(String) : cards.map((card) => String(card.id || ''));
   return {
     id: String(set?.id || `set-${index + 1}`),
     courseId: set?.courseId || set?.course_id || '',
@@ -29,7 +31,10 @@ export function normalizeFlashcardSet(set, index = 0) {
     createdBy: set?.createdBy || set?.created_by || '',
     createdAt: set?.createdAt || set?.created_at || '',
     updatedAt: set?.updatedAt || set?.updated_at || '',
-    cards: normalizeFlashcards(set?.cards || set?.flashcards || [])
+    cards,
+    // Danh sách (không tải nội dung thẻ) vẫn cần số thẻ và id để đếm tiến độ.
+    cardIds,
+    cardCount: Number.isFinite(Number(set?.cardCount)) ? Number(set.cardCount) : cards.length
   };
 }
 
@@ -76,7 +81,7 @@ export async function getFlashcardSets({ courseIds = [] } = {}) {
 
   let query = supabase
     .from('flashcard_sets')
-    .select('id, course_id, title, description, created_by, created_at, updated_at, courses(title)')
+    .select('id, course_id, title, description, created_by, created_at, updated_at, courses(title), flashcards(id)')
     .order('created_at', { ascending: false });
 
   if (allowedUuids.length) {
@@ -85,15 +90,21 @@ export async function getFlashcardSets({ courseIds = [] } = {}) {
 
   const { data, error } = await query;
 
+  // Ném lỗi lên để trang báo "chưa tải được" thay vì báo nhầm "chưa có bộ thẻ nào".
   if (error) {
-    console.warn('[getFlashcardSets]', error.message);
-    return [];
+    throw error;
   }
 
   // Xếp theo khóa rồi theo tên tự nhiên ("Chủ đề 2" trước "Chủ đề 10") — theo
   // created_at giảm dần thì học viên thấy Chủ đề 20 đứng đầu, Chủ đề 1 cuối.
   return (data || [])
-    .map((row, index) => normalizeFlashcardSet({ ...row, courseTitle: row.courses?.title }, index))
+    .map((row, index) => {
+      const cardIds = (row.flashcards || []).map((card) => String(card.id));
+      return normalizeFlashcardSet(
+        { ...row, flashcards: [], courseTitle: row.courses?.title, cardIds, cardCount: cardIds.length },
+        index
+      );
+    })
     .sort(
       (a, b) =>
         String(a.courseTitle || '').localeCompare(String(b.courseTitle || ''), 'vi', { numeric: true }) ||
@@ -289,6 +300,43 @@ export async function getFlashcardProgress({ userId, setId } = {}) {
       wrongCount: row.wrong_count,
       mastered: row.mastered
     };
+    return map;
+  }, {});
+}
+
+/**
+ * Số thẻ đã thuộc của từng bộ (cho thẻ bộ ở danh sách). Một lần hỏi cho cả trang.
+ *
+ * @returns {Promise<Record<string, number>>} setId → số thẻ đã thuộc
+ */
+export async function getFlashcardMasteredCounts({ userId, sets = [] } = {}) {
+  if (!sets.length) {
+    return {};
+  }
+
+  if (!isSupabaseReady() || !userId) {
+    const all = readMockProgress();
+    return sets.reduce((map, set) => {
+      const progress = all[`${userId || 'local'}:${set.id}`] || {};
+      map[set.id] = Object.values(progress).filter((value) => value?.mastered).length;
+      return map;
+    }, {});
+  }
+
+  const { data, error } = await supabase
+    .from('flashcard_progress')
+    .select('card_id')
+    .eq('user_id', userId)
+    .eq('mastered', true);
+
+  if (error) {
+    console.warn('[getFlashcardMasteredCounts]', error.message);
+    return {};
+  }
+
+  const mastered = new Set((data || []).map((row) => String(row.card_id)));
+  return sets.reduce((map, set) => {
+    map[set.id] = (set.cardIds || []).filter((id) => mastered.has(id)).length;
     return map;
   }, {});
 }

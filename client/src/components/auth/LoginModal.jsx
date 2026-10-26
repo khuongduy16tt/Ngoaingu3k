@@ -801,7 +801,7 @@ function LoginDialog({ initialView, closing, onClose, onSuccess, returnFocusRef 
           <div key={view} className="login-modal__view">
             <header className="login-modal__head">
               {view === 'forgot' ? null : (
-                <BrandLogo className="login-modal__logo" variant="theme" />
+                <BrandLogo className="login-modal__logo" variant="color" />
               )}
               <h2 id={titleId}>{copy.title}</h2>
               <p id={descId}>{copy.subtitle}</p>

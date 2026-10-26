@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { getAssignmentsForStudent } from '../lib/assignmentService';
@@ -87,6 +88,8 @@ import { uploadCourseImage } from '../lib/storageService';
 import { TeacherExamPanel } from './dashboard/TeacherExamPanel';
 import { AdminExamResultsPanel } from './dashboard/AdminExamResultsPanel';
 import { AdminComboPanel } from './dashboard/AdminComboPanel';
+import { toFriendlyError } from '../lib/friendlyError';
+import { confirmDialog } from '../lib/confirmDialog';
 
 const exerciseTypeLabels = {
   mcq: 'Trắc nghiệm',
@@ -300,7 +303,7 @@ function AssignmentCard({ assignment }) {
         <span>{assignment.attachmentName || 'Chưa có tài liệu'}</span>
       </div>
       <AssignmentExercisePreview assignment={assignment} />
-      <Link className="button-ghost" to={`/learn/${assignment.courseKey}`}>
+      <Link className="button-ghost" to={`/learn/${assignment.courseKey}#bai-tap-duoc-giao`}>
         Làm bài trong phòng học
       </Link>
     </article>
@@ -354,7 +357,7 @@ export function StudentDashboardPage() {
         // Thiếu catch thì bảng điều khiển kẹt ở "Đang tải nhiệm vụ học tập...".
         console.warn('[StudentDashboardPage load]', error?.message || error);
         if (active) {
-          setLoadError(error?.message || 'Chưa tải được dữ liệu học tập.');
+          setLoadError(toFriendlyError(error, 'Chưa tải được dữ liệu học tập.'));
         }
       } finally {
         if (active) {
@@ -1308,13 +1311,13 @@ export function TeacherDashboardPage() {
     }));
   }
 
-  function removeDraftSection(sectionIndex) {
+  async function removeDraftSection(sectionIndex) {
     const section = courseDraft.sections[sectionIndex];
     const lessonCount = Array.isArray(section?.lessons) ? section.lessons.length : 0;
 
     if (
       lessonCount > 0 &&
-      !window.confirm(`Xóa chương "${section?.title || 'Chưa đặt tên'}" cùng ${lessonCount} bài học bên trong?`)
+      !await confirmDialog(`Xóa chương "${section?.title || 'Chưa đặt tên'}" cùng ${lessonCount} bài học bên trong?`)
     ) {
       return;
     }
@@ -1322,7 +1325,7 @@ export function TeacherDashboardPage() {
     updateDraftSectionsInPlace(courseDraft.sections.filter((_, index) => index !== sectionIndex));
   }
 
-  function removeDraftLesson(sectionIndex, lessonIndex) {
+  async function removeDraftLesson(sectionIndex, lessonIndex) {
     const targetSection = courseDraft.sections[sectionIndex];
     const lesson = targetSection?.lessons?.[lessonIndex];
 
@@ -1331,7 +1334,7 @@ export function TeacherDashboardPage() {
     // một chương trắng.
     if ((targetSection?.lessons?.length || 0) <= 1) {
       if (
-        !window.confirm(
+        !await confirmDialog(
           `"${lesson?.title || 'Bài học'}" là bài duy nhất của chương "${targetSection?.title || `Chương ${sectionIndex + 1}`}".\n\nChương không được để rỗng, nên xóa bài này sẽ xóa luôn cả chương. Tiếp tục?`
         )
       ) {
@@ -1342,7 +1345,7 @@ export function TeacherDashboardPage() {
       return;
     }
 
-    if (!window.confirm(`Xóa bài "${lesson?.title || 'Bài học'}"?`)) {
+    if (!await confirmDialog(`Xóa bài "${lesson?.title || 'Bài học'}"?`)) {
       return;
     }
 
@@ -2033,7 +2036,7 @@ export function TeacherDashboardPage() {
       if (!uploadedImage?.url) {
         setImportMessage({
           type: 'error',
-          text: 'Không thể tải ảnh lên. Kiểm tra bucket "course-images" trong Supabase Storage rồi thử lại.'
+          text: 'Không tải được ảnh lên. Kiểm tra mạng rồi thử lại — nếu vẫn lỗi, hãy báo quản trị viên.'
         });
         return;
       }
@@ -2064,7 +2067,7 @@ export function TeacherDashboardPage() {
     if (!uploaded?.url) {
       setImportMessage({
         type: 'error',
-        text: 'Không thể tải file nghe lên. Kiểm tra bucket "exam-audio" trong Supabase Storage rồi thử lại.'
+        text: 'Không tải được file nghe lên. Kiểm tra mạng rồi thử lại — nếu vẫn lỗi, hãy báo quản trị viên.'
       });
       return;
     }
@@ -2240,7 +2243,7 @@ export function TeacherDashboardPage() {
       if (result?.url) {
         updateDraft('bannerUrl', result.url);
       } else {
-        setBannerUploadError('Lỗi tải ảnh lên Supabase. Đảm bảo bucket "course-images" đã được tạo.');
+        setBannerUploadError('Không tải được ảnh lên. Kiểm tra mạng rồi thử lại — nếu vẫn lỗi, hãy báo quản trị viên.');
       }
     } catch (err) {
       setBannerUploadError('Đã xảy ra lỗi khi tải ảnh.');
@@ -2341,7 +2344,7 @@ export function TeacherDashboardPage() {
       setCoursePublisherOpen(false);
     } catch (error) {
       console.error('[handlePublishCourse]', error);
-      setMessage({ type: 'error', text: error?.message || 'Không thể lưu khóa học vào Supabase.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa lưu được khóa học. Vui lòng thử lại.') });
     } finally {
       setSaving(false);
     }
@@ -2360,7 +2363,7 @@ export function TeacherDashboardPage() {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: error?.message || `Không thể đổi trạng thái khóa "${course.title}".`
+        text: toFriendlyError(error, `Không thể đổi trạng thái khóa "${course.title}".`)
       });
       return;
     }
@@ -2383,7 +2386,7 @@ export function TeacherDashboardPage() {
     const course = teacherCourses.find((item) => item.id === courseId);
     if (!course) return;
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDialog(
       `Xóa khóa học "${course.title}"? Khóa sẽ bị gỡ khỏi hệ thống, kể cả với học viên đang học. Không hoàn tác được.`
     );
     if (!confirmed) return;
@@ -2393,7 +2396,7 @@ export function TeacherDashboardPage() {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: error?.message || `Không thể xóa khóa "${course.title}" khỏi hệ thống.`
+        text: toFriendlyError(error, `Không thể xóa khóa "${course.title}" khỏi hệ thống.`)
       });
       return;
     }
@@ -3932,7 +3935,7 @@ export function AdminDashboardPage() {
     } catch (error) {
       // Thiếu catch thì bảng quản trị kẹt ở màn "Đang tải..." vĩnh viễn.
       console.warn('[reloadAdminData]', error?.message || error);
-      setLoadError(error?.message || 'Chưa tải được dữ liệu quản trị.');
+      setLoadError(toFriendlyError(error, 'Chưa tải được dữ liệu quản trị.'));
     } finally {
       setLoading(false);
     }
@@ -3959,6 +3962,19 @@ export function AdminDashboardPage() {
   useEffect(() => {
     if (adminSection === 'he-thong') void loadActivityLogs();
   }, [adminSection]);
+
+  // Thông báo của mục trước không được đi theo sang mục khác.
+  useEffect(() => {
+    setMessage({ type: '', text: '' });
+  }, [adminSection]);
+
+  // Nút Xóa/Lưu thường nằm sâu trong bảng — kéo thông báo vào tầm nhìn.
+  const adminMessageRef = useRef(null);
+  useEffect(() => {
+    if (message.text && adminMessageRef.current) {
+      scrollIntoViewRespectingMotion(adminMessageRef.current, { block: 'nearest' });
+    }
+  }, [message]);
 
   const profiles = adminData.profiles;
   const students = profiles.filter((profile) => profile.role === 'student');
@@ -4275,7 +4291,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: 'Đã đổi vị trí bài học.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể đổi vị trí bài học.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể đổi vị trí bài học.') });
     } finally {
       setSaving(false);
     }
@@ -4292,13 +4308,22 @@ export function AdminDashboardPage() {
       resetProfileDraft();
       setMessage({ type: 'success', text: 'Đã lưu hồ sơ người dùng.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể lưu hồ sơ người dùng.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể lưu hồ sơ người dùng.') });
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDeleteProfile(profile) {
+    if (
+      !await confirmDialog(
+        `Xóa tài khoản "${profile.fullName || profile.email || 'không tên'}"?\n` +
+          'Người này sẽ không đăng nhập được nữa. Thao tác này không thể hoàn tác.'
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
     setMessage({ type: '', text: '' });
 
@@ -4307,7 +4332,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: `Đã xóa hồ sơ ${profile.fullName}.` });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể xóa hồ sơ.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể xóa hồ sơ.') });
     } finally {
       setSaving(false);
     }
@@ -4328,7 +4353,7 @@ export function AdminDashboardPage() {
       resetCourseDraft();
       setMessage({ type: 'success', text: 'Đã lưu khóa học.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể lưu khóa học.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể lưu khóa học.') });
     } finally {
       setSaving(false);
     }
@@ -4357,7 +4382,7 @@ export function AdminDashboardPage() {
         setCourseBannerError('Không tải được ảnh lên. Hãy kiểm tra bucket "course-images" đã được tạo.');
       }
     } catch (error) {
-      setCourseBannerError(error.message || 'Đã xảy ra lỗi khi tải ảnh.');
+      setCourseBannerError(toFriendlyError(error, 'Đã xảy ra lỗi khi tải ảnh.'));
     } finally {
       setUploadingCourseBanner(false);
       event.target.value = '';
@@ -4365,6 +4390,15 @@ export function AdminDashboardPage() {
   }
 
   async function handleDeleteCourse(course) {
+    if (
+      !await confirmDialog(
+        `Xóa khóa học "${course.title}" cùng toàn bộ chương và bài học bên trong?\n` +
+          'Học viên đã mua sẽ không vào học được khóa này nữa. Thao tác này không thể hoàn tác.'
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
     setMessage({ type: '', text: '' });
 
@@ -4373,7 +4407,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: `Đã xóa khóa ${course.title}.` });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể xóa khóa học.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể xóa khóa học.') });
     } finally {
       setSaving(false);
     }
@@ -4412,7 +4446,7 @@ export function AdminDashboardPage() {
     }
 
     const receiverName = profileLookup.get(transferToTeacherId)?.fullName || 'giảng viên được chọn';
-    const confirmed = window.confirm(
+    const confirmed = await confirmDialog(
       `Bàn giao ${selectedTransferCourses.length} khóa học sang ${receiverName}?\n` +
         'Giảng viên đang phụ trách sẽ mất quyền sửa các khóa này ngay sau khi bàn giao.'
     );
@@ -4455,7 +4489,7 @@ export function AdminDashboardPage() {
           (extras.length ? ` (kèm ${extras.join(' và ')}).` : '.')
       });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể bàn giao khóa học.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể bàn giao khóa học.') });
     } finally {
       setTransferring(false);
     }
@@ -4475,13 +4509,17 @@ export function AdminDashboardPage() {
       resetLessonDraft();
       setMessage({ type: 'success', text: 'Đã lưu bài học.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể lưu bài học.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể lưu bài học.') });
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDeleteLesson(lesson) {
+    if (!await confirmDialog(`Xóa bài học "${lesson.title}"? Thao tác này không thể hoàn tác.`)) {
+      return;
+    }
+
     setSaving(true);
     setMessage({ type: '', text: '' });
 
@@ -4490,7 +4528,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: `Đã xóa bài ${lesson.title}.` });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể xóa bài học.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể xóa bài học.') });
     } finally {
       setSaving(false);
     }
@@ -4522,7 +4560,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: 'Đã cập nhật quyền hệ thống.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể lưu quyền hệ thống.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể lưu quyền hệ thống.') });
     } finally {
       setSaving(false);
     }
@@ -4537,7 +4575,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: `Đã mở khóa ${getCourseTitle(courseLookup, order.courseId)} cho học viên.` });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể mở khóa đơn hàng.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể mở khóa đơn hàng.') });
     } finally {
       setSaving(false);
     }
@@ -4552,7 +4590,7 @@ export function AdminDashboardPage() {
       await reloadAdminData();
       setMessage({ type: 'success', text: `Đã đóng khóa ${getCourseTitle(courseLookup, order.courseId)} cho học viên.` });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Chưa thể đóng khóa đơn hàng.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Chưa thể đóng khóa đơn hàng.') });
     } finally {
       setSaving(false);
     }
@@ -4610,13 +4648,13 @@ export function AdminDashboardPage() {
     try {
       const result = await uploadLessonVideo(file, lessonKey, setVideoUploadProgress);
       if (!result?.url) {
-        throw new Error('Không thể tải video lên. Kiểm tra bucket lesson-videos trên Supabase Storage.');
+        throw new Error('Không tải được video lên. Kiểm tra mạng rồi thử lại — nếu vẫn lỗi, hãy báo quản trị viên.');
       }
 
       updateLessonDraft('videoUrl', result.url);
       setMessage({ type: 'success', text: 'Video đã được tải lên. Nhớ lưu bài học để giữ URL.' });
     } catch (uploadError) {
-      setMessage({ type: 'error', text: uploadError.message || 'Tải video thất bại.' });
+      setMessage({ type: 'error', text: toFriendlyError(uploadError, 'Tải video thất bại.') });
     } finally {
       setVideoUploading(false);
       setVideoUploadProgress(0);
@@ -4673,6 +4711,19 @@ export function AdminDashboardPage() {
           </aside>
 
           <div className="admin-console-main">
+
+      {/* Mục "Thanh toán" và "Tổng quan" tự in thông báo trong khung của mình;
+          các mục còn lại (người dùng, khóa & bài...) trước đây xóa/sửa xong
+          không hiện gì, kể cả khi lỗi. */}
+      {message.text && adminSection !== 'thanh-toan' && adminSection !== 'tong-quan' ? (
+        <div
+          ref={adminMessageRef}
+          role={message.type === 'error' ? 'alert' : 'status'}
+          className={`auth-message ${message.type === 'success' ? 'auth-message--success' : message.type === 'error' ? 'auth-message--error' : ''}`}
+        >
+          {message.text}
+        </div>
+      ) : null}
 
       {adminSection === 'de-thi' ? <AdminExamResultsPanel /> : null}
 
@@ -5116,10 +5167,10 @@ export function AdminDashboardPage() {
             {loading
               ? 'Đang tải'
               : adminData.mode === 'supabase'
-                ? 'Supabase'
+                ? 'Dữ liệu máy chủ'
                 : adminData.mode === 'supabase-partial'
-                  ? 'Supabase partial'
-                  : 'Local fallback'}
+                  ? 'Thiếu một phần dữ liệu máy chủ'
+                  : 'Dữ liệu trên máy (chưa nối máy chủ)'}
           </span>
         </div>
 
@@ -5168,7 +5219,7 @@ export function AdminDashboardPage() {
           <div className="section-head">
             <div>
               <span className="eyebrow">Người dùng</span>
-              <h2>Thêm / sửa học viên, giảng viên, admin</h2>
+              <h2>Thêm / sửa học viên, giảng viên, quản trị viên</h2>
             </div>
             <button type="button" className="button-ghost" onClick={resetProfileDraft}>
               Tạo mới
@@ -5215,7 +5266,7 @@ export function AdminDashboardPage() {
           <div className="section-head">
             <div>
               <span className="eyebrow">Tổng hợp người dùng</span>
-              <h2>Học viên, giảng viên và admin</h2>
+              <h2>Học viên, giảng viên và quản trị viên</h2>
             </div>
             <span className="pill">{profiles.length} hồ sơ</span>
           </div>
@@ -5676,9 +5727,9 @@ export function AdminDashboardPage() {
           <div className="section-head">
             <div>
               <span className="eyebrow">Thông tin giảng viên</span>
-              <h2>Tất cả teacher và nội dung phụ trách</h2>
+              <h2>Tất cả giảng viên và nội dung phụ trách</h2>
             </div>
-            <span className="pill">{teacherSummary.length} teacher</span>
+            <span className="pill">{teacherSummary.length} giảng viên</span>
           </div>
 
           <AdminDataTable
@@ -5700,10 +5751,10 @@ export function AdminDashboardPage() {
         <div className="content-card content-card--enterprise admin-panel">
           <div className="section-head">
             <div>
-              <span className="eyebrow">Thông tin học sinh</span>
-              <h2>Tất cả student và tiến độ</h2>
+              <span className="eyebrow">Thông tin học viên</span>
+              <h2>Tất cả học viên và tiến độ</h2>
             </div>
-            <span className="pill">{studentSummary.length} student</span>
+            <span className="pill">{studentSummary.length} học viên</span>
           </div>
 
           <AdminDataTable
@@ -5740,7 +5791,7 @@ export function AdminDashboardPage() {
           {permissionDraft.map((rolePermission) => (
             <article key={rolePermission.role} className="admin-permission-card">
               <div>
-                <span className="eyebrow">{rolePermission.role}</span>
+                <span className="eyebrow">Vai trò</span>
                 <h3>{rolePermission.label}</h3>
               </div>
 

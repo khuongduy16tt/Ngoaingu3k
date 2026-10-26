@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { LessonTabManager } from './LearningPage';
 
@@ -155,17 +155,28 @@ describe('LessonTabManager — ẩn bớt nút', () => {
     expect(screen.getByRole('button', { name: 'Đưa tab xuống dưới' })).toBeEnabled();
   });
 
-  it('xóa tab đang có câu hỏi thì phải xác nhận', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('xóa tab đang có câu hỏi thì phải xác nhận', async () => {
     renderManager(makeLesson([makeTab('t1', 'Ngữ pháp', 3), makeTab('t2', 'Từ vựng')]));
 
     fireEvent.click(screen.getByRole('button', { name: /Thêm thao tác/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Xóa tab Ngữ pháp' }));
 
-    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('3 câu hỏi'));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('3 câu hỏi');
     // Bấm Hủy thì tab còn nguyên.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Hủy' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(chipNames()).toEqual(['Ngữ pháp', 'Từ vựng']);
-    confirmSpy.mockRestore();
+  });
+
+  it('xác nhận xóa thì tab bị xóa', async () => {
+    renderManager(makeLesson([makeTab('t1', 'Ngữ pháp', 3), makeTab('t2', 'Từ vựng')]));
+
+    fireEvent.click(screen.getByRole('button', { name: /Thêm thao tác/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa tab Ngữ pháp' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Xóa' }));
+
+    await waitFor(() => expect(chipNames()).toEqual(['Từ vựng']));
   });
 });
 

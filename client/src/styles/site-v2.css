@@ -12,8 +12,7 @@
 
 /* ── 1. Token nút dùng chung: xanh biển + chữ navy ─────────── */
 :root,
-:root[data-theme='light'],
-:root[data-theme='dark'] {
+:root[data-theme='light'] {
   --button-bg: var(--hv-green);
   --button-bg-hover: var(--hv-green-hover);
   --button-text: var(--hv-on-green);
@@ -392,16 +391,6 @@ body {
   mask-image: radial-gradient(ellipse 60% 80% at 30% 40%, #000 20%, transparent 80%);
 }
 
-:root[data-theme='dark'] :is(
-    .page > .marketplace-hero,
-    .page > .dashboard-head,
-    .page > section.section-head:first-of-type,
-    .page > .course-hero
-  )::before {
-  opacity: 0.08;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M28 0 56 28 28 56 0 28Z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E");
-}
-
 :is(
     .page > .marketplace-hero,
     .page > .dashboard-head,
@@ -656,11 +645,6 @@ body {
 
 .pill.exam-manager__pill-draft {
   border-style: dashed !important;
-}
-
-:root[data-theme='dark'] :is(.pill.pill--warning, .pill.lesson-tab-manager__dirty) {
-  background: #3a2a0c !important;
-  color: #fcd34d !important;
 }
 
 /* Linh vật đu mép dưới thanh menu, trên desktop và mobile. */

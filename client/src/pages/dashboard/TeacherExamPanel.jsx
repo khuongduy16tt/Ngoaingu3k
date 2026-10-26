@@ -16,6 +16,8 @@ import { getCourseOptions } from '../../lib/assignmentService';
 import { PaginationControls, usePagination } from '../../components/Pagination';
 import { AudioUploadField } from '../../components/AudioUploadField';
 import { ImageUploadField } from '../../components/ImageUploadField';
+import { toFriendlyError } from '../../lib/friendlyError';
+import { confirmDialog } from '../../lib/confirmDialog';
 
 const DRAFT_STORAGE_KEY = 'ngoaingu3k-exam-draft';
 const DRAFT_AUTOSAVE_MS = 600;
@@ -512,7 +514,7 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
     } catch (error) {
       // Thiếu catch thì panel kẹt ở "Đang tải đề thi..." vĩnh viễn.
       console.warn('[TeacherExamPanel reload]', error?.message || error);
-      setLoadError(error?.message || 'Chưa tải được danh sách đề thi.');
+      setLoadError(toFriendlyError(error, 'Chưa tải được danh sách đề thi.'));
     } finally {
       setLoading(false);
     }
@@ -563,10 +565,10 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
   const attemptsPagination = usePagination(attemptRows, { pageSize: 8, resetKey: attemptRows.length });
 
   // Mở trình soạn với nội dung khác sẽ ghi đè bản nháp đang lưu — hỏi trước.
-  function confirmReplaceRecoveredDraft() {
+  async function confirmReplaceRecoveredDraft() {
     return (
       !recoveredDraft ||
-      window.confirm('Bạn đang có một đề thi soạn dở chưa lưu. Mở đề khác sẽ xóa bản nháp đó. Tiếp tục?')
+      await confirmDialog('Bạn đang có một đề thi soạn dở chưa lưu. Mở đề khác sẽ xóa bản nháp đó. Tiếp tục?')
     );
   }
 
@@ -579,8 +581,8 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
     setView('edit');
   }
 
-  function startCreate() {
-    if (!confirmReplaceRecoveredDraft()) {
+  async function startCreate() {
+    if (!(await confirmReplaceRecoveredDraft())) {
       return;
     }
     clearStoredDraft(teacherId);
@@ -588,8 +590,8 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
     openEditor(createEmptyDraft());
   }
 
-  function startEdit(exam) {
-    if (!confirmReplaceRecoveredDraft()) {
+  async function startEdit(exam) {
+    if (!(await confirmReplaceRecoveredDraft())) {
       return;
     }
     clearStoredDraft(teacherId);
@@ -607,8 +609,8 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
     setRecoveredDraft(null);
   }
 
-  function discardRecoveredDraft() {
-    if (!window.confirm('Xóa bản nháp đang soạn dở? Thao tác này không thể hoàn tác.')) {
+  async function discardRecoveredDraft() {
+    if (!await confirmDialog('Xóa bản nháp đang soạn dở? Thao tác này không thể hoàn tác.')) {
       return;
     }
     clearStoredDraft(teacherId);
@@ -682,7 +684,7 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
       setView('list');
       await reload();
     } catch (saveError) {
-      setMessage({ type: 'error', text: saveError.message || 'Không thể lưu đề thi.' });
+      setMessage({ type: 'error', text: toFriendlyError(saveError, 'Không thể lưu đề thi.') });
     } finally {
       setSaving(false);
     }
@@ -694,21 +696,21 @@ export function TeacherExamPanel({ teacherId, accessToken }) {
       await setExamStatus({ examId: exam.id, status: nextStatus, accessToken });
       setMessage({ type: '', text: '' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Không thể đổi trạng thái đề thi.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Không thể đổi trạng thái đề thi.') });
       return;
     }
     await reload();
   }
 
   async function handleDelete(exam) {
-    if (!window.confirm(`Xóa đề thi "${exam.title}"? Kết quả đã nộp sẽ bị xóa theo.`)) {
+    if (!await confirmDialog(`Xóa đề thi "${exam.title}"? Kết quả đã nộp sẽ bị xóa theo.`)) {
       return;
     }
     try {
       await deleteExam({ examId: exam.id, accessToken });
       setMessage({ type: '', text: '' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Không thể xóa đề thi.' });
+      setMessage({ type: 'error', text: toFriendlyError(error, 'Không thể xóa đề thi.') });
       return;
     }
     await reload();

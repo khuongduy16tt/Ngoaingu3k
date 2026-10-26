@@ -45,8 +45,7 @@ summary,
 
   /* ── 4. Vùng chạm tối thiểu ──────────────────────────────────────────────
      Nới bằng pseudo-element để không phải phóng to phần nhìn thấy — giữ nguyên
-     bố cục dày của header và footer. Cùng cách làm đã dùng cho nút hamburger
-     và nút gạt theme.
+     bố cục dày của header và footer. Cùng cách làm đã dùng cho nút hamburger và nút hamburger.
      .consult-popup__close KHÔNG nằm trong danh sách position:relative: nó vốn
      là position:absolute (đã đủ làm khung cho ::after). Ép relative làm nút rơi
      về luồng thường, nằm đè lên nhãn và tiêu đề của popup. */
@@ -329,21 +328,6 @@ summary,
     font-size: var(--fs-small);
     letter-spacing: 0;
     white-space: nowrap;
-  }
-
-  /* Nút gạt theme chỉ cao 25px: nới vùng chạm lên 44px mà không phóng to. */
-  .site-header .theme-toggle {
-    position: relative;
-  }
-
-  .site-header .theme-toggle::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: max(100%, 44px);
-    height: 44px;
-    transform: translate(-50%, -50%);
   }
 
   /* Drawer: chừa tai thỏ và vạch home khi mở toàn chiều cao. */

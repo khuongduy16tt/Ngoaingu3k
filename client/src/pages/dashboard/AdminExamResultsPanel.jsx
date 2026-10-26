@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getAllExamAttempts, getAllExams, getSectionTypeLabel } from '../../lib/examService';
 import { PaginationControls, usePagination } from '../../components/Pagination';
+import { toFriendlyError } from '../../lib/friendlyError';
 
 export function AdminExamResultsPanel() {
   const [exams, setExams] = useState([]);
@@ -20,7 +21,7 @@ export function AdminExamResultsPanel() {
     } catch (error) {
       // Thiếu catch thì panel kẹt ở "Đang tải dữ liệu đề thi..." vĩnh viễn.
       console.warn('[AdminExamResultsPanel reload]', error?.message || error);
-      setLoadError(error?.message || 'Chưa tải được dữ liệu đề thi.');
+      setLoadError(toFriendlyError(error, 'Chưa tải được dữ liệu đề thi.'));
     } finally {
       setLoading(false);
     }
