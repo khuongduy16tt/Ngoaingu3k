@@ -134,9 +134,11 @@ export default function CartPage() {
       setLoading(true);
       setLoadError('');
       try {
-        const nextCourses = await getCourseCatalog();
-        const [nextOwned, nextTutoring] = await Promise.all([
-          getOwnedCourseIds(auth.user?.id, nextCourses),
+        // Ba truy vấn chạy song song: khóa đã mua đọc theo uuid nên không cần chờ
+        // danh mục (giỏ so khớp cả slug lẫn uuid).
+        const [nextCourses, nextOwned, nextTutoring] = await Promise.all([
+          getCourseCatalog(),
+          getOwnedCourseIds(auth.user?.id, []),
           getTutoringCourseIds(auth.user?.id)
         ]);
         if (alive) {
@@ -211,7 +213,7 @@ export default function CartPage() {
           setJustPaid(courses.filter((course) => paidIds.includes(String(course.id))));
           removeFromCart(paidIds);
           const [nextOwned, nextTutoring] = await Promise.all([
-            getOwnedCourseIds(auth.user?.id, courses),
+            getOwnedCourseIds(auth.user?.id, []),
             getTutoringCourseIds(auth.user?.id)
           ]);
           setOwnedCourseIds(nextOwned);

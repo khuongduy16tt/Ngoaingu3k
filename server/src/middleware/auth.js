@@ -1,5 +1,18 @@
 import { supabaseAdmin, isSupabaseAdminReady } from '../config/supabase.js';
 
+// Đổi vai trò / khóa tài khoản sẽ có hiệu lực chậm tối đa chừng này.
+const AUTH_CACHE_TTL_MS = 60 * 1000;
+const AUTH_CACHE_MAX = 500;
+const authCache = new Map();
+
+function rememberAuth(token, user) {
+  if (authCache.size >= AUTH_CACHE_MAX) {
+    // Map giữ thứ tự chèn: bỏ mục cũ nhất.
+    authCache.delete(authCache.keys().next().value);
+  }
+  authCache.set(token, { user, expiresAt: Date.now() + AUTH_CACHE_TTL_MS });
+}
+
 /**
  * Auth middleware — verifies the Supabase JWT from the Authorization header.
  * Attaches `req.user` with { id, email, role } on success.
@@ -26,6 +39,14 @@ export async function requireAuth(req, res, next) {
 
   const token = header.slice(7);
 
+  // Xác thực tốn 2 lượt gọi Supabase (~600ms). Màn thanh toán gọi API vài giây
+  // một lần nên nhớ kết quả trong thời gian ngắn cho cùng một token.
+  const cached = authCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    req.user = cached.user;
+    return next();
+  }
+
   try {
     const { data, error } = await supabaseAdmin.auth.getUser(token);
     if (error || !data.user) {
@@ -45,6 +66,7 @@ export async function requireAuth(req, res, next) {
       role: profile?.role || 'student',
     };
 
+    rememberAuth(token, req.user);
     return next();
   } catch (err) {
     console.error('[Auth middleware]', err.message);

@@ -30,12 +30,35 @@ export function AddToCartButton({ course, withTutoring = false, className = 'but
   );
 }
 
-export function CartIcon() {
+/** Xe đẩy mua hàng: thân giỏ tô nhạt, nan giỏ, tay đẩy và hai bánh xe. */
+export function CartIcon({ size = 28 }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="20" r="1.4" />
-      <circle cx="18" cy="20" r="1.4" />
-      <path d="M2.5 3.5h2.6l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.2l1.6-6.8H6.2" />
+    <svg
+      className="cart-icon"
+      viewBox="0 0 32 32"
+      aria-hidden="true"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* Thân giỏ */}
+      <path
+        className="cart-icon__basket"
+        d="M7.4 8.5h20.1c.8 0 1.4.8 1.2 1.6l-2 8.3a2.2 2.2 0 0 1-2.1 1.7H10.6"
+        fill="currentColor"
+        fillOpacity="0.16"
+        strokeWidth="2.1"
+      />
+      {/* Nan giỏ */}
+      <path d="M13 8.8l.9 10.8M19.6 8.8l-.4 10.8M8.6 14h18.9" strokeWidth="1.5" strokeOpacity="0.75" />
+      {/* Tay đẩy + khung */}
+      <path d="M2.5 4h2.8c.7 0 1.3.5 1.5 1.2l3.3 15.2c.2.9 1 1.6 2 1.6h14.4" strokeWidth="2.3" />
+      {/* Bánh xe */}
+      <circle cx="12.6" cy="26.4" r="2.1" fill="currentColor" strokeWidth="1.4" />
+      <circle cx="24" cy="26.4" r="2.1" fill="currentColor" strokeWidth="1.4" />
     </svg>
   );
 }

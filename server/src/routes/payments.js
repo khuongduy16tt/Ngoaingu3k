@@ -488,10 +488,19 @@ router.post('/checkout-cart', requireAuth, validate(['items']), async (req, res)
 
   try {
     const courseIds = items.map((item) => item.courseId);
-    const { data: courses, error: coursesError } = await supabaseAdmin
-      .from('courses')
-      .select('*')
-      .in('id', courseIds);
+    // Hai truy vấn độc lập: chạy song song cho bớt một nhịp chờ Supabase.
+    const [
+      { data: courses, error: coursesError },
+      { data: userOrders, error: userOrdersError }
+    ] = await Promise.all([
+      supabaseAdmin.from('courses').select('*').in('id', courseIds),
+      supabaseAdmin
+        .from('orders')
+        .select('*')
+        .eq('user_id', userId)
+        .in('course_id', courseIds)
+        .in('status', ['paid', 'pending'])
+    ]);
 
     if (coursesError) {
       console.error('[POST /api/payments/checkout-cart]', coursesError.message);
@@ -515,13 +524,6 @@ router.post('/checkout-cart', requireAuth, validate(['items']), async (req, res)
         message: `Khóa ${courseLookup.get(noTutoring[0].courseId).title} chưa mở bán gói dạy kèm.`
       });
     }
-
-    const { data: userOrders, error: userOrdersError } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('user_id', userId)
-      .in('course_id', courseIds)
-      .in('status', ['paid', 'pending']);
 
     if (userOrdersError) {
       if (isMissingSepayColumn(userOrdersError)) {
@@ -564,69 +566,88 @@ router.post('/checkout-cart', requireAuth, validate(['items']), async (req, res)
     const lineCourseIds = lines.map((line) => line.id);
 
     // Bấm thanh toán lại đúng giỏ cũ khi chưa chuyển tiền: dùng lại mã cũ để QR không đổi.
+    // Đọc mọi nhóm giỏ đang chờ trong MỘT truy vấn thay vì từng nhóm một.
     const signature = cartSignature(lines);
-    const pendingLeads = (userOrders || []).filter(
-      (order) => order.status === 'pending' && order.combo_group && !order.combo_id && order.transfer_code
-    );
-    for (const lead of pendingLeads) {
-      const group = await loadOrderGroup(lead);
-      if (group.every((row) => row.status === 'pending') && cartSignature(group) === signature) {
-        return res.json({
-          message: 'Đơn giỏ hàng đang chờ chuyển khoản.',
-          mode: 'reused',
-          ...toPaymentResponse(lead, {
-            ...comboExtra(group),
-            lines: group.map((row) => ({
-              id: row.course_id,
-              withTutoring: Boolean(row.with_tutoring),
-              amount: Number(row.amount || 0)
-            })),
-            ...getPgExtra(req, lead, '', amount)
-          })
-        });
+    const pendingGroupIds = [
+      ...new Set(
+        (userOrders || [])
+          .filter((order) => order.status === 'pending' && order.combo_group && !order.combo_id)
+          .map((order) => order.combo_group)
+      )
+    ];
+    if (pendingGroupIds.length) {
+      const { data: groupRows } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .in('combo_group', pendingGroupIds);
+      const groups = new Map();
+      (groupRows || []).forEach((row) => groups.set(row.combo_group, [...(groups.get(row.combo_group) || []), row]));
+
+      for (const group of groups.values()) {
+        const lead = group.find((row) => row.transfer_code);
+        if (lead && group.every((row) => row.status === 'pending') && cartSignature(group) === signature) {
+          return res.json({
+            message: 'Đơn giỏ hàng đang chờ chuyển khoản.',
+            mode: 'reused',
+            ...toPaymentResponse(lead, {
+              ...comboExtra(group),
+              lines: group.map((row) => ({
+                id: row.course_id,
+                withTutoring: Boolean(row.with_tutoring),
+                amount: Number(row.amount || 0)
+              })),
+              ...getPgExtra(req, lead, '', amount)
+            })
+          });
+        }
       }
     }
 
+    // Ghi cả giỏ trong một lệnh insert: hoặc đủ cả nhóm, hoặc không dòng nào —
+    // khỏi phải dọn nhóm thiếu khi lỗi giữa chừng. Đơn đầu nhóm mang mã chuyển khoản.
     const comboGroup = randomUUID();
-    const tutoringField = (line) => (line.withTutoring ? { with_tutoring: true } : {});
-    const [leadLine, ...otherLines] = lines;
-    const { order: leadOrder, error: leadError } = await createOrderWithTransferCode({
-      userId,
-      courseId: leadLine.id,
-      amount: leadLine.amount,
-      extra: { combo_group: comboGroup, ...tutoringField(leadLine) }
-    });
+    let leadOrder = null;
+    let insertError = null;
+    for (let attempt = 0; attempt < 5 && !leadOrder; attempt += 1) {
+      const transferCode = makeTransferCode();
+      const { data: insertedRows, error } = await supabaseAdmin
+        .from('orders')
+        .insert(
+          lines.map((line, index) => ({
+            user_id: userId,
+            course_id: line.id,
+            provider: 'sepay',
+            status: 'pending',
+            amount: line.amount,
+            combo_group: comboGroup,
+            ...(line.withTutoring ? { with_tutoring: true } : {}),
+            ...(index === 0 ? { transfer_code: transferCode } : {})
+          })),
+          // Dòng nào không gửi with_tutoring/transfer_code thì lấy mặc định của cột
+          // (with_tutoring NOT NULL DEFAULT false) thay vì NULL.
+          { defaultToNull: false }
+        )
+        .select('*');
 
-    if (leadError) {
-      if (isMissingComboSchema(leadError)) {
+      insertError = error;
+      if (!error) {
+        leadOrder = (insertedRows || []).find((row) => row.transfer_code === transferCode) || null;
+        if (!leadOrder) insertError = { message: 'Không đọc lại được đơn vừa tạo.' };
+        break;
+      }
+      // Trùng mã chuyển khoản (rất hiếm) thì bốc mã khác; lỗi khác thì dừng.
+      if (error.code !== '23505') break;
+    }
+
+    if (!leadOrder) {
+      if (isMissingComboSchema(insertError)) {
         return res.status(500).json({ message: COMBO_MIGRATION_HINT });
       }
-      if (isMissingSepayColumn(leadError)) {
+      if (isMissingSepayColumn(insertError)) {
         return res.status(500).json({ message: MIGRATION_HINT });
       }
-      console.error('[POST /api/payments/checkout-cart]', leadError.message);
+      console.error('[POST /api/payments/checkout-cart]', insertError?.message);
       return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
-    }
-
-    if (otherLines.length) {
-      const { error: restError } = await supabaseAdmin.from('orders').insert(
-        otherLines.map((line) => ({
-          user_id: userId,
-          course_id: line.id,
-          provider: 'sepay',
-          status: 'pending',
-          amount: line.amount,
-          combo_group: comboGroup,
-          ...tutoringField(line)
-        }))
-      );
-
-      if (restError) {
-        // Nhóm thiếu khóa thì tiền về sẽ mở thiếu — hủy cả nhóm cho học viên bấm lại.
-        await supabaseAdmin.from('orders').delete().eq('combo_group', comboGroup);
-        console.error('[POST /api/payments/checkout-cart]', restError.message);
-        return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
-      }
     }
 
     return res.json({
