@@ -332,6 +332,63 @@
   gap: 0.5rem;
 }
 
+/* ── Đang tạo đơn: khung xám nhấp nháy giữ chỗ cho QR / mã CK ── */
+
+.payment-skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-muted) 0%,
+    var(--color-background-alt) 50%,
+    var(--color-surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: paymentSkeleton 1.2s ease-in-out infinite;
+}
+
+.payment-skeleton--qr {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+}
+
+.payment-skeleton--amount {
+  width: 9.5rem;
+  height: 1.8rem;
+}
+
+.payment-skeleton--value {
+  grid-area: value;
+  width: 7.5rem;
+  height: 1.15rem;
+  margin-top: 0.2rem;
+}
+
+@keyframes paymentSkeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.payment-status.is-error {
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  color: var(--color-error);
+}
+
+.payment-instructions__error {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.payment-instructions__error p {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
 /* Lỡ đóng màn QR: thanh mở lại trên trang. */
 .payment-resume-banner {
   display: flex;
@@ -373,6 +430,7 @@
 
   .payment-amount {
     text-align: center;
+    justify-items: center;
   }
 
   .payment-instructions__waiting-row {
@@ -402,6 +460,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .payment-screen__panel,
+  .payment-skeleton,
   .payment-waiting-dot {
     animation: none;
   }

@@ -180,8 +180,31 @@ export function findPendingCartOrder(userId) {
   );
 }
 
+/**
+ * Bỏ đơn đang chờ khỏi máy học viên (giỏ đã đổi, hoặc đơn bị xóa trên server)
+ * để màn hình không còn mời quét lại mã QR cũ.
+ */
+export function cancelPaymentOrder(orderId) {
+  const order = readPaymentOrders().find((item) => item.id === orderId);
+  if (!order || order.status === 'paid') return null;
+  return upsertPaymentOrder({ ...order, status: 'cancelled', cancelledAt: new Date().toISOString() });
+}
+
+/** Hủy mọi đơn giỏ hàng còn chờ của học viên, trừ đơn keepOrderId. */
+export function cancelOtherCartOrders(userId, keepOrderId) {
+  readPaymentOrders()
+    .filter(
+      (order) =>
+        order.userId === (userId || 'local') &&
+        order.isCart &&
+        order.id !== keepOrderId &&
+        !['paid', 'failed', 'cancelled'].includes(order.status)
+    )
+    .forEach((order) => cancelPaymentOrder(order.id));
+}
+
 /** Bản demo không có server: tự cấp mã chuyển khoản cho đơn giỏ hàng. */
-export function createLocalCartPaymentOrder({ user, title, amount, courseIds, lines }) {
+export function createLocalCartPaymentOrder({ user, title, amount, courseIds, lines, cartKey = '' }) {
   return upsertPaymentOrder({
     id: `local-payment-${Date.now()}`,
     userId: user?.id || 'local',
@@ -191,6 +214,7 @@ export function createLocalCartPaymentOrder({ user, title, amount, courseIds, li
     courseId: courseIds[0] || '',
     courseIds,
     lines,
+    cartKey,
     courseTitle: title,
     amount,
     status: 'pending',

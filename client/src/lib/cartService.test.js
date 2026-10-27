@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { addToCart, clearCart, quoteCartLine, readCart, removeFromCart, setCartItemTutoring } from './cartService';
+import { addToCart, cartKeyOf, clearCart, quoteCartLine, readCart, removeFromCart, setCartItemTutoring } from './cartService';
 
 const course = { id: 'hsk-1', priceValue: 1000000, tutoringPriceValue: 2500000 };
 
@@ -41,5 +41,15 @@ describe('giỏ hàng trong trình duyệt', () => {
 
     removeFromCart(['hsk-1']);
     expect(readCart().map((item) => item.courseId)).toEqual(['hsk-2']);
+  });
+});
+
+describe("cartKeyOf", () => {
+  const line = (id, withTutoring = false) => ({ course: { id }, withTutoring });
+  it("không phụ thuộc thứ tự, đổi gói hoặc xóa khóa thì khác", () => {
+    expect(cartKeyOf([line("a"), line("b", true)])).toBe(cartKeyOf([line("b", true), line("a")]));
+    expect(cartKeyOf([line("a"), line("b")])).not.toBe(cartKeyOf([line("a"), line("b", true)]));
+    expect(cartKeyOf([line("a"), line("b")])).not.toBe(cartKeyOf([line("a")]));
+    expect(cartKeyOf([])).toBe("");
   });
 });

@@ -45,6 +45,9 @@ export default function CourseDetailPage() {
   const [lessonProgressMap, setLessonProgressMap] = useState({});
   const [withTutoring, setWithTutoring] = useState(false);
   const [tutoringCourseIds, setTutoringCourseIds] = useState([]);
+  // Màn QR mở ngay khi bấm mua, trong lúc server còn đang tạo mã.
+  const [draftOrder, setDraftOrder] = useState(null);
+  const [lastPurchaseTutoring, setLastPurchaseTutoring] = useState(false);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -205,6 +208,14 @@ export default function CourseDetailPage() {
 
     setPurchasing(true);
     setFeedback('');
+    setLastPurchaseTutoring(buyTutoring);
+    setDraftOrder({
+      status: 'creating',
+      courseTitle: buyTutoring ? `${course.title} + dạy kèm` : course.title,
+      // Đã có khóa mà thêm dạy kèm thì chỉ trả phần chênh.
+      amount: buyTutoring ? (isOwned ? upgradeAmount : course.tutoringPriceValue) : course.priceValue
+    });
+    setPaymentScreenOpen(true);
 
     try {
       const result = await purchaseCourse({
@@ -217,8 +228,9 @@ export default function CourseDetailPage() {
 
       setOwnedCourseIds(result.ownedCourseIds);
       setPaymentOrder(result.order || null);
-      if (result.requiresPayment && result.order) {
-        setPaymentScreenOpen(true);
+      setDraftOrder(null);
+      if (!(result.requiresPayment && result.order)) {
+        setPaymentScreenOpen(false);
       }
       setFeedback(
         result.requiresPayment
@@ -226,7 +238,9 @@ export default function CourseDetailPage() {
           : `Bạn đã sở hữu ${course.title}.`
       );
     } catch (error) {
-      setFeedback(toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.'));
+      const message = toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
+      setDraftOrder((draft) => (draft ? { ...draft, status: 'error', error: message } : draft));
+      setFeedback(message);
     } finally {
       setPurchasing(false);
     }
@@ -396,7 +410,8 @@ export default function CourseDetailPage() {
       </section>
 
       <PaymentInstructions
-        order={paymentOrder}
+        order={draftOrder || paymentOrder}
+        onRetry={() => handlePurchase(lastPurchaseTutoring)}
         checking={checkingPayment}
         checkNote={paymentCheckNote}
         onCheckNow={() => syncPaymentStatus(paymentOrder, { manual: true })}
@@ -406,6 +421,7 @@ export default function CourseDetailPage() {
         onClose={() => {
           setPaymentScreenOpen(false);
           setPaymentCheckNote('');
+          setDraftOrder(null);
         }}
       />
 

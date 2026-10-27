@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from './api';
 import { isSupabaseReady } from './supabase';
 import { logActivity } from './activityService';
-import { createLocalCartPaymentOrder, upsertPaymentOrder } from './paymentService';
+import { cancelOtherCartOrders, createLocalCartPaymentOrder, upsertPaymentOrder } from './paymentService';
 import { getPurchasedCourseIds, setPurchasedCourseIds } from './purchaseStorage';
 
 // Giỏ hàng nằm trong trình duyệt: khách chưa đăng nhập vẫn bỏ khóa vào giỏ được,
@@ -116,7 +116,20 @@ export function quoteCartLine(course, withTutoring, owned) {
   return { amount: tutoringPrice, alreadyOwned: false, isUpgrade: false };
 }
 
-function cartTitle(lines) {
+/**
+ * "Dấu vân tay" của giỏ lúc thanh toán: khóa nào, gói nào. Giỏ đổi (xóa khóa,
+ * đổi gói, xóa hết) thì dấu khác → đơn cũ không còn là đơn của giỏ này nữa.
+ *
+ * @param {Array<{ course: { id: string }, withTutoring: boolean }>} lines
+ */
+export function cartKeyOf(lines) {
+  return (lines || [])
+    .map((line) => `${line.course.id}:${line.withTutoring ? 1 : 0}`)
+    .sort()
+    .join('|');
+}
+
+export function cartTitle(lines) {
   if (lines.length === 1) {
     const [line] = lines;
     return line.withTutoring ? `${line.course.title} + dạy kèm` : line.course.title;
@@ -155,8 +168,10 @@ export async function checkoutCart({ lines, userId, accessToken, user }) {
       title,
       amount: lines.reduce((sum, line) => sum + line.amount, 0),
       courseIds: lines.flatMap((line) => [line.course.id, line.course.databaseId].filter(Boolean)),
-      lines: lines.map((line) => ({ id: line.course.id, withTutoring: line.withTutoring, amount: line.amount }))
+      lines: lines.map((line) => ({ id: line.course.id, withTutoring: line.withTutoring, amount: line.amount })),
+      cartKey: cartKeyOf(lines)
     });
+    cancelOtherCartOrders(userId, order?.id);
     return { order, requiresPayment: true };
   }
 
@@ -193,6 +208,7 @@ export async function checkoutCart({ lines, userId, accessToken, user }) {
     courseId: paidLineIds[0] || '',
     courseIds: unlockIdsFor(paidLineIds),
     lines: response.lines || [],
+    cartKey: cartKeyOf(lines),
     courseTitle: title,
     amount: response.amount,
     status: response.status || 'pending',
@@ -204,6 +220,9 @@ export async function checkoutCart({ lines, userId, accessToken, user }) {
     accountName: response.accountName,
     createdAt: new Date().toISOString()
   });
+
+  // Mỗi lúc chỉ giữ một đơn giỏ đang chờ: đơn của giỏ cũ không hiện lại nữa.
+  cancelOtherCartOrders(userId, order?.id);
 
   void logActivity(userId, 'purchase', response.orderId, title, {
     orderId: response.orderId,

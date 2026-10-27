@@ -503,6 +503,12 @@ router.post('/checkout-cart', requireAuth, validate(['items']), async (req, res)
     ]);
 
     if (coursesError) {
+      // 22P02: mã khóa không phải uuid (giỏ cũ còn khóa đã bị xóa) — báo như khóa ngừng bán.
+      if (coursesError.code === '22P02') {
+        return res.status(404).json({
+          message: 'Có khóa học trong giỏ không còn mở bán. Xóa khóa đó khỏi giỏ rồi thử lại.'
+        });
+      }
       console.error('[POST /api/payments/checkout-cart]', coursesError.message);
       return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
     }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   checkCoursePaymentStatus,
@@ -262,6 +262,10 @@ export default function CoursesPage() {
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [paymentCheckNote, setPaymentCheckNote] = useState('');
   const [feedback, setFeedback] = useState({ courseId: '', text: '' });
+  // Màn QR mở ngay khi bấm mua, trong lúc server còn đang tạo mã; lỗi thì bấm
+  // "Thử lại" chạy lại đúng lần mua vừa rồi.
+  const [draftOrder, setDraftOrder] = useState(null);
+  const retryPurchaseRef = useRef(null);
 
   useEffect(() => {
     if (!auth.ready) {
@@ -391,6 +395,13 @@ export default function CoursesPage() {
 
     setFeedback({ courseId: '', text: '' });
     setPurchasingCourseId(course.id);
+    retryPurchaseRef.current = () => handlePurchase(course, withTutoring);
+    setDraftOrder({
+      status: 'creating',
+      courseTitle: withTutoring ? `${course.title} + dạy kèm` : course.title,
+      amount: withTutoring ? course.tutoringPriceValue : course.priceValue
+    });
+    setPaymentScreenOpen(true);
 
     try {
       const result = await purchaseCourse({
@@ -403,8 +414,9 @@ export default function CoursesPage() {
 
       setOwnedCourseIds(result.ownedCourseIds);
       setActivePaymentOrder(result.order || null);
-      if (result.requiresPayment && result.order) {
-        setPaymentScreenOpen(true);
+      setDraftOrder(null);
+      if (!(result.requiresPayment && result.order)) {
+        setPaymentScreenOpen(false);
       }
       setFeedback({
         courseId: course.id,
@@ -413,7 +425,9 @@ export default function CoursesPage() {
           : `Bạn đã sở hữu ${course.title}.`
       });
     } catch (error) {
-      setFeedback({ courseId: course.id, text: toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.') });
+      const message = toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
+      setDraftOrder((draft) => (draft ? { ...draft, status: 'error', error: message } : draft));
+      setFeedback({ courseId: course.id, text: message });
     } finally {
       setPurchasingCourseId('');
     }
@@ -426,6 +440,10 @@ export default function CoursesPage() {
 
     setFeedback({ courseId: '', text: '' });
     setPurchasingCourseId(combo.id);
+    retryPurchaseRef.current = () => handlePurchaseCombo(combo, withTutoring);
+    // Giá combo còn tùy khóa học viên đã có, nên để server báo số tiền.
+    setDraftOrder({ status: 'creating', courseTitle: withTutoring ? `${combo.title} + dạy kèm` : combo.title });
+    setPaymentScreenOpen(true);
 
     try {
       const result = await purchaseCombo({
@@ -440,8 +458,9 @@ export default function CoursesPage() {
         setOwnedCourseIds(result.ownedCourseIds);
       }
       setActivePaymentOrder(result.order || null);
-      if (result.requiresPayment && result.order) {
-        setPaymentScreenOpen(true);
+      setDraftOrder(null);
+      if (!(result.requiresPayment && result.order)) {
+        setPaymentScreenOpen(false);
       }
       setFeedback({
         courseId: combo.id,
@@ -450,7 +469,9 @@ export default function CoursesPage() {
           : `Bạn đã sở hữu toàn bộ khóa trong ${combo.title}.`
       });
     } catch (error) {
-      setFeedback({ courseId: combo.id, text: toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.') });
+      const message = toFriendlyError(error, 'Chưa thể hoàn tất giao dịch. Vui lòng thử lại sau.');
+      setDraftOrder((draft) => (draft ? { ...draft, status: 'error', error: message } : draft));
+      setFeedback({ courseId: combo.id, text: message });
     } finally {
       setPurchasingCourseId('');
     }
@@ -459,7 +480,8 @@ export default function CoursesPage() {
   return (
     <div className="page course-market-page">
       <PaymentInstructions
-        order={activePaymentOrder}
+        order={draftOrder || activePaymentOrder}
+        onRetry={() => retryPurchaseRef.current?.()}
         checking={checkingPayment}
         checkNote={paymentCheckNote}
         onCheckNow={() => syncPaymentStatus(activePaymentOrder, { manual: true })}
@@ -473,6 +495,7 @@ export default function CoursesPage() {
         onClose={() => {
           setPaymentScreenOpen(false);
           setPaymentCheckNote('');
+          setDraftOrder(null);
         }}
       />
 

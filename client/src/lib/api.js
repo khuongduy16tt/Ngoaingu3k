@@ -46,7 +46,10 @@ export async function apiFetch(path, options = {}) {
         typeof payload === 'string'
           ? payload
           : payload?.message || 'Yêu cầu chưa hoàn tất.';
-      throw new Error(message);
+      const error = new Error(message);
+      // Trang gọi phân biệt được 404 (vd đơn đã bị xóa) với lỗi mạng.
+      error.status = response.status;
+      throw error;
     }
 
     return payload;

@@ -42,4 +42,21 @@ describe('PaymentInstructions', () => {
     expect(screen.queryByRole('link', { name: 'Vào học ngay' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xem khóa đã mua' })).toBeInTheDocument();
   });
+
+  it("đang tạo đơn: hiện ngay tên khóa + số tiền, chưa có nút kiểm tra", () => {
+    renderPayment({ order: { status: "creating", courseTitle: "HSK 2", amount: 900000 }, onCheckNow: vi.fn() });
+    expect(screen.getByText("HSK 2")).toBeInTheDocument();
+    expect(screen.getByText(/900.000/)).toBeInTheDocument();
+    expect(screen.getByText("Đang tạo mã thanh toán...")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kiểm tra ngay" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Mã QR chuyển khoản" })).not.toBeInTheDocument();
+  });
+
+  it("tạo đơn lỗi: báo lỗi và bấm Thử lại được", () => {
+    const onRetry = vi.fn();
+    renderPayment({ order: { status: "error", courseTitle: "HSK 2", error: "Mất mạng." }, onRetry, onClose: vi.fn() });
+    expect(screen.getByRole("alert")).toHaveTextContent("Mất mạng.");
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(onRetry).toHaveBeenCalled();
+  });
 });

@@ -7,13 +7,15 @@ import {
   getTutoringCourseIds
 } from '../lib/courseService';
 import {
+  cartKeyOf,
+  cartTitle,
   checkoutCart,
   quoteCartLine,
   removeFromCart,
   setCartItemTutoring,
   useCart
 } from '../lib/cartService';
-import { findPendingCartOrder } from '../lib/paymentService';
+import { cancelPaymentOrder, findPendingCartOrder } from '../lib/paymentService';
 import { formatVnd } from '../lib/money';
 import { getEffectiveRole } from '../lib/permissions';
 import { handleRemoteImageError, supabaseImageUrl } from '../lib/imageCdn';
@@ -125,6 +127,8 @@ export default function CartPage() {
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [paymentCheckNote, setPaymentCheckNote] = useState('');
   const [justPaid, setJustPaid] = useState([]);
+  // Màn QR mở ngay khi bấm "Thanh toán", trong lúc server còn đang tạo mã.
+  const [draftOrder, setDraftOrder] = useState(null);
 
   useEffect(() => {
     if (!auth.ready) return undefined;
@@ -146,6 +150,24 @@ export default function CartPage() {
           setOwnedCourseIds(nextOwned);
           setTutoringCourseIds(nextTutoring);
           setPaymentOrder(auth.user?.id ? findPendingCartOrder(auth.user.id) || null : null);
+        }
+
+        // Đơn chờ lưu trên máy có thể đã bị xóa/hủy trên server: hỏi lại một lần,
+        // không còn thì bỏ để khỏi mời quét một mã QR không còn giá trị.
+        const storedOrder = auth.user?.id ? findPendingCartOrder(auth.user.id) : null;
+        if (storedOrder && auth.session?.access_token && !String(storedOrder.id).startsWith('local-payment-')) {
+          try {
+            const result = await checkCoursePaymentStatus({
+              order: storedOrder,
+              accessToken: auth.session.access_token
+            });
+            if (alive && result.order) setPaymentOrder(result.order);
+          } catch (error) {
+            if (error?.status === 404 || error?.status === 403) {
+              cancelPaymentOrder(storedOrder.id);
+              if (alive) setPaymentOrder(null);
+            }
+          }
         }
       } catch (error) {
         console.warn('[CartPage load]', error?.message || error);
@@ -194,6 +216,18 @@ export default function CartPage() {
   );
   const total = payableLines.reduce((sum, line) => sum + line.quote.amount, 0);
   const upgradeCredit = subtotal - total;
+  const currentCartKey = cartKeyOf(payableLines);
+
+  // Giỏ đã đổi (xóa khóa, đổi gói, xóa hết) thì đơn đang chờ không còn là của
+  // giỏ này: hủy trên máy để không hiện lại mã QR cũ. Bấm "Thanh toán" sẽ tạo
+  // đơn mới đúng với giỏ hiện tại.
+  useEffect(() => {
+    if (loading || !paymentOrder || draftOrder || paymentScreenOpen) return;
+    if (['paid', 'failed', 'cancelled'].includes(paymentOrder.status)) return;
+    if (paymentOrder.cartKey && paymentOrder.cartKey === currentCartKey) return;
+    cancelPaymentOrder(paymentOrder.id);
+    setPaymentOrder(null);
+  }, [loading, paymentOrder, draftOrder, paymentScreenOpen, currentCartKey]);
 
   const syncPaymentStatus = useCallback(
     async (order, { manual = false } = {}) => {
@@ -237,16 +271,30 @@ export default function CartPage() {
   async function handleCheckout() {
     if (!auth.session || currentRole !== 'student' || !payableLines.length) return;
 
+    // Giỏ không đổi và đơn vẫn đang chờ: mở lại đúng mã QR cũ, khỏi gọi server.
+    if (
+      paymentOrder?.cartKey === currentCartKey &&
+      !['paid', 'failed', 'cancelled'].includes(paymentOrder.status)
+    ) {
+      setDraftOrder(null);
+      setPaymentScreenOpen(true);
+      return;
+    }
+
+    const checkoutLines = payableLines.map((line) => ({
+      course: line.course,
+      withTutoring: line.withTutoring,
+      amount: line.quote.amount
+    }));
+
     setSubmitting(true);
     setFeedback('');
     setJustPaid([]);
+    setDraftOrder({ status: 'creating', courseTitle: cartTitle(checkoutLines), amount: total });
+    setPaymentScreenOpen(true);
     try {
       const result = await checkoutCart({
-        lines: payableLines.map((line) => ({
-          course: line.course,
-          withTutoring: line.withTutoring,
-          amount: line.quote.amount
-        })),
+        lines: checkoutLines,
         userId: auth.user?.id,
         accessToken: auth.session?.access_token,
         user: auth.user
@@ -254,16 +302,21 @@ export default function CartPage() {
 
       if (result.requiresPayment && result.order) {
         setPaymentOrder(result.order);
-        setPaymentScreenOpen(true);
+        setDraftOrder(null);
         return;
       }
+
+      setDraftOrder(null);
+      setPaymentScreenOpen(false);
 
       // Server báo đã sở hữu hết (vd vừa mua ở máy khác): dọn giỏ cho khớp.
       if (result.ownedCourseIds) setOwnedCourseIds(result.ownedCourseIds);
       removeFromCart(payableLines.map((line) => line.key));
       setFeedback('Bạn đã sở hữu toàn bộ khóa trong giỏ.');
     } catch (error) {
-      setFeedback(toFriendlyError(error, 'Chưa thể tạo đơn thanh toán. Vui lòng thử lại sau.'));
+      const message = toFriendlyError(error, 'Chưa thể tạo đơn thanh toán. Vui lòng thử lại sau.');
+      setDraftOrder((draft) => (draft ? { ...draft, status: 'error', error: message } : draft));
+      setFeedback(message);
     } finally {
       setSubmitting(false);
     }
@@ -276,7 +329,8 @@ export default function CartPage() {
   return (
     <div className="page cart-page">
       <PaymentInstructions
-        order={paymentOrder}
+        order={draftOrder || paymentOrder}
+        onRetry={handleCheckout}
         checking={checkingPayment}
         checkNote={paymentCheckNote}
         onCheckNow={() => syncPaymentStatus(paymentOrder, { manual: true })}
@@ -286,6 +340,7 @@ export default function CartPage() {
         onClose={() => {
           setPaymentScreenOpen(false);
           setPaymentCheckNote('');
+          setDraftOrder(null);
         }}
       />
 

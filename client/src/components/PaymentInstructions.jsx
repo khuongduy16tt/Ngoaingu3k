@@ -30,6 +30,8 @@ function buildFallbackQrUrl(order) {
 }
 
 const statusText = {
+  creating: 'Đang tạo đơn',
+  error: 'Chưa tạo được đơn',
   pending_payment: 'Chờ chuyển khoản',
   pending: 'Chờ chuyển khoản',
   awaiting_admin: 'Chờ xác nhận',
@@ -76,6 +78,7 @@ export function PaymentInstructions({
   variant = 'card',
   open = true,
   onClose,
+  onRetry,
 }) {
   const isOverlay = variant === 'overlay';
 
@@ -101,6 +104,11 @@ export function PaymentInstructions({
   if (isOverlay && !open) return null;
 
   const paid = order.status === 'paid';
+  // Vừa bấm mua, server chưa trả mã: hiện khung màn QR ngay, chỗ nào chưa có thì
+  // để khung xám nhấp nháy. Tạo đơn lỗi thì báo ngay trong màn này.
+  const creating = order.status === 'creating';
+  const failed = order.status === 'error';
+  const hasAmount = order.amount !== undefined && order.amount !== null;
   // Ưu tiên thông tin server trả về (tài khoản đã nối SePay → tự mở khóa).
   const fromServer = Boolean(order.accountNumber);
   const qrUrl = order.qrImageUrl || buildFallbackQrUrl(order) || STATIC_QR_URL;
@@ -109,10 +117,13 @@ export function PaymentInstructions({
   const accountName = fromServer ? order.accountName || '' : BANK_INFO.accountName;
 
   const content = (
-    <section className={`payment-instructions${isOverlay ? ' payment-instructions--overlay' : ''}`}>
+    <section
+      className={`payment-instructions${isOverlay ? ' payment-instructions--overlay' : ''}`}
+      aria-busy={creating || undefined}
+    >
       <header className="payment-instructions__head">
         <div className="payment-instructions__title">
-          <span className={`payment-status${paid ? ' is-paid' : ''}`}>
+          <span className={`payment-status${paid ? ' is-paid' : ''}${failed ? ' is-error' : ''}`}>
             {statusText[order.status] || 'Chờ chuyển khoản'}
           </span>
           <h3>{order.courseTitle}</h3>
@@ -129,7 +140,23 @@ export function PaymentInstructions({
         ) : null}
       </header>
 
-      {paid ? (
+      {failed ? (
+        <div className="payment-instructions__error" role="alert">
+          <p>{order.error || 'Chưa tạo được đơn thanh toán. Vui lòng thử lại.'}</p>
+          <div className="payment-instructions__paid-actions">
+            {onRetry ? (
+              <button type="button" className="button" onClick={onRetry}>
+                Thử lại
+              </button>
+            ) : null}
+            {onClose ? (
+              <button type="button" className={onRetry ? 'button-ghost' : 'button'} onClick={onClose}>
+                Đóng
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : paid ? (
         <div className="payment-instructions__paid" role="status">
           <span className="payment-instructions__paid-icon" aria-hidden="true">✓</span>
           <p>Đã nhận {formatVnd(order.amount)}. Khóa học đã mở, bạn vào học được ngay.</p>
@@ -149,39 +176,68 @@ export function PaymentInstructions({
       ) : (
         <>
           <div className="payment-instructions__body">
-            <div className="payment-qr-box">
-              <img src={qrUrl} alt="Mã QR chuyển khoản" width="220" height="220" />
+            <div className={`payment-qr-box${creating ? ' is-loading' : ''}`}>
+              {creating ? (
+                <span className="payment-skeleton payment-skeleton--qr" aria-label="Đang tạo mã QR" />
+              ) : (
+                <img src={qrUrl} alt="Mã QR chuyển khoản" width="220" height="220" />
+              )}
             </div>
 
             <div className="payment-instructions__info">
               <div className="payment-amount">
                 <span>Số tiền</span>
-                <strong>{formatVnd(order.amount)}</strong>
+                {hasAmount ? (
+                  <strong>{formatVnd(order.amount)}</strong>
+                ) : (
+                  <span className="payment-skeleton payment-skeleton--amount" />
+                )}
               </div>
 
-              {order.transferCode ? (
-                <CopyField label="Nội dung CK" value={order.transferCode} highlight />
-              ) : null}
+              {creating ? (
+                <>
+                  <div className="payment-field is-highlight">
+                    <span className="payment-field__label">Nội dung CK</span>
+                    <span className="payment-skeleton payment-skeleton--value" />
+                  </div>
+                  <div className="payment-field">
+                    <span className="payment-field__label">Số tài khoản</span>
+                    <span className="payment-skeleton payment-skeleton--value" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {order.transferCode ? (
+                    <CopyField label="Nội dung CK" value={order.transferCode} highlight />
+                  ) : null}
 
-              {accountNumber ? (
-                <CopyField label={bankName ? `STK · ${bankName}` : 'Số tài khoản'} value={accountNumber} />
-              ) : null}
+                  {accountNumber ? (
+                    <CopyField label={bankName ? `STK · ${bankName}` : 'Số tài khoản'} value={accountNumber} />
+                  ) : null}
 
-              {accountName ? <p className="payment-account-name">{accountName}</p> : null}
+                  {accountName ? <p className="payment-account-name">{accountName}</p> : null}
+                </>
+              )}
             </div>
           </div>
 
           <footer className="payment-instructions__waiting">
             <div className="payment-instructions__waiting-row">
               <span className="payment-waiting-dot" aria-hidden="true" />
-              <span>{checking ? 'Đang kiểm tra giao dịch...' : 'Quét QR — khóa tự mở sau 1–2 phút.'}</span>
-              {onCheckNow ? (
+              <span>
+                {creating
+                  ? 'Đang tạo mã thanh toán...'
+                  : checking
+                    ? 'Đang kiểm tra giao dịch...'
+                    : 'Quét QR — khóa tự mở sau 1–2 phút.'}
+              </span>
+              {onCheckNow && !creating ? (
                 <button type="button" className="payment-check-button" onClick={onCheckNow} disabled={checking}>
                   Kiểm tra ngay
                 </button>
               ) : null}
             </div>
-            {checkNote ? (
+            {checkNote && !creating ? (
               <p className="payment-instructions__check-note" role="status">
                 {checkNote}
               </p>
