@@ -1,0 +1,310 @@
+/* Giỏ hàng: icon trên header, trang /cart (danh sách khóa + tóm tắt đơn). */
+
+.site-header__cart {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  color: var(--color-header-text);
+  transition: background-color 0.15s ease;
+}
+
+.site-header__cart:hover,
+.site-header__cart:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.site-header__cart-count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--color-header-bg);
+}
+
+.add-to-cart.is-added {
+  color: var(--color-success-text);
+  border-color: currentColor;
+}
+
+/* ── Trang giỏ hàng ── */
+
+.cart-page__head {
+  margin-bottom: 1.25rem;
+}
+
+.cart-page__head h1 {
+  margin: 0.25rem 0 0;
+}
+
+.cart-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.cart-items {
+  padding: 1.25rem;
+}
+
+.cart-items__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.cart-items__head h2,
+.cart-summary h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.cart-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cart-line {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.cart-line:first-child {
+  border-top: 0;
+}
+
+.cart-line.is-disabled .cart-line__media,
+.cart-line.is-disabled .cart-line__title {
+  opacity: 0.6;
+}
+
+.cart-line__media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 2 / 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cart-line__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-line__body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.cart-line__title {
+  color: var(--color-text-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cart-line__title:hover {
+  color: var(--color-link);
+}
+
+.cart-line__meta {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.cart-line__note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.cart-line__body .package-picker {
+  margin-top: 0.25rem;
+}
+
+.cart-line__side {
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+}
+
+.cart-line__price {
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.cart-line__remove,
+.cart-line__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.cart-line__remove {
+  color: var(--color-text-muted);
+}
+
+.cart-line__remove:hover {
+  color: var(--color-error);
+}
+
+.cart-summary {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.cart-summary__rows {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.cart-summary__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cart-summary__rows dt {
+  color: var(--color-text-secondary);
+}
+
+.cart-summary__rows dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cart-summary__total {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-divider);
+}
+
+.cart-summary__total dt {
+  color: var(--color-text-primary);
+  font-weight: 800;
+}
+
+.cart-summary__total dd {
+  color: var(--color-primary);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.cart-summary__cta {
+  width: 100%;
+}
+
+.cart-summary__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.cart-empty {
+  justify-items: start;
+}
+
+.cart-success {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+  border-left: 4px solid var(--color-success);
+}
+
+.cart-success h2,
+.cart-success p {
+  margin: 0;
+}
+
+.cart-success__list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cart-success__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .cart-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cart-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .cart-items,
+  .cart-summary {
+    padding: 1rem;
+  }
+
+  .cart-line {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+
+  .cart-line__side {
+    grid-column: 2;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .site-header__cart {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Thẻ khóa học: 3 nút không vừa một hàng — nút giỏ xuống hàng riêng, rộng hết thẻ. */
+.marketplace-card__actions .add-to-cart {
+  order: 3;
+  flex: 1 1 100%;
+}

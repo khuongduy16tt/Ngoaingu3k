@@ -10,6 +10,7 @@ import { AuthModalLink } from '../providers/AuthModalProvider';
 import { ConsultationPopup } from '../components/ConsultationPopup';
 import { HeaderMascot } from '../components/HeaderMascot';
 import { BrandLogo } from '../components/BrandLogo';
+import { HeaderCartLink } from '../components/AddToCartButton';
 import { getCourseCatalog, isHskCourse, getHskLevel, groupHskCourses } from '../lib/courseService';
 
 export function AppLayout({ children }) {
@@ -945,6 +946,8 @@ function TopBar() {
         </nav>
 
         <div className="site-header__actions">
+          {/* Giỏ chỉ dành cho học viên và khách — giảng viên/admin không mua khóa. */}
+          {!signedIn || currentRole === 'student' ? <HeaderCartLink onClick={closeMobileMenu} /> : null}
           {signedIn ? (
             <UserAvatar />
           ) : (

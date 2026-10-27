@@ -17,6 +17,7 @@ import { PaymentInstructions } from '../components/PaymentInstructions';
 import { formatVnd } from '../lib/money';
 import { ComboSection } from '../components/ComboSection';
 import { PackagePicker } from '../components/PackagePicker';
+import { AddToCartButton } from '../components/AddToCartButton';
 import { getPublishedCombos, purchaseCombo } from '../lib/comboService';
 import { AuthModalLink } from '../providers/AuthModalProvider';
 import { toFriendlyError } from '../lib/friendlyError';
@@ -151,6 +152,10 @@ function CourseCard({ course, isOwned, authSession, currentRole, purchasingCours
             <Link className="button-ghost" to={`/courses/${course.id}`}>
               Chi tiết
             </Link>
+
+            {!isOwned && (!authSession || currentRole === 'student') ? (
+              <AddToCartButton course={course} withTutoring={withTutoring} />
+            ) : null}
 
             {isOwned ? (
               <Link className="button" to={`/learn/${course.id}`}>

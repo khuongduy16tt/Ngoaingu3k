@@ -124,6 +124,7 @@ export function findPaymentOrderForCourse(userId, courseId, withTutoring) {
     (order) =>
       order.userId === (userId || 'local') &&
       !order.comboId &&
+      !order.isCart &&
       // Không truyền withTutoring = gói nào cũng được (trang chi tiết mở lại đơn đang chờ).
       (withTutoring === undefined || Boolean(order.withTutoring) === Boolean(withTutoring)) &&
       (order.localCourseId === courseId || order.courseId === courseId) &&
@@ -165,6 +166,41 @@ export function findPaymentOrderForCombo(userId, comboId, withTutoring) {
       order.status !== 'failed' &&
       order.status !== 'cancelled'
   );
+}
+
+/** Đơn giỏ hàng gần nhất của học viên còn đang chờ chuyển khoản. */
+export function findPendingCartOrder(userId) {
+  return readPaymentOrders().find(
+    (order) =>
+      order.userId === (userId || 'local') &&
+      order.isCart &&
+      order.status !== 'paid' &&
+      order.status !== 'failed' &&
+      order.status !== 'cancelled'
+  );
+}
+
+/** Bản demo không có server: tự cấp mã chuyển khoản cho đơn giỏ hàng. */
+export function createLocalCartPaymentOrder({ user, title, amount, courseIds, lines }) {
+  return upsertPaymentOrder({
+    id: `local-payment-${Date.now()}`,
+    userId: user?.id || 'local',
+    studentEmail: user?.email || '',
+    studentName: user?.user_metadata?.full_name || user?.email || 'Học viên',
+    isCart: true,
+    courseId: courseIds[0] || '',
+    courseIds,
+    lines,
+    courseTitle: title,
+    amount,
+    status: 'pending',
+    provider: 'sepay',
+    transferCode: makeTransferCode(),
+    bankCode: SEPAY_BANK_CODE,
+    accountNumber: SEPAY_ACCOUNT_NUMBER,
+    accountName: SEPAY_ACCOUNT_NAME,
+    createdAt: new Date().toISOString()
+  });
 }
 
 export function approveManualPaymentOrder(orderId) {

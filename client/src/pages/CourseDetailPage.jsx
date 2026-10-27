@@ -10,6 +10,7 @@ import {
 } from '../lib/courseService';
 import { formatVnd } from '../lib/money';
 import { PackagePicker } from '../components/PackagePicker';
+import { AddToCartButton } from '../components/AddToCartButton';
 import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { getLessonProgress } from '../lib/progressService';
 import { isLessonComplete } from '../lib/lessonStars';
@@ -377,6 +378,10 @@ export default function CourseDetailPage() {
               Đăng nhập để mua
             </AuthModalLink>
           )}
+
+          {!isOwned && (!auth.session || currentRole === 'student') ? (
+            <AddToCartButton course={course} withTutoring={withTutoring} />
+          ) : null}
 
           <Link className="button-ghost" to="/courses">
             Quay lại danh mục

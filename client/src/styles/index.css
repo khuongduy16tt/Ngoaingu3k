@@ -55,3 +55,6 @@
 /* 13. Site v2 (10/2026): đưa thiết kế trang chủ mới ra mọi trang — restyle các
        thành phần dùng chung (nút, thẻ, ô nhập, nhãn, bảng). Nạp sau cùng. */
 @import './site-v2.css';
+
+/* 14. Giỏ hàng: icon header + trang /cart. */
+@import './components/cart.css';

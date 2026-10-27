@@ -26,6 +26,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const ExamsPage = lazy(() => import('./pages/ExamsPage'));
 const ExamRoomPage = lazy(() => import('./pages/ExamRoomPage'));
 const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
 
 function LoadingScreen() {
   return (
@@ -137,6 +138,7 @@ export function AppRoutes() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/courses" element={<CoursesPage />} />
         <Route path="/courses/:courseId" element={<CourseDetailPage />} />
+        <Route path="/cart" element={<CartPage />} />
         <Route path="/test" element={<TestPage />} />
         <Route
           path="/learn"

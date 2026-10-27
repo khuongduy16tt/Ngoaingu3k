@@ -437,6 +437,215 @@ router.post('/checkout-combo', requireAuth, validate(['comboId']), async (req, r
   }
 });
 
+const CART_MAX_ITEMS = 20;
+
+function readCartItems(rawItems) {
+  if (!Array.isArray(rawItems)) return [];
+  // Cùng một khóa bỏ vào hai lần thì lấy lần sau cùng.
+  const byCourse = new Map();
+  rawItems.slice(0, CART_MAX_ITEMS * 2).forEach((item) => {
+    const courseId = String(item?.courseId || '').trim();
+    if (courseId) byCourse.set(courseId, wantsTutoring(item));
+  });
+  return [...byCourse.entries()]
+    .slice(0, CART_MAX_ITEMS)
+    .map(([courseId, withTutoring]) => ({ courseId, withTutoring }));
+}
+
+function cartSignature(rows) {
+  return rows
+    .map((row) => `${row.course_id ?? row.id}:${row.with_tutoring ?? row.withTutoring ? 1 : 0}:${Number(row.amount || 0)}`)
+    .sort()
+    .join('|');
+}
+
+/**
+ * POST /api/payments/checkout-cart
+ * Thanh toán giỏ hàng: nhiều khóa lẻ (mỗi khóa chọn có/không dạy kèm) trong một
+ * lần chuyển khoản. Dùng lại cơ chế nhóm của combo — mỗi khóa một đơn, chung
+ * combo_group (combo_id để trống), đơn đầu nhóm mang mã chuyển khoản — nên
+ * webhook SePay, duyệt/thu hồi tay của admin xử lý cả giỏ như một combo.
+ */
+router.post('/checkout-cart', requireAuth, validate(['items']), async (req, res) => {
+  const items = readCartItems(req.body.items);
+  const userId = req.user.id;
+
+  if (!items.length) {
+    return res.status(400).json({ message: 'Giỏ hàng đang trống.' });
+  }
+
+  if (!isSupabaseAdminReady()) {
+    return res.json({
+      message: 'Đơn giỏ hàng mock (chưa cấu hình Supabase).',
+      orderId: `mock-order-${Date.now()}`,
+      amount: Number(req.body.amount || 0),
+      status: 'pending',
+      mode: 'mock',
+      courseIds: items.map((item) => item.courseId),
+      ...buildPaymentTarget({ amount: req.body.amount, transferCode: makeTransferCode() })
+    });
+  }
+
+  try {
+    const courseIds = items.map((item) => item.courseId);
+    const { data: courses, error: coursesError } = await supabaseAdmin
+      .from('courses')
+      .select('*')
+      .in('id', courseIds);
+
+    if (coursesError) {
+      console.error('[POST /api/payments/checkout-cart]', coursesError.message);
+      return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
+    }
+
+    const courseLookup = new Map((courses || []).map((course) => [course.id, course]));
+    const unavailable = items.filter((item) => courseLookup.get(item.courseId)?.status !== 'published');
+    if (unavailable.length) {
+      return res.status(404).json({
+        message: 'Có khóa học trong giỏ không còn mở bán. Xóa khóa đó khỏi giỏ rồi thử lại.',
+        unavailableCourseIds: unavailable.map((item) => item.courseId)
+      });
+    }
+
+    const noTutoring = items.filter(
+      (item) => item.withTutoring && !Number(courseLookup.get(item.courseId).tutoring_price)
+    );
+    if (noTutoring.length) {
+      return res.status(400).json({
+        message: `Khóa ${courseLookup.get(noTutoring[0].courseId).title} chưa mở bán gói dạy kèm.`
+      });
+    }
+
+    const { data: userOrders, error: userOrdersError } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('user_id', userId)
+      .in('course_id', courseIds)
+      .in('status', ['paid', 'pending']);
+
+    if (userOrdersError) {
+      if (isMissingSepayColumn(userOrdersError)) {
+        return res.status(500).json({ message: MIGRATION_HINT });
+      }
+      console.error('[POST /api/payments/checkout-cart]', userOrdersError.message);
+      return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
+    }
+
+    // Giá lấy từ DB. Khóa đã sở hữu thì bỏ khỏi đơn; đã có khóa mà thêm dạy kèm
+    // thì chỉ tính phần chênh — giống hệt mua lẻ.
+    const owned = ownershipFromOrders(userOrders);
+    const lines = items
+      .map((item) => {
+        const course = courseLookup.get(item.courseId);
+        const quote = quoteCoursePurchase({
+          price: course.price,
+          tutoringPrice: course.tutoring_price,
+          owned: owned.get(item.courseId),
+          withTutoring: item.withTutoring
+        });
+        return quote.alreadyOwned
+          ? null
+          : { id: item.courseId, withTutoring: item.withTutoring, amount: quote.amount };
+      })
+      .filter(Boolean);
+
+    if (!lines.length) {
+      return res.json({
+        message: 'Bạn đã sở hữu toàn bộ khóa trong giỏ.',
+        mode: 'existing',
+        orderId: null,
+        status: 'paid',
+        amount: 0,
+        courseIds
+      });
+    }
+
+    const amount = lines.reduce((sum, line) => sum + line.amount, 0);
+    const lineCourseIds = lines.map((line) => line.id);
+
+    // Bấm thanh toán lại đúng giỏ cũ khi chưa chuyển tiền: dùng lại mã cũ để QR không đổi.
+    const signature = cartSignature(lines);
+    const pendingLeads = (userOrders || []).filter(
+      (order) => order.status === 'pending' && order.combo_group && !order.combo_id && order.transfer_code
+    );
+    for (const lead of pendingLeads) {
+      const group = await loadOrderGroup(lead);
+      if (group.every((row) => row.status === 'pending') && cartSignature(group) === signature) {
+        return res.json({
+          message: 'Đơn giỏ hàng đang chờ chuyển khoản.',
+          mode: 'reused',
+          ...toPaymentResponse(lead, {
+            ...comboExtra(group),
+            lines: group.map((row) => ({
+              id: row.course_id,
+              withTutoring: Boolean(row.with_tutoring),
+              amount: Number(row.amount || 0)
+            })),
+            ...getPgExtra(req, lead, '', amount)
+          })
+        });
+      }
+    }
+
+    const comboGroup = randomUUID();
+    const tutoringField = (line) => (line.withTutoring ? { with_tutoring: true } : {});
+    const [leadLine, ...otherLines] = lines;
+    const { order: leadOrder, error: leadError } = await createOrderWithTransferCode({
+      userId,
+      courseId: leadLine.id,
+      amount: leadLine.amount,
+      extra: { combo_group: comboGroup, ...tutoringField(leadLine) }
+    });
+
+    if (leadError) {
+      if (isMissingComboSchema(leadError)) {
+        return res.status(500).json({ message: COMBO_MIGRATION_HINT });
+      }
+      if (isMissingSepayColumn(leadError)) {
+        return res.status(500).json({ message: MIGRATION_HINT });
+      }
+      console.error('[POST /api/payments/checkout-cart]', leadError.message);
+      return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
+    }
+
+    if (otherLines.length) {
+      const { error: restError } = await supabaseAdmin.from('orders').insert(
+        otherLines.map((line) => ({
+          user_id: userId,
+          course_id: line.id,
+          provider: 'sepay',
+          status: 'pending',
+          amount: line.amount,
+          combo_group: comboGroup,
+          ...tutoringField(line)
+        }))
+      );
+
+      if (restError) {
+        // Nhóm thiếu khóa thì tiền về sẽ mở thiếu — hủy cả nhóm cho học viên bấm lại.
+        await supabaseAdmin.from('orders').delete().eq('combo_group', comboGroup);
+        console.error('[POST /api/payments/checkout-cart]', restError.message);
+        return res.status(500).json({ message: 'Không thể tạo đơn hàng.' });
+      }
+    }
+
+    return res.json({
+      message: 'Đơn giỏ hàng đã được tạo, chờ chuyển khoản.',
+      mode: 'supabase',
+      sepayReady: isSepayReady(),
+      ...toPaymentResponse(leadOrder, {
+        courseIds: lineCourseIds,
+        lines,
+        amount,
+        ...getPgExtra(req, leadOrder, '', amount)
+      })
+    });
+  } catch (err) {
+    console.error('[POST /api/payments/checkout-cart]', err.message);
+    return res.status(500).json({ message: 'Lỗi máy chủ.' });
+  }
+});
+
 /**
  * GET /api/payments/:orderId/status
  * Màn thanh toán hỏi lại endpoint này vài giây một lần để biết tiền đã về chưa.
