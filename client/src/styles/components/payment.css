@@ -1,0 +1,408 @@
+/* Màn thanh toán chuyển khoản (QR SePay).
+   - Máy tính/tablet: hộp giữa màn hình ~600px, QR bên trái, thông tin bên phải.
+   - Điện thoại: trượt lên từ đáy, QR nhỏ, cuộn được khi màn thấp.
+   Nạp sau site-v2.css nên đè được kiểu chung của .content-card. */
+
+.payment-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.payment-screen__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(8, 13, 22, 0.6);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.payment-screen__panel {
+  position: relative;
+  z-index: 1;
+  width: min(600px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow: 0 20px 60px rgba(8, 13, 22, 0.3);
+  animation: paymentPanelIn 0.18s ease-out;
+}
+
+@keyframes paymentPanelIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.payment-instructions {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.1rem 1.25rem 1rem;
+  color: var(--color-text-primary);
+}
+
+/* Bản không phải overlay (nhúng trong trang) vẫn có khung thẻ. */
+.payment-instructions:not(.payment-instructions--overlay) {
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+
+/* ── Đầu hộp ── */
+
+.payment-instructions__head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.payment-instructions__title {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.payment-instructions__title h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.payment-status {
+  justify-self: start;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-warning);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.payment-status.is-paid {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success-text);
+}
+
+.payment-instructions__close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.payment-instructions__close:hover {
+  background: var(--color-background-alt);
+  color: var(--color-text-primary);
+}
+
+/* ── QR + thông tin ── */
+
+.payment-instructions__body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.payment-qr-box {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.payment-qr-box img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.payment-instructions__info {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.payment-amount {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.payment-amount span,
+.payment-field__label {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.payment-amount strong {
+  color: var(--color-primary);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.payment-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label button'
+    'value button';
+  column-gap: 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.payment-field.is-highlight {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.payment-field__label { grid-area: label; }
+
+.payment-field__value {
+  grid-area: value;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.payment-copy-button {
+  grid-area: button;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payment-copy-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.payment-account-name {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+/* ── Chân hộp: trạng thái chờ ── */
+
+.payment-instructions__waiting {
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-divider);
+}
+
+.payment-instructions__waiting-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.payment-instructions__waiting-row > span:nth-child(2) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.payment-check-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.payment-check-button:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.payment-check-button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.payment-instructions__check-note,
+.payment-instructions__help {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.payment-instructions__check-note {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.payment-instructions__help a {
+  color: var(--color-link);
+  font-weight: 700;
+}
+
+.payment-waiting-dot {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  animation: paymentWaitingPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes paymentWaitingPulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Đã thanh toán ── */
+
+.payment-instructions__paid {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.payment-instructions__paid-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success-text);
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.payment-instructions__paid p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.payment-instructions__paid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Lỡ đóng màn QR: thanh mở lại trên trang. */
+.payment-resume-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+/* ── Điện thoại: trượt lên từ đáy ── */
+@media (max-width: 600px) {
+  .payment-screen {
+    align-items: end;
+    padding: 0;
+  }
+
+  .payment-screen__panel {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    animation-name: paymentSheetIn;
+  }
+
+  .payment-instructions {
+    gap: 0.75rem;
+    padding: 0.9rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .payment-instructions__body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .payment-qr-box {
+    justify-self: center;
+    width: min(200px, 58vw);
+  }
+
+  .payment-amount {
+    text-align: center;
+  }
+
+  .payment-instructions__waiting-row {
+    flex-wrap: wrap;
+  }
+}
+
+@keyframes paymentSheetIn {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Màn thấp (điện thoại xoay ngang, laptop nhỏ): QR thu lại để không phải cuộn nhiều. */
+@media (max-height: 560px) {
+  .payment-instructions__body {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+
+  .payment-qr-box {
+    width: auto;
+  }
+
+  .payment-amount {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payment-screen__panel,
+  .payment-waiting-dot {
+    animation: none;
+  }
+}

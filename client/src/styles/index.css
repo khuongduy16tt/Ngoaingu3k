@@ -58,3 +58,6 @@
 
 /* 14. Giỏ hàng: icon header + trang /cart. */
 @import './components/cart.css';
+
+/* 15. Màn thanh toán QR (gọn, tối ưu mọi màn hình). */
+@import './components/payment.css';
