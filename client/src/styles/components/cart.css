@@ -342,3 +342,14 @@
   order: 3;
   flex: 1 1 100%;
 }
+
+/* Trang chi tiết khóa: giá + nút mua hiện trước, danh sách bài tải sau. */
+.course-detail__lessons-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 120px;
+  padding: 1.25rem;
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}

@@ -28,7 +28,7 @@ function formatClock(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function isQuestionAnswered(question, answer) {
+export function isQuestionAnswered(question, answer) {
   if (question.type === 'matching') {
     return question.pairs.every((_, index) => Boolean(answer?.[index] ?? answer?.[String(index)]));
   }
@@ -137,7 +137,7 @@ function MatchingQuestion({ question, answer, onChange, disabled }) {
   );
 }
 
-function ExamQuestion({ question, index, answer, onChange, disabled }) {
+export function ExamQuestion({ question, index, answer, onChange, disabled }) {
   return (
     <article id={`exam-question-${question.id}`} className="exam-question">
       <header className="exam-question__head">
@@ -170,7 +170,7 @@ function ExamQuestion({ question, index, answer, onChange, disabled }) {
 
 // ─── Result review ────────────────────────────────────────────────────────────
 
-function formatAnswerForReview(question, answer) {
+export function formatAnswerForReview(question, answer) {
   if (question.type === 'matching') {
     if (!answer) {
       return '(chưa trả lời)';
@@ -188,7 +188,7 @@ function formatAnswerForReview(question, answer) {
   return String(answer ?? '').trim() || '(chưa trả lời)';
 }
 
-function formatCorrectAnswer(question) {
+export function formatCorrectAnswer(question) {
   if (question.type === 'matching') {
     return question.pairs.map((pair) => `${pair.left} → ${pair.right}`).join(' · ');
   }
@@ -329,7 +329,7 @@ function clearExamSession(key) {
 
 // Hộp thoại dùng chung của phòng thi: Esc để đóng, con trỏ vào nút an toàn,
 // Tab không thoát ra ngoài, đóng xong trả con trỏ về chỗ cũ.
-function ExamDialog({ title, children, cancelLabel, confirmLabel, onCancel, onConfirm }) {
+export function ExamDialog({ title, children, cancelLabel, confirmLabel, onCancel, onConfirm }) {
   const titleId = useId();
   const cardRef = useRef(null);
   const cancelRef = useRef(null);

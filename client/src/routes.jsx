@@ -5,7 +5,6 @@ import { getDashboardPathForRole, getEffectiveRole } from './lib/permissions';
 import { ui } from './config/i18n';
 import { usePageTitle } from './hooks/usePageTitle';
 import { Mascot } from './components/home/Mascot';
-import { OPEN_CONSULTATION_EVENT } from './components/ConsultationFab';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
@@ -27,6 +26,7 @@ const ExamsPage = lazy(() => import('./pages/ExamsPage'));
 const ExamRoomPage = lazy(() => import('./pages/ExamRoomPage'));
 const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
+const PlacementTestPage = lazy(() => import('./pages/PlacementTestPage'));
 
 function LoadingScreen() {
   return (
@@ -106,30 +106,6 @@ function NotFoundPage() {
   );
 }
 
-// Bài test trình độ chưa có: thay trang trống bằng lối đi tiếp — mở form tư vấn
-// (trung tâm kiểm tra trình độ qua tư vấn) hoặc xem khoá học.
-function TestPage() {
-  usePageTitle(ui.testPageTitle);
-  return (
-    <div className="page centered status-page">
-      <div className="status-page__card">
-        <Mascot className="status-page__mascot" />
-        <span className="eyebrow">Kiểm tra trình độ miễn phí</span>
-        <h1>{ui.testPageTitle}</h1>
-        <p>{ui.testPageMessage} Trong lúc chờ, để lại thông tin — giảng viên sẽ kiểm tra trình độ và gửi lộ trình phù hợp cho bạn trong 24h.</p>
-        <div className="not-found__actions">
-          <button type="button" className="button" onClick={() => window.dispatchEvent(new Event(OPEN_CONSULTATION_EVENT))}>
-            Đăng ký kiểm tra trình độ
-          </button>
-          <Link className="button-ghost" to="/courses">
-            Xem khoá học
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function AppRoutes() {
   return (
     <Suspense fallback={<PageLoadingScreen />}>
@@ -139,7 +115,7 @@ export function AppRoutes() {
         <Route path="/courses" element={<CoursesPage />} />
         <Route path="/courses/:courseId" element={<CourseDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
-        <Route path="/test" element={<TestPage />} />
+        <Route path="/test" element={<PlacementTestPage />} />
         <Route
           path="/learn"
           element={

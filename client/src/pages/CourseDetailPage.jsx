@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   checkCoursePaymentStatus,
   getCourseBySlug,
+  getCourseCatalog,
   getOwnedCourseIds,
   getPendingCoursePaymentOrder,
   getTutoringCourseIds,
@@ -29,11 +30,18 @@ export default function CourseDetailPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const currentRole = getEffectiveRole(auth);
-  const [course, setCourse] = useState(null);
+  // Hai nguồn: bản tóm tắt trong danh mục (đã cache, có ngay giá + nút mua) và
+  // bản đầy đủ có chương/bài (tải lâu hơn). Có bản nào hiện bản đó trước.
+  const [summaryCourse, setSummaryCourse] = useState(null);
+  const [detailCourse, setDetailCourse] = useState(null);
+  const course = detailCourse || summaryCourse;
   // Tên khóa thật ("HSK 3") chứ không phải slug trên URL ("hsk-3").
   usePageTitle(course?.title ? `Khóa học ${course.title}` : 'Chi tiết khóa học');
   const [ownedCourseIds, setOwnedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Chưa biết học viên đã mua chưa thì chưa cho bấm mua (tránh "Mua ngay" chớp
+  // lên với người đã có khóa).
+  const [ownershipReady, setOwnershipReady] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [purchasing, setPurchasing] = useState(false);
@@ -49,12 +57,52 @@ export default function CourseDetailPage() {
   const [draftOrder, setDraftOrder] = useState(null);
   const [lastPurchaseTutoring, setLastPurchaseTutoring] = useState(false);
 
+  // Bản tóm tắt từ danh mục: không cần chờ phiên đăng nhập, thường đã có trong
+  // cache (vừa đi qua trang danh mục) nên giá và nút mua hiện gần như tức thì.
+  useEffect(() => {
+    let alive = true;
+    setSummaryCourse(null);
+    getCourseCatalog()
+      .then((courses) => {
+        const found = (courses || []).find(
+          (item) => item.id === courseId || item.slug === courseId || item.databaseId === courseId
+        );
+        if (alive) setSummaryCourse(found || null);
+      })
+      .catch(() => {
+        // Danh mục lỗi thì vẫn còn bản đầy đủ bên dưới.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [courseId, reloadKey]);
+
   useEffect(() => {
     if (!auth.ready) {
       return undefined;
     }
 
     let alive = true;
+
+    // Đã mua chưa: truy vấn nhẹ, chạy song song với bản đầy đủ. Đọc theo uuid nên
+    // không cần chờ khóa học (isOwned so cả slug lẫn uuid).
+    async function loadOwnership() {
+      setOwnershipReady(false);
+      try {
+        const [nextOwnedIds, nextTutoringIds] = await Promise.all([
+          getOwnedCourseIds(auth.user?.id, []),
+          getTutoringCourseIds(auth.user?.id)
+        ]);
+        if (alive) {
+          setOwnedCourseIds(nextOwnedIds);
+          setTutoringCourseIds(nextTutoringIds);
+        }
+      } catch (error) {
+        console.warn('[loadOwnership]', error?.message || error);
+      } finally {
+        if (alive) setOwnershipReady(true);
+      }
+    }
 
     async function loadCourse() {
       setLoading(true);
@@ -64,17 +112,9 @@ export default function CourseDetailPage() {
         // Trang này chỉ liệt kê chương và bài, không làm bài — xin bản không kèm
         // ngân hàng câu hỏi để khỏi tải cả bộ đề của toàn khóa.
         const nextCourse = await getCourseBySlug(courseId, { summaryOnly: true });
-        const [nextOwnedIds, nextTutoringIds] = nextCourse
-          ? await Promise.all([
-              getOwnedCourseIds(auth.user?.id, [nextCourse]),
-              nextCourse.tutoringPriceValue ? getTutoringCourseIds(auth.user?.id) : []
-            ])
-          : [[], []];
 
         if (alive) {
-          setCourse(nextCourse);
-          setOwnedCourseIds(nextOwnedIds);
-          setTutoringCourseIds(nextTutoringIds);
+          setDetailCourse(nextCourse);
           setPaymentOrder(nextCourse ? getPendingCoursePaymentOrder(auth.user?.id, nextCourse.id) || null : null);
         }
       } catch (error) {
@@ -90,6 +130,8 @@ export default function CourseDetailPage() {
       }
     }
 
+    setDetailCourse(null);
+    void loadOwnership();
     void loadCourse();
 
     return () => {
@@ -97,7 +139,9 @@ export default function CourseDetailPage() {
     };
   }, [auth.ready, auth.user?.id, courseId, reloadKey]);
 
-  const isOwned = course ? ownedCourseIds.includes(course.id) : false;
+  const isOwned = course
+    ? ownedCourseIds.includes(course.id) || ownedCourseIds.includes(course.databaseId)
+    : false;
   const hasTutoring = course ? tutoringCourseIds.includes(course.databaseId) : false;
   const canAddTutoring = isOwned && !hasTutoring && Boolean(course?.tutoringPriceValue);
   const upgradeAmount = canAddTutoring ? Math.max(course.tutoringPriceValue - course.priceValue, 0) : 0;
@@ -246,7 +290,8 @@ export default function CourseDetailPage() {
     }
   }
 
-  if (loading) {
+  // Màn chờ toàn trang chỉ khi chưa có cả bản tóm tắt lẫn bản đầy đủ.
+  if (loading && !course) {
     return (
       <div className="page">
         <section className="content-card content-card--enterprise marketplace-empty">
@@ -259,7 +304,7 @@ export default function CourseDetailPage() {
 
   // Đặt trước nhánh !course: tải hỏng thì course cũng null, mà báo "không tồn
   // tại" cho một khóa vẫn còn là sai và làm người dùng bỏ đi.
-  if (loadError) {
+  if (loadError && !course) {
     return (
       <div className="page">
         <section className="content-card content-card--enterprise marketplace-empty">
@@ -279,7 +324,9 @@ export default function CourseDetailPage() {
     );
   }
 
-  if (!course) {
+  // Bản đầy đủ đã trả lời "không có" (khóa bị xóa/ẩn) thì không hiện bản tóm
+  // tắt còn sót trong cache danh mục nữa.
+  if (!course || (!loading && !loadError && !detailCourse)) {
     return (
       <div className="page">
         <section className="content-card content-card--enterprise marketplace-empty">
@@ -370,22 +417,24 @@ export default function CourseDetailPage() {
                 </button>
               ) : null}
             </>
-          ) : auth.session ? (
+          ) : auth.session || !auth.ready ? (
             <button
               type="button"
               className="button"
-              disabled={currentRole !== 'student' || purchasing}
+              disabled={currentRole !== 'student' || purchasing || !ownershipReady}
               onClick={() => handlePurchase()}
             >
-              {currentRole === 'student'
-                ? purchasing
-                  ? 'Đang xử lý...'
-                  : paymentOrder && Boolean(paymentOrder.withTutoring) === withTutoring
-                    ? 'Tiếp tục thanh toán'
-                    : withTutoring
-                      ? 'Mua kèm dạy kèm'
-                      : 'Mua ngay'
-                : 'Chỉ dành cho học viên'}
+              {!ownershipReady
+                ? 'Đang tải...'
+                : currentRole !== 'student'
+                  ? 'Chỉ dành cho học viên'
+                  : purchasing
+                    ? 'Đang xử lý...'
+                    : paymentOrder && Boolean(paymentOrder.withTutoring) === withTutoring
+                      ? 'Tiếp tục thanh toán'
+                      : withTutoring
+                        ? 'Mua kèm dạy kèm'
+                        : 'Mua ngay'}
             </button>
           ) : (
             <AuthModalLink className="button">
@@ -393,7 +442,7 @@ export default function CourseDetailPage() {
             </AuthModalLink>
           )}
 
-          {!isOwned && (!auth.session || currentRole === 'student') ? (
+          {!isOwned && ownershipReady && (!auth.session || currentRole === 'student') ? (
             <AddToCartButton course={course} withTutoring={withTutoring} />
           ) : null}
 
@@ -426,6 +475,19 @@ export default function CourseDetailPage() {
       />
 
       <section className="section split-layout">
+        {loading ? (
+          <div className="content-card content-card--enterprise course-detail__lessons-loading" role="status">
+            <span className="payment-waiting-dot" aria-hidden="true" />
+            <span>Đang tải danh sách bài học...</span>
+          </div>
+        ) : loadError ? (
+          <div className="content-card content-card--enterprise course-detail__lessons-loading" role="alert">
+            <span>{loadError}</span>
+            <button type="button" className="button-ghost" onClick={() => setReloadKey((value) => value + 1)}>
+              Thử lại
+            </button>
+          </div>
+        ) : (
         <CourseLessonList
           sections={sectionPagination.pageItems}
           progressMap={lessonProgressMap}
@@ -435,6 +497,7 @@ export default function CourseDetailPage() {
           onSelectLesson={isOwned ? (lessonId) => navigate(`/learn/${course.id}/${lessonId}`) : undefined}
           footer={<PaginationControls {...sectionPagination} label="chương" />}
         />
+        )}
 
         <div className="content-card content-card--enterprise">
           {course.whatYouGet?.length ? (

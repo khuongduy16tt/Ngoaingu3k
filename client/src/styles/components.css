@@ -5524,6 +5524,7 @@ button:disabled {
   margin: 0 0 0.9rem;
   line-height: 1.8;
   color: var(--text);
+  white-space: pre-line;
 }
 
 .exam-room__questions {
@@ -5564,6 +5565,8 @@ button:disabled {
 .exam-question__prompt {
   margin: 0;
   line-height: 1.7;
+  /* Giữ xuống dòng trong hướng dẫn đề (danh sách A-C, flow chart...). */
+  white-space: pre-line;
 }
 
 .exam-question__image {
@@ -5886,6 +5889,7 @@ button:disabled {
 }
 
 .exam-review-item__prompt {
+  white-space: pre-line;
   font-weight: 600;
 }
 
