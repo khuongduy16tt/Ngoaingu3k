@@ -61,3 +61,6 @@
 
 /* 15. Màn thanh toán QR (gọn, tối ưu mọi màn hình). */
 @import './components/payment.css';
+
+/* Trang /test — bài test trình độ miễn phí. */
+@import './pages/placement-test.css';

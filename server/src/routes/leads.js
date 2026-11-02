@@ -5,6 +5,8 @@ const router = Router();
 
 const PHONE_PATTERN = /^[0-9+\s-]{8,15}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Nguồn được ghi vào cột "Nguồn" của Google Sheet (mặc định: form tư vấn trang chủ).
+const ALLOWED_SOURCES = ['homepage-hero', 'test-trinh-do'];
 
 /**
  * POST /api/leads/consultation
@@ -34,7 +36,7 @@ router.post('/consultation', validate(['fullName', 'phone', 'program']), async (
     email,
     program,
     needs,
-    source: 'homepage-hero',
+    source: ALLOWED_SOURCES.includes(req.body.source) ? req.body.source : 'homepage-hero',
     submittedAt: new Date().toISOString(),
   };
 
