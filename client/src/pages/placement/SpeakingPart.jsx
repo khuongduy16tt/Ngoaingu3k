@@ -48,8 +48,17 @@ export function SpeakingPart({ part, answers, onAnswer, onFinishPart, isLastPart
 
   const question = questions[index];
   const saved = answers[question.id];
+  // Một bộ nhận giọng nói duy nhất cho cả phần thi. Trình duyệt chỉ cho chạy một
+  // phiên nhận dạng một lúc: tạo bộ mới khi bộ cũ chưa tắt hẳn sẽ bị chặn — đó là
+  // lỗi "chỉ nói được câu đầu". Vì vậy luôn chờ bộ cũ kết thúc (onend) rồi mới bật.
   const recognitionRef = useRef(null);
+  const runningRef = useRef(false);
+  const pendingStartRef = useRef(false);
   const sessionRef = useRef(null);
+  const closingRef = useRef(null);
+  const finalizeTimerRef = useRef(null);
+  const onAnswerRef = useRef(onAnswer);
+  onAnswerRef.current = onAnswer;
 
   // Đổi phần (Part) thì về câu chưa làm đầu tiên.
   useEffect(() => {
@@ -68,10 +77,22 @@ export function SpeakingPart({ part, answers, onAnswer, onFinishPart, isLastPart
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.id]);
 
-  // Dừng ghi và tắt giọng đọc khi rời màn.
+  // Rời màn: lưu câu đang nói dở, tắt hẳn bộ nhận dạng và giọng đọc.
   useEffect(
     () => () => {
-      stopRecognition(false);
+      if (closingRef.current) finalize(closingRef.current);
+      finalize();
+      const recognition = recognitionRef.current;
+      if (recognition) {
+        recognition.onstart = recognition.onresult = recognition.onerror = recognition.onend = null;
+        try {
+          recognition.abort();
+        } catch {
+          // ignore
+        }
+      }
+      recognitionRef.current = null;
+      runningRef.current = false;
       try {
         window.speechSynthesis?.cancel();
       } catch {
@@ -99,47 +120,42 @@ export function SpeakingPart({ part, answers, onAnswer, onFinishPart, isLastPart
     if (status !== 'recording') return undefined;
     const id = setInterval(() => {
       const session = sessionRef.current;
-      if (!session) return;
+      if (!session || session.stopping) return;
       const seconds = (Date.now() - session.startedAt) / 1000;
       setElapsed(seconds);
-      if (seconds >= question.seconds) stopRecognition(true);
+      if (seconds >= session.maxSeconds) stopRecording();
     }, 250);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, question.id]);
 
-  function startRecording() {
+  function getEngine() {
+    if (recognitionRef.current) return recognitionRef.current;
     const Recognition = getSpeechRecognition();
-    if (!Recognition) return;
-    try {
-      window.speechSynthesis?.cancel();
-    } catch {
-      // ignore
-    }
-    setError('');
-    setLiveText('');
-    setElapsed(0);
-    sessionRef.current = { startedAt: Date.now(), finals: [], confidences: [], interim: '', active: true, questionId: question.id };
-    startEngine(Recognition);
-    setStatus('recording');
-  }
-
-  // Trình duyệt hay tự ngắt nhận dạng sau một khoảng lặng: còn giờ thì bật lại.
-  function startEngine(Recognition) {
+    if (!Recognition) return null;
     const recognition = new Recognition();
     recognition.lang = 'en-US';
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
-    recognition.onresult = (event) => {
+    recognition.onstart = () => {
+      runningRef.current = true;
       const session = sessionRef.current;
-      if (!session) return;
+      // Chỉ nhận chữ từ lúc phiên của câu này thực sự bắt đầu (bỏ chữ sót của câu trước).
+      if (session && !session.stopping) session.live = true;
+    };
+
+    recognition.onresult = (event) => {
+      const current = sessionRef.current;
+      const session = current && current.live && !current.stopping ? current : closingRef.current || current;
+      if (!session || session.finished || (!session.live && !session.stopping)) return;
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         if (result.isFinal) {
-          session.finals.push(result[0].transcript.trim());
+          const text = result[0].transcript.trim();
+          if (text) session.finals.push(text);
           if (typeof result[0].confidence === 'number' && result[0].confidence > 0) {
             session.confidences.push(result[0].confidence);
           }
@@ -148,64 +164,159 @@ export function SpeakingPart({ part, answers, onAnswer, onFinishPart, isLastPart
         }
       }
       session.interim = interim;
-      setLiveText([...session.finals, interim.trim()].filter(Boolean).join(' '));
+      if (session === sessionRef.current) setLiveText([...session.finals, interim.trim()].filter(Boolean).join(' '));
     };
 
     recognition.onerror = (event) => {
+      const session = sessionRef.current;
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setError('Bạn chưa cho phép dùng micro. Hãy bấm biểu tượng ổ khoá trên thanh địa chỉ, cho phép micro rồi thử lại.');
-        stopRecognition(false);
+        if (session) session.stopping = true;
+        setStatus('idle');
       } else if (event.error === 'audio-capture') {
         setError('Không tìm thấy micro. Hãy cắm tai nghe có micro rồi thử lại.');
-        stopRecognition(false);
+        if (session) session.stopping = true;
+        setStatus('idle');
+      } else if (event.error === 'network') {
+        setError('Mất kết nối mạng nên chưa nghe được. Kiểm tra mạng rồi bấm "Nói lại".');
       }
-      // 'no-speech' / 'aborted' / 'network': để onend tự bật lại khi còn giờ.
+      // 'no-speech' / 'aborted': để onend tự bật lại khi còn giờ.
     };
 
     recognition.onend = () => {
+      runningRef.current = false;
+      // 1) Câu vừa dừng (đang chờ chữ cuối) giờ đã đủ chữ: lưu.
+      if (closingRef.current) finalize(closingRef.current);
       const session = sessionRef.current;
-      if (session?.active && (Date.now() - session.startedAt) / 1000 < question.seconds - 1) {
-        try {
-          startEngine(Recognition);
-        } catch {
-          stopRecognition(true);
+      if (session && !session.finished) {
+        if (session.stopping) {
+          finalize(session);
+        } else if (!session.live || (Date.now() - session.startedAt) / 1000 < session.maxSeconds - 0.5) {
+          // 2) Câu mới đang chờ bật, hoặc trình duyệt tự ngắt sau khoảng lặng
+          //    mà vẫn còn giờ: bật (lại) đúng một lần.
+          pendingStartRef.current = false;
+          safeStart();
+          return;
+        } else {
+          session.stopping = true;
+          session.stoppedAt = Date.now();
+          finalize(session);
         }
+      }
+      if (pendingStartRef.current) {
+        pendingStartRef.current = false;
+        safeStart();
       }
     };
 
     recognitionRef.current = recognition;
+    return recognition;
+  }
+
+  function safeStart() {
+    const recognition = getEngine();
+    if (!recognition) return;
+    if (runningRef.current) {
+      pendingStartRef.current = true;
+      return;
+    }
     try {
       recognition.start();
+      runningRef.current = true;
     } catch {
-      // start() hai lần liên tiếp sẽ ném lỗi — bỏ qua.
+      // Phiên trước chưa tắt hẳn: chờ onend rồi bật.
+      pendingStartRef.current = true;
     }
   }
 
-  function stopRecognition(save) {
+  // Lưu câu trả lời của phiên hiện tại (gọi khi bộ nhận dạng đã dừng hẳn).
+  function finalize(target) {
+    const session = target || sessionRef.current;
+    if (!session || session.finished) return;
+    if (session === closingRef.current || !closingRef.current) clearTimeout(finalizeTimerRef.current);
+    session.finished = true;
+    if (sessionRef.current === session) sessionRef.current = null;
+    if (closingRef.current === session) closingRef.current = null;
+    if (session.discard) return;
+    const text = [...session.finals, session.interim.trim()].filter(Boolean).join(' ').trim();
+    const seconds = Math.min(session.maxSeconds, Math.round((session.stoppedAt || Date.now()) - session.startedAt) / 1000);
+    const confidence = session.confidences.length
+      ? session.confidences.reduce((sum, value) => sum + value, 0) / session.confidences.length
+      : 0;
+    onAnswerRef.current(session.questionId, {
+      text,
+      seconds: Math.round(seconds),
+      confidence: Math.round(confidence * 100) / 100
+    });
+    if (!sessionRef.current) setLiveText('');
+    if (!text && !sessionRef.current) setError('Chưa nghe được câu trả lời. Hãy nói to, rõ hơn rồi bấm "Nói lại".');
+  }
+
+  function startRecording() {
+    if (!getSpeechRecognition()) return;
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      // ignore
+    }
+    // Câu trước còn đang chờ lưu thì lưu luôn.
+    const previous = sessionRef.current;
+    if (previous) {
+      if (previous.stopping && runningRef.current) {
+        if (closingRef.current) finalize(closingRef.current);
+        closingRef.current = previous;
+        sessionRef.current = null;
+      } else {
+        finalize(previous);
+      }
+    }
+    setError('');
+    setLiveText('');
+    setElapsed(0);
+    sessionRef.current = {
+      questionId: question.id,
+      maxSeconds: question.seconds,
+      startedAt: Date.now(),
+      finals: [],
+      confidences: [],
+      interim: '',
+      live: false,
+      stopping: false,
+      finished: false
+    };
+    safeStart();
+    setStatus('recording');
+  }
+
+  function stopRecording() {
     const session = sessionRef.current;
-    if (session) session.active = false;
+    setStatus('idle');
+    if (!session || session.stopping) return;
+    session.stopping = true;
+    session.stoppedAt = Date.now();
+    if (!runningRef.current) {
+      finalize();
+      return;
+    }
     try {
       recognitionRef.current?.stop();
     } catch {
       // ignore
     }
-    recognitionRef.current = null;
-    if (save && session) {
-      const text = [...session.finals, session.interim.trim()].filter(Boolean).join(' ').trim();
-      const seconds = Math.min(question.seconds, Math.round((Date.now() - session.startedAt) / 1000));
-      const confidence = session.confidences.length
-        ? session.confidences.reduce((sum, value) => sum + value, 0) / session.confidences.length
-        : 0;
-      onAnswer(session.questionId, { text, seconds, confidence: Math.round(confidence * 100) / 100 });
-      setLiveText('');
-      if (!text) setError('Chưa nghe được câu trả lời. Hãy nói to, rõ hơn rồi bấm "Nói lại".');
-    }
-    sessionRef.current = null;
-    setStatus('idle');
+    // Chờ trình duyệt trả nốt chữ cuối (onend); quá 1,5 giây thì lưu luôn.
+    finalizeTimerRef.current = setTimeout(() => {
+      if (closingRef.current) finalize(closingRef.current);
+      if (sessionRef.current?.stopping) finalize(sessionRef.current);
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        // ignore
+      }
+    }, 1500);
   }
 
   function goTo(nextIndex) {
-    if (status === 'recording') stopRecognition(true);
+    if (status === 'recording') stopRecording();
     setError('');
     setLiveText('');
     setIndex(nextIndex);
@@ -293,7 +404,7 @@ export function SpeakingPart({ part, answers, onAnswer, onFinishPart, isLastPart
             <>
               <span className="ptest-speak__pulse" aria-hidden="true" />
               <span className="ptest-speak__clock">Còn {formatSeconds(remaining)}</span>
-              <button type="button" className="pt-btn pt-btn--primary" onClick={() => stopRecognition(true)}>
+              <button type="button" className="pt-btn pt-btn--primary" onClick={() => stopRecording()}>
                 Xong câu này
               </button>
             </>
