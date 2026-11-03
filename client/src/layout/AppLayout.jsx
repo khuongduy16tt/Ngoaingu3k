@@ -946,6 +946,10 @@ function TopBar() {
         </nav>
 
         <div className="site-header__actions">
+          {/* Nút nổi bật dẫn tới bài test trình độ miễn phí (ẩn ở màn hẹp, đã có ở thanh dưới). */}
+          <Link className="site-header__test" to="/test" onClick={closeMobileMenu}>
+            Test Free
+          </Link>
           {/* Giỏ chỉ dành cho học viên và khách — giảng viên/admin không mua khóa. */}
           {!signedIn || currentRole === 'student' ? <HeaderCartLink onClick={closeMobileMenu} /> : null}
           {signedIn ? (

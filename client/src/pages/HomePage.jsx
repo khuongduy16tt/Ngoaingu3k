@@ -10,6 +10,7 @@ import { Mascot } from '../components/home/Mascot';
 import { PathTimeline, ProgressDashboard, SpeakingDemo } from '../components/home/FeatureIllustrations';
 import { ProgramTabs } from '../components/home/ProgramTabs';
 import { TestimonialMarquee } from '../components/home/TestimonialMarquee';
+import { FreeTestBanner } from '../components/home/FreeTestBanner';
 import { Reveal, useInView } from '../components/home/useInView';
 import { homePrograms } from '../data/homePrograms';
 import { testimonials } from '../data/testimonials';
@@ -255,6 +256,7 @@ export default function HomePage() {
       </section>
 
       <div className="hv-container">
+        <FreeTestBanner />
         <StatsStrip />
 
         {/* ── Về chúng tôi ─────────────────────────────────────────────── */}

@@ -804,3 +804,50 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* ── Nút "Test Free" (bài test trình độ miễn phí) ─────────────────────────
+   Phẳng, góc vuông, màu xanh lá thương hiệu để tách khỏi nút đăng nhập.
+   Chữ navy trên xanh lá đạt ~7:1. Chỉ hiện khi menu ngang còn đủ chỗ;
+   màn hẹp hơn đã có mục "Làm test" ở thanh dưới và nút nổi. */
+.site-header__test {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 2px solid #14223f;
+  border-radius: 0;
+  background: var(--brand-green, #52bd87);
+  color: #14223f;
+  box-shadow: 3px 3px 0 0 #14223f;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.site-header__test:hover {
+  background: #6fcb9b;
+  color: #14223f;
+}
+
+.site-header__test:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.site-header__test:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 1240px) {
+  .site-header__test {
+    display: none;
+  }
+}
