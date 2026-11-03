@@ -46,8 +46,12 @@
       rel="stylesheet"
     />
 
-    <!-- Dùng cùng tệp logo màu cho favicon và giao diện. -->
-    <link rel="icon" type="image/png" href="/images/imported/logo-ngoaingu3k-brand-96.png" />
+    <!-- Favicon chỉ dùng phần biểu tượng (không có chữ) để nhìn rõ ở cỡ nhỏ.
+         ?v=2 để trình duyệt bỏ favicon cũ đã lưu. -->
+    <link rel="icon" href="/favicon.ico?v=2" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png?v=2" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=2" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
   </head>
   <body>
     <div id="root"></div>
