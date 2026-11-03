@@ -2912,3 +2912,92 @@ body.ptest-focus .app-shell {
     text-overflow: ellipsis;
   }
 }
+
+/* ── Chọn bài test: IELTS / HSK 1–5 (TestPicker.jsx) ─────────────────────── */
+.pt-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  width: fit-content;
+  max-width: 100%;
+  border: 2px solid var(--pt-ink);
+}
+
+.pt-picker__item {
+  display: grid;
+  place-items: center;
+  min-width: 4.6rem;
+  min-height: 2.6rem;
+  padding: 0 0.9rem;
+  background: var(--pt-paper);
+  color: var(--pt-ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.pt-picker__item + .pt-picker__item {
+  border-left: 2px solid var(--pt-ink);
+}
+
+.pt-picker__item:hover {
+  background: var(--pt-blue-soft);
+}
+
+.pt-picker__item.is-active {
+  background: var(--pt-navy);
+  color: #ffffff;
+}
+
+.pt-picker__item:focus-visible {
+  outline: 3px solid var(--pt-blue);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .pt-picker {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .pt-picker__item {
+    min-width: 0;
+    padding: 0 0.4rem;
+  }
+
+  .pt-picker__item + .pt-picker__item {
+    border-left: 0;
+  }
+
+  .pt-picker__item:not(:nth-child(3n + 1)) {
+    border-left: 2px solid var(--pt-ink);
+  }
+
+  .pt-picker__item:nth-child(n + 4) {
+    border-top: 2px solid var(--pt-ink);
+  }
+}
+
+/* ── Bài test HSK (HskTestPage.jsx) ──────────────────────────────────────── */
+.pt-skills--hsk {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 520px;
+}
+
+.hsk-passage {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--color-secondary);
+  background: var(--surface-soft);
+  font-size: 1.05rem;
+  line-height: 1.9;
+  white-space: pre-line;
+}
+
+.hsk-prompt {
+  white-space: pre-line;
+  font-size: 1.02rem;
+}

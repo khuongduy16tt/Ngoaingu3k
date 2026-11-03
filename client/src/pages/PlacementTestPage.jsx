@@ -9,9 +9,11 @@ import { scrollIntoViewRespectingMotion } from '../lib/scrollMotion';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { placementTest, toBand } from '../data/placementTest';
 import { SpeakingPart, isSpeakingAnswered } from './placement/SpeakingPart';
+import { TestPicker } from './placement/TestPicker';
+import { useAuth } from '../providers/AuthProvider';
 import { ExamDialog, formatAnswerForReview, formatCorrectAnswer } from './ExamRoomPage';
 
-// Bài test trình độ miễn phí cho khách (không cần đăng nhập), giao diện kiểu
+// Bài test trình độ miễn phí (phải đăng nhập mới làm được), giao diện kiểu
 // thi IELTS trên máy: chia Part/Passage, mỗi nhóm câu một khung hướng dẫn,
 // thanh số câu ở đáy. Chấm ngay trên máy rồi gửi tên + SĐT + điểm về trung tâm
 // qua form tư vấn (/api/leads/consultation).
@@ -433,6 +435,7 @@ export default function PlacementTestPage() {
   const leadSentRef = useRef(false);
   const questionsRef = useRef(null);
 
+  const auth = useAuth();
   const { phase, skillIndex, partIndex, answers, deadline, info, result } = state;
   const skill = skills[skillIndex];
   const part = skill?.parts[partIndex] || skill?.parts[0];
@@ -442,6 +445,16 @@ export default function PlacementTestPage() {
   function update(patch) {
     setState((previous) => ({ ...previous, ...(typeof patch === 'function' ? patch(previous) : patch) }));
   }
+
+  // Điền sẵn họ tên, SĐT từ tài khoản.
+  useEffect(() => {
+    const profileName = auth.profile?.full_name || '';
+    const profilePhone = auth.profile?.phone || '';
+    if (!profileName && !profilePhone) return;
+    update((previous) =>
+      previous.info.fullName || previous.info.phone ? {} : { info: { fullName: profileName, phone: profilePhone } }
+    );
+  }, [auth.profile?.full_name, auth.profile?.phone]);
 
   useEffect(() => {
     if (phase !== 'intro') writeSession(state);
@@ -659,8 +672,9 @@ export default function PlacementTestPage() {
       <div className="pt-landing">
         <section className="pt-landing__hero">
           <div className="pt-landing__copy">
+            <TestPicker active="ielts" />
             <p className="pt-kicker pt-rise" style={{ '--d': 0 }}>
-              Miễn phí · Không cần đăng nhập
+              Miễn phí · Tiếng Anh
             </p>
             <h1 className="pt-landing__title pt-rise" style={{ '--d': 1 }}>
               Test Band IELTS <span>Free</span>

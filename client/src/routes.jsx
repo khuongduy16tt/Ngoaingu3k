@@ -27,6 +27,7 @@ const ExamRoomPage = lazy(() => import('./pages/ExamRoomPage'));
 const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
 const PlacementTestPage = lazy(() => import('./pages/PlacementTestPage'));
+const HskTestPage = lazy(() => import('./pages/HskTestPage'));
 
 function LoadingScreen() {
   return (
@@ -115,7 +116,23 @@ export function AppRoutes() {
         <Route path="/courses" element={<CoursesPage />} />
         <Route path="/courses/:courseId" element={<CourseDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
-        <Route path="/test" element={<PlacementTestPage />} />
+        {/* Bài test trình độ: phải đăng nhập mới làm được. */}
+        <Route
+          path="/test"
+          element={
+            <ProtectedRoute>
+              <PlacementTestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/test/hsk/:level"
+          element={
+            <ProtectedRoute>
+              <HskTestPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/learn"
           element={
