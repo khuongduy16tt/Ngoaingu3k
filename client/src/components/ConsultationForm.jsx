@@ -30,7 +30,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
 
     if (!values.fullName.trim() || !values.phone.trim() || !values.program) {
       setStatus('error');
-      setMessage('Vui lòng nhập họ tên, số điện thoại và chọn chương trình quan tâm.');
+      setMessage('Vui lòng nhập họ tên, số điện thoại và chọn IELTS hoặc HSK.');
       return;
     }
 
@@ -64,6 +64,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
             placeholder="Nguyễn Văn A"
             value={values.fullName}
             onChange={updateField('fullName')}
+            autoComplete="name"
           />
         </label>
 
@@ -71,6 +72,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
           <span>Số điện thoại</span>
           <input
             type="tel"
+            inputMode="tel"
             placeholder="0912345678"
             value={values.phone}
             onChange={updateField('phone')}
@@ -78,29 +80,23 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
           />
         </label>
 
-        <label className="auth-field">
-          <span>Email</span>
-          <input type="email" placeholder="ban@email.com" value={values.email} onChange={updateField('email')} />
-        </label>
-
-        <label className="auth-field">
-          <span>Chương trình quan tâm</span>
-          <select value={values.program} onChange={updateField('program')}>
-            <option value="">-- Chọn chương trình --</option>
-            <option value="IELTS">IELTS</option>
-            <option value="HSK">HSK</option>
-          </select>
-        </label>
-
-        <label className="auth-field hero__consult-span">
-          <span>Nhu cầu học tập</span>
-          <input
-            type="text"
-            placeholder="VD: mất gốc, luyện giao tiếp, luyện thi cấp tốc..."
-            value={values.needs}
-            onChange={updateField('needs')}
-          />
-        </label>
+        <fieldset className="auth-field consult-program hero__consult-span">
+          <legend>Bạn muốn học</legend>
+          <div className="consult-program__options">
+            {['IELTS', 'HSK'].map((program) => (
+              <label key={program} className={`consult-program__option ${values.program === program ? 'is-selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="consult-program"
+                  value={program}
+                  checked={values.program === program}
+                  onChange={updateField('program')}
+                />
+                {program === 'IELTS' ? 'Tiếng Anh · IELTS' : 'Tiếng Trung · HSK'}
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       {message ? (
@@ -115,7 +111,7 @@ export function ConsultationForm({ className = '', onSuccess } = {}) {
       ) : null}
 
       <button type="submit" className="button auth-submit" disabled={status === 'submitting'}>
-        {status === 'submitting' ? 'Đang gửi...' : 'ĐĂNG KÝ NHẬN ƯU ĐÃI'}
+        {status === 'submitting' ? 'Đang gửi...' : 'Nhận lộ trình miễn phí'}
       </button>
     </form>
   );

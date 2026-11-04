@@ -858,3 +858,155 @@ body {
     transition: none;
   }
 }
+
+/* ── Popup "Nhận lộ trình học miễn phí": gọn, phẳng, góc vuông, vừa 1 màn hình ── */
+body .consult-popup .consult-popup__card {
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 2rem);
+  padding: 1.5rem;
+  border: 1px solid var(--hv-border-strong);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body .consult-popup .consult-popup__card::before {
+  display: none;
+}
+
+body .consult-popup .consult-popup__card h2 {
+  margin: 0 0 0.25rem;
+  padding-right: 3rem;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+body .consult-popup .consult-popup__lead {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: var(--hv-ink-2);
+}
+
+body .consult-popup .consult-popup__close {
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 0 !important;
+  background: transparent;
+}
+
+body .consult-popup .hero__consult {
+  gap: 0.75rem;
+}
+
+body .consult-popup .auth-fields {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+body .consult-popup .auth-field {
+  gap: 0.3rem;
+}
+
+body .consult-popup .auth-field > span,
+body .consult-popup .consult-program legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--hv-ink);
+}
+
+body .consult-popup .auth-field input {
+  min-height: 44px;
+  margin-top: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0 !important;
+}
+
+body .consult-popup .auth-field input:focus {
+  box-shadow: none !important;
+  outline: 2px solid var(--hv-focus);
+  outline-offset: -1px;
+}
+
+.consult-program {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.consult-program legend {
+  padding: 0;
+  margin-bottom: 0.3rem;
+}
+
+.consult-program__options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.consult-program__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid var(--hv-border-strong);
+  background: var(--hv-surface);
+  color: var(--hv-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms, background-color 150ms;
+}
+
+.consult-program__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.consult-program__option:hover {
+  border-color: var(--hv-focus);
+}
+
+.consult-program__option.is-selected {
+  border: 2px solid var(--hv-focus);
+  background: var(--hv-sky);
+}
+
+.consult-program__option:has(input:focus-visible) {
+  outline: 2px solid var(--hv-focus);
+  outline-offset: 2px;
+}
+
+body .consult-popup .auth-submit {
+  min-height: 48px;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body .consult-popup .hero__consult-message {
+  border-radius: 0 !important;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  body .consult-popup .consult-popup__card {
+    max-height: 100dvh;
+    padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+    border-radius: 0 !important;
+  }
+
+  .consult-program__option {
+    padding: 0.4rem 0.25rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+}

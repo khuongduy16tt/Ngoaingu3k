@@ -78,12 +78,8 @@ export function ConsultationFab() {
             >
               ✕
             </button>
-            <span className="eyebrow">Ưu đãi tư vấn miễn phí</span>
-            <h2>Đăng ký nhận tư vấn lộ trình học</h2>
-            <p className="consult-popup__lead">
-              Nhận lộ trình học IELTS/HSK phù hợp trong 24h — hoàn toàn{' '}
-              <span className="consult-popup__free">MIỄN PHÍ</span>.
-            </p>
+            <h2>Nhận lộ trình học miễn phí</h2>
+            <p className="consult-popup__lead">Giảng viên gọi tư vấn trong 24h.</p>
             <ConsultationForm onSuccess={handleFormSuccess} />
           </div>
         </div>
