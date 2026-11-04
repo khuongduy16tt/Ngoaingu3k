@@ -68,6 +68,11 @@ function getSuggestion(level, passed) {
   return { course: `Khoá HSK ${level}`, text: `Bạn chưa đạt HSK ${level}. Nên học khoá HSK ${level} để chắc từ vựng và ngữ pháp trước khi thi.` };
 }
 
+function HskImage({ question }) {
+  if (!question.image) return null;
+  return <img className="hsk-image" src={question.image} alt={`Hình câu ${question.n}`} width="480" height="480" loading="lazy" />;
+}
+
 function HskGroup({ group, answers, setAnswer }) {
   const shared = Boolean(group.bank) && !group.codes;
   return (
@@ -105,7 +110,8 @@ function HskGroup({ group, answers, setAnswer }) {
               <div key={key} id={`hsk-${key}`} className="ptest-item ptest-item--row">
                 <div className="ptest-item__prompt">
                   <span className={`ptest-num ${value ? 'is-answered' : ''}`}>{question.n}</span>
-                  <p className="hsk-prompt">{question.prompt}</p>
+                  {question.prompt ? <p className="hsk-prompt">{question.prompt}</p> : null}
+                  <HskImage question={question} />
                 </div>
                 <div className="ptest-pills" role="radiogroup" aria-label={`Câu ${question.n}`}>
                   {choices.map((choice) => (
@@ -131,6 +137,7 @@ function HskGroup({ group, answers, setAnswer }) {
               <div className="ptest-item__prompt">
                 <span className={`ptest-num ${value ? 'is-answered' : ''}`}>{question.n}</span>
                 <p className="hsk-prompt">{question.prompt || `Chỗ trống (${question.n})`}</p>
+                <HskImage question={question} />
               </div>
               <div className="ptest-options">
                 {choices.map((choice) => (
@@ -336,7 +343,7 @@ function HskTest({ test }) {
               Bài đọc hiểu theo format {test.title}, {allQuestions.length} câu trắc nghiệm trong {test.durationMinutes} phút. Nộp
               xong có ngay điểm, kết quả đạt hay chưa đạt và đáp án chi tiết.
             </p>
-            <ol className="pt-skills pt-skills--hsk pt-rise" style={{ '--d': 3 }}>
+            <ol className="pt-skills pt-skills--hsk pt-rise" style={{ '--d': 3, '--hsk-parts': test.parts.length }}>
               {test.parts.map((item, index) => (
                 <li key={item.id} className="pt-3d">
                   <span className="pt-skills__num">0{index + 1}</span>

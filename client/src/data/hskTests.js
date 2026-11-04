@@ -5,9 +5,15 @@
 // - group.bank: danh sách đáp án dùng chung cho cả nhóm (A, B, C... theo thứ tự).
 // - question.options: đáp án riêng của câu (A, B, C, D theo thứ tự).
 // - group.codes: ký hiệu riêng thay cho A, B, C (vd. câu Đúng/Sai).
+// - question.image: hình minh hoạ của câu (nếu có).
 // - question.answer: ký hiệu đáp án đúng.
 
 export const HSK_PASS_SCORE = 60;
+
+// Hình minh hoạ câu hỏi nằm ở client/public/images/hsk-test/.
+function hskImage(name) {
+  return `/images/hsk-test/${name}.jpg`;
+}
 
 const SENT_HSK1_P1 = ['医院。', '下雨了。', '我不认识她。', '7岁。', '下个月。', '好的，谢谢！'];
 const SENT_HSK1_P2 = ['坐', '前面', '没关系', '名字', '汉语', '月'];
@@ -51,6 +57,45 @@ const hsk1 = {
             { n: 8, prompt: '你会说（ ）吗？', answer: 'E' },
             { n: 9, prompt: '男：你好！王先生在吗？\n女：在，请（ ），我去叫他。', answer: 'A' },
             { n: 10, prompt: '女：对不起，我不会做饭。\n男：（ ），我会。', answer: 'C' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'p3',
+      title: 'Phần 3',
+      range: '11–15',
+      groups: [
+        {
+          title: '第11–15题',
+          instruction: 'Nhìn hình và cho biết hình có đúng với từ đã cho không: đúng (√) hay sai (×).',
+          codes: ['√', '×'],
+          bank: ['对', '错'],
+          questions: [
+            { n: 11, prompt: '猫', image: hskImage('hsk1-q11'), answer: '×' },
+            { n: 12, prompt: '衣服', image: hskImage('hsk1-q12'), answer: '√' },
+            { n: 13, prompt: '水果', image: hskImage('hsk1-q13'), answer: '√' },
+            { n: 14, prompt: '坐', image: hskImage('hsk1-q14'), answer: '√' },
+            { n: 15, prompt: '米饭', image: hskImage('hsk1-q15'), answer: '×' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'p4',
+      title: 'Phần 4',
+      range: '16–20',
+      groups: [
+        {
+          title: '第16–20题',
+          instruction: 'Nhìn hình và chọn câu phù hợp nhất từ A đến E.',
+          bank: ['他在睡觉呢。', '他明天坐火车去。', '他在医院工作，是个医生。', '我想喝一杯茶。', '他们是同学。'],
+          questions: [
+            { n: 16, image: hskImage('hsk1-q16'), answer: 'C' },
+            { n: 17, image: hskImage('hsk1-q17'), answer: 'A' },
+            { n: 18, image: hskImage('hsk1-q18'), answer: 'D' },
+            { n: 19, image: hskImage('hsk1-q19'), answer: 'E' },
+            { n: 20, image: hskImage('hsk1-q20'), answer: 'B' }
           ]
         }
       ]
@@ -142,6 +187,31 @@ const hsk2 = {
             { n: 18, prompt: '开门，快开门。', answer: 'E' },
             { n: 19, prompt: '她笑着对我说：“不客气。”', answer: 'B' },
             { n: 20, prompt: '我的天！你们认识？这怎么可能？', answer: 'A' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'p4',
+      title: 'Phần 4',
+      range: '21–25',
+      groups: [
+        {
+          title: '第21–25题',
+          instruction: 'Nhìn hình và chọn câu phù hợp nhất từ A đến E.',
+          bank: [
+            '给你介绍一下，这是我们公司的李先生。',
+            '看书时间长了，眼睛得休息休息。',
+            '那是我孩子，她爱跳舞。',
+            '今天下雪了，天气很冷。',
+            '因为我不会游泳，所以，小鱼，你好！'
+          ],
+          questions: [
+            { n: 21, image: hskImage('hsk2-q21'), answer: 'A' },
+            { n: 22, image: hskImage('hsk2-q22'), answer: 'D' },
+            { n: 23, image: hskImage('hsk2-q23'), answer: 'B' },
+            { n: 24, image: hskImage('hsk2-q24'), answer: 'E' },
+            { n: 25, image: hskImage('hsk2-q25'), answer: 'C' }
           ]
         }
       ]
