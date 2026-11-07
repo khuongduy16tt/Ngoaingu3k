@@ -23,6 +23,9 @@
   --header-green: var(--color-header-bg);
   --header-ink: var(--color-text-primary);
   --header-orange: var(--color-link);
+  /* Rê chuột vào mục menu: cả nút đổi sang nền trắng, chữ xanh navy. */
+  --header-hover-bg: #ffffff;
+  --header-hover-text: var(--color-header-bg);
   --header-height: 87px;
 
   position: fixed;
@@ -32,7 +35,7 @@
   z-index: 1000;
   height: var(--header-height);
   background: var(--header-green);
-  font-family: Nunito, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Ba khối: logo trái · menu giữa · nút phải.
@@ -98,7 +101,7 @@
 .site-menu__item:hover,
 .site-menu__item:focus-within,
 .site-menu__item.is-open {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--header-hover-bg);
 }
 
 /* Trang thật không đánh dấu mục đang mở (mọi link đều trắng phẳng). App này
@@ -145,6 +148,12 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform 0.25s ease;
+}
+
+.site-menu__item:hover > .site-menu__link,
+.site-menu__item:focus-within > .site-menu__link,
+.site-menu__item.is-open > .site-menu__link {
+  color: var(--header-hover-text);
 }
 
 .site-menu__item.is-open .site-menu__caret {
@@ -201,12 +210,24 @@
   line-height: 1.4;
   text-transform: capitalize;
   text-decoration: none;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  /* Lề âm + padding ngang: chữ vẫn thẳng hàng, nhưng nền khi rê chuột
+     phủ rộng ra như một nút. */
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.site-menu__sub-link:hover {
-  opacity: 0.82;
-  transform: translateX(4px);
+.site-menu__sub-link:hover,
+.site-menu__sub-link:focus-visible {
+  background: var(--header-hover-bg);
+  color: var(--header-hover-text);
+}
+
+.site-menu__sub-link:hover span,
+.site-menu__sub-link:focus-visible span {
+  color: var(--header-hover-text);
 }
 
 .site-menu__sub-link span {
@@ -258,15 +279,21 @@
   line-height: 1.4;
   cursor: default;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
-  transition: opacity 0.2s ease;
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .site-menu__group-row:first-child {
   border-top: none;
 }
 
-.site-menu__group-row:hover {
-  opacity: 0.9;
+.site-menu__group-row:hover,
+.site-menu__group-row:focus-within {
+  background: var(--header-hover-bg);
+  color: var(--header-hover-text);
 }
 
 .site-menu__group-arrow {
@@ -315,16 +342,26 @@
   font-weight: 400;
   text-decoration: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  margin: 0 -10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .site-menu__flyout-link:last-child {
   border-bottom: none;
 }
 
-.site-menu__flyout-link:hover {
-  opacity: 0.82;
-  transform: translateX(4px);
+.site-menu__flyout-link:hover,
+.site-menu__flyout-link:focus-visible {
+  background: var(--header-hover-bg);
+  color: var(--header-hover-text);
+}
+
+.site-menu__flyout-link:hover span,
+.site-menu__flyout-link:focus-visible span {
+  color: var(--header-hover-text);
 }
 
 .site-menu__flyout-link span {
@@ -698,6 +735,12 @@
     color: var(--header-orange);
   }
 
+  /* Drawer nền trắng: giữ kiểu cũ (chữ navy, nền xanh nhạt) cho dễ đọc. */
+  .site-header {
+    --header-hover-bg: color-mix(in srgb, var(--color-secondary) 14%, transparent);
+    --header-hover-text: var(--header-orange);
+  }
+
   .site-menu__caret {
     margin-left: auto;
     width: 14px;
@@ -723,6 +766,7 @@
   }
 
   .site-menu__sub-link {
+    margin: 0;
     padding: 10px 0;
     color: var(--header-ink);
     font-size: 17px;

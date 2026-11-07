@@ -39,7 +39,8 @@
 
   --hv-focus: #385791;
 
-  --hv-font-display: 'Fraunces', 'Lora', Georgia, 'Times New Roman', serif;
+  /* Toàn web dùng một font (Be Vietnam Pro); tiêu đề không còn dùng serif. */
+  --hv-font-display: 'Be Vietnam Pro', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --hv-font-sans: 'Be Vietnam Pro', Nunito, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --hv-radius-card: 28px;
