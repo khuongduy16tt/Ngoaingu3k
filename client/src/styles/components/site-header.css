@@ -98,8 +98,10 @@
   transition: background-color 0.2s ease;
 }
 
+/* Không tô nền theo focus: đóng popup đăng nhập xong, trình duyệt trả focus
+   về link vừa bấm, nút sẽ trắng mãi dù chuột đã rời đi. Người dùng bàn phím
+   vẫn thấy viền focus mặc định của trình duyệt. */
 .site-menu__item:hover,
-.site-menu__item:focus-within,
 .site-menu__item.is-open {
   background: var(--header-hover-bg);
 }
@@ -151,7 +153,6 @@
 }
 
 .site-menu__item:hover > .site-menu__link,
-.site-menu__item:focus-within > .site-menu__link,
 .site-menu__item.is-open > .site-menu__link {
   color: var(--header-hover-text);
 }
@@ -291,7 +292,7 @@
 }
 
 .site-menu__group-row:hover,
-.site-menu__group-row:focus-within {
+.site-menu__group-row:has(:focus-visible) {
   background: var(--header-hover-bg);
   color: var(--header-hover-text);
 }
