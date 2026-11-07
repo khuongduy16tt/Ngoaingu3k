@@ -111,10 +111,11 @@
   white-space: nowrap !important;
 }
 
+/* Nhãn mục (Về chúng tôi, Lộ trình học, Học viên nói gì...): 18px cho dễ đọc. */
 .hv-eyebrow {
   display: inline-block;
   color: var(--hv-green-text);
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -139,7 +140,7 @@
 .hv-section-kicker {
   margin: 72px 0 0;
   color: var(--hv-ink-2);
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-align: center;
@@ -1272,7 +1273,7 @@
   border-radius: 20px;
 }
 
-/* ── 8. Cảm nhận học viên: marquee 2 hàng ───────────────────────────── */
+/* ── 8. Cảm nhận học viên: marquee 1 hàng, thẻ lớn, chạy chậm ────────── */
 .hv-testimonials {
   padding: 64px 0 72px;
 }
@@ -1297,12 +1298,8 @@
   gap: 16px;
   width: max-content;
   padding-right: 16px;
-  animation: hvMarquee 70s linear infinite;
-}
-
-.hv-marquee__row--reverse .hv-marquee__track {
-  animation-direction: reverse;
-  animation-duration: 80s;
+  /* Chậm cho dễ đọc: ~1/2 tốc độ cũ (thẻ rộng hơn nên track cũng dài hơn). */
+  animation: hvMarquee 180s linear infinite;
 }
 
 .hv-marquee__row:hover .hv-marquee__track,
@@ -1314,10 +1311,10 @@
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 14px;
-  width: 340px;
+  gap: 16px;
+  width: 440px;
   margin: 0;
-  padding: 22px 22px 20px;
+  padding: 28px 28px 24px;
   border: 1px solid var(--hv-border);
   border-radius: var(--hv-radius-card);
   background: var(--hv-surface);
@@ -1325,11 +1322,11 @@
 
 .hv-quote__badge {
   align-self: flex-start;
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: var(--hv-radius-pill);
   background: var(--hv-green-soft);
   color: var(--hv-green-text);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
 }
 
@@ -1340,7 +1337,7 @@
 .hv .hv-quote blockquote p {
   margin: 0;
   color: var(--hv-ink);
-  font-size: 15.5px;
+  font-size: 19px;
   line-height: 1.6;
 }
 
@@ -1353,8 +1350,8 @@
 .hv-quote__who img,
 .hv-quote__avatar {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--hv-radius-pill);
   object-fit: cover;
 }
@@ -1370,13 +1367,13 @@
 .hv-quote__who strong {
   display: block;
   color: var(--hv-ink);
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .hv-quote__who span span {
   display: block;
   color: var(--hv-ink-2);
-  font-size: 13px;
+  font-size: 14.5px;
   line-height: 1.4;
 }
 
@@ -1402,10 +1399,6 @@
 
 .hv-gallery__item:nth-child(1) {
   grid-row: span 2;
-}
-
-.hv-gallery__item:nth-child(6) {
-  grid-column: span 2;
 }
 
 .hv-gallery__item img {
@@ -1917,8 +1910,12 @@
   }
 
   .hv-quote {
-    width: 290px;
-    padding: 18px;
+    width: 320px;
+    padding: 20px;
+  }
+
+  .hv .hv-quote blockquote p {
+    font-size: 17px;
   }
 
   .hv-marquee {
@@ -1939,10 +1936,6 @@
   .hv-gallery__item:nth-child(1) {
     grid-row: auto;
     grid-column: span 2;
-  }
-
-  .hv-gallery__item:nth-child(6) {
-    grid-column: auto;
   }
 
   .hv-gallery__item figcaption {
@@ -2039,7 +2032,7 @@
     transform: none;
   }
 
-  /* Marquee → dải cuộn ngang tay; bỏ hàng 2 và các bản sao. */
+  /* Marquee → dải cuộn ngang tay; bỏ các bản sao. */
   .hv-marquee__track {
     animation: none;
   }
@@ -2049,7 +2042,6 @@
     padding: 0 16px 8px;
   }
 
-  .hv-marquee__row--reverse,
   .hv-marquee .hv-quote[aria-hidden='true'] {
     display: none;
   }

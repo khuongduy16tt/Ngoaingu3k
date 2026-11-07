@@ -25,20 +25,20 @@ function TestimonialCard({ item, hidden }) {
   );
 }
 
-// Marquee 2 hàng chạy ngược chiều nhau, dừng khi rê chuột/focus vào. Mỗi hàng
-// nhân đôi danh sách để vòng lặp liền mạch (translateX 0 → -50%); bản sao ẩn
-// với trình đọc màn hình. Giảm chuyển động: CSS tắt marquee, hàng thành dải
-// cuộn ngang bình thường và bản sao bị ẩn hẳn.
+// Marquee 1 hàng, chạy chậm cho dễ đọc, dừng khi rê chuột/focus vào. Danh sách
+// được nhân đôi để vòng lặp liền mạch (translateX 0 → -50%); bản sao ẩn với
+// trình đọc màn hình. Giảm chuyển động: CSS tắt marquee, hàng thành dải cuộn
+// ngang bình thường và bản sao bị ẩn hẳn.
 export function TestimonialMarquee({ items }) {
-  const rows = [items, [...items].reverse()];
+  const rows = [items];
 
   return (
     <div className="hv-marquee">
       {rows.map((row, rowIndex) => (
-        <div key={rowIndex} className={`hv-marquee__row ${rowIndex ? 'hv-marquee__row--reverse' : ''}`}>
+        <div key={rowIndex} className="hv-marquee__row">
           <div className="hv-marquee__track">
             {row.map((item) => (
-              <TestimonialCard key={item.name} item={item} hidden={rowIndex === 1} />
+              <TestimonialCard key={item.name} item={item} />
             ))}
             {row.map((item) => (
               <TestimonialCard key={`${item.name}-copy`} item={item} hidden />

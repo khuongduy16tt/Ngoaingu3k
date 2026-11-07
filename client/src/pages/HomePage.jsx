@@ -128,15 +128,13 @@ const exclusiveProducts = [
   { src: '/images/imported/5_Trang-chu_GT-sp.webp', alt: 'Bộ khoá học độc quyền của Ngoaingu3k' },
 ];
 
-// Hoạt động của trung tâm + lựa chọn đáng tin cậy (gộp thành 1 lưới ảnh).
+// Hoạt động của trung tâm + lựa chọn đáng tin cậy (gộp thành 1 lưới ảnh, 2 hàng).
 const centerActivities = [
   { src: '/images/imported/8.1_Trang-chu_GT-TT.webp', alt: 'Hoạt động tại Ngoaingu3k' },
   { src: '/images/imported/8.2_Trang-chu_GT-TT.webp', alt: 'Giờ học tại Ngoaingu3k' },
   { src: '/images/imported/9.1_Trang-chu_lua-chon-tin-cay.webp', alt: 'Học viên tin tưởng lựa chọn Ngoaingu3k' },
   { src: '/images/imported/8.3_Trang-chu_GT-TT.webp', alt: 'Không gian học tập tại Ngoaingu3k' },
   { src: '/images/imported/9.2_Trang-chu_lua-chon-dang-tin-cay.webp', alt: 'Trải nghiệm học tập tại Ngoaingu3k' },
-  { src: '/images/imported/8.4_Trang-chu_GT-TT.webp', alt: 'Sự kiện tại Ngoaingu3k' },
-  { src: '/images/imported/9.3_Trang-chu_lua-chon-tin-cay.webp', alt: 'Cộng đồng học viên Ngoaingu3k' },
 ];
 
 function StatsStrip() {
