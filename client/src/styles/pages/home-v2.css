@@ -2302,8 +2302,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hv-freetest__tile,
-  .site-header__test {
+  .hv-freetest__tile {
     transition: none;
   }
 }

@@ -903,7 +903,7 @@ function TopBar() {
                   }}
                 />
               ) : (
-                <li key={link.to} className="site-menu__item">
+                <li key={link.to} className={`site-menu__item ${link.itemClass || ''}`}>
                   <NavLink
                     to={link.to}
                     className={({ isActive }) =>
@@ -946,18 +946,19 @@ function TopBar() {
         </nav>
 
         <div className="site-header__actions">
-          {/* Nút nổi bật dẫn tới bài test trình độ miễn phí (ẩn ở màn hẹp, đã có ở thanh dưới). */}
-          <Link className="site-header__test" to="/test" onClick={closeMobileMenu}>
-            Test Free
-          </Link>
           {/* Giỏ chỉ dành cho học viên và khách — giảng viên/admin không mua khóa. */}
           {!signedIn || currentRole === 'student' ? <HeaderCartLink onClick={closeMobileMenu} /> : null}
           {signedIn ? (
             <UserAvatar />
           ) : (
-            <AuthModalLink className="site-header__login">
-              {ui.signIn}
-            </AuthModalLink>
+            <>
+              <AuthModalLink className="site-header__login">
+                {ui.signIn}
+              </AuthModalLink>
+              <AuthModalLink className="site-header__signup" mode="sign-up">
+                {ui.signUp}
+              </AuthModalLink>
+            </>
           )}
 
           <button

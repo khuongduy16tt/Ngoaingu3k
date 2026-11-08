@@ -44,7 +44,10 @@ export const navLinks = [
   { label: 'Tiến độ', to: '/student-progress', role: 'admin' },
   { label: 'Bài tập', to: '/dashboard/student', role: 'student' },
   { label: 'Bảng điều khiển', to: '/dashboard/teacher', role: 'teacher' },
-  { label: 'Bảng điều khiển', to: '/dashboard/admin', role: 'admin' }
+  { label: 'Bảng điều khiển', to: '/dashboard/admin', role: 'admin' },
+  // Mục cuối danh sách nên luôn nằm ngay bên trái "Liên hệ" (được thêm sau cùng).
+  // itemClass: ẩn ở menu ngang màn vừa (768–1080px) cho đủ chỗ — xem site-header.css.
+  { label: 'Test band', to: '/test', itemClass: 'site-menu__item--test' }
 ];
 
 export const featuredCourses = [

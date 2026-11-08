@@ -814,6 +814,14 @@ body {
   }
 }
 
+/* Lề thanh menu là 4.2% (site-header.css) thay vì 24px cũ: cộng phần chênh để
+   mascot vẫn đứng đúng chỗ so với cụm nút bên phải. */
+@media (min-width: 1241px) {
+  .header-mascot {
+    right: calc(4.2% + 144px);
+  }
+}
+
 @media (max-width: 1180px) {
   .header-mascot {
     right: 120px;
@@ -859,14 +867,15 @@ body {
   }
 }
 
-/* ── Popup "Nhận lộ trình học miễn phí": gọn, phẳng, góc vuông, vừa 1 màn hình ── */
+/* ── Popup "Nhận lộ trình học miễn phí": gọn, vừa 1 màn hình, bo tròn giống
+   hộp đăng nhập (§15: khung bo 28px + bóng mờ, ô nhập 14px, nút bo tròn). ── */
 body .consult-popup .consult-popup__card {
   width: min(420px, 100%);
   max-height: calc(100dvh - 2rem);
   padding: 1.5rem;
-  border: 1px solid var(--hv-border-strong);
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  border: 1px solid var(--hv-border);
+  border-radius: var(--hv-radius-card) !important;
+  box-shadow: var(--hv-shadow-pop) !important;
 }
 
 body .consult-popup .consult-popup__card::before {
@@ -891,7 +900,7 @@ body .consult-popup .consult-popup__close {
   right: 0.75rem;
   width: 44px;
   height: 44px;
-  border-radius: 0 !important;
+  border-radius: 12px !important;
   background: transparent;
 }
 
@@ -921,13 +930,13 @@ body .consult-popup .auth-field input {
   min-height: 44px;
   margin-top: 0;
   padding: 0.6rem 0.8rem;
-  border-radius: 0 !important;
+  border-radius: 14px !important;
 }
 
 body .consult-popup .auth-field input:focus {
-  box-shadow: none !important;
-  outline: 2px solid var(--hv-focus);
-  outline-offset: -1px;
+  border-color: var(--hv-green) !important;
+  box-shadow: 0 0 0 4px var(--hv-green-soft) !important;
+  outline: none;
 }
 
 .consult-program {
@@ -956,6 +965,7 @@ body .consult-popup .auth-field input:focus {
   min-height: 44px;
   padding: 0.5rem;
   border: 1px solid var(--hv-border-strong);
+  border-radius: 14px;
   background: var(--hv-surface);
   color: var(--hv-ink);
   font-size: 0.92rem;
@@ -987,12 +997,12 @@ body .consult-popup .auth-field input:focus {
 
 body .consult-popup .auth-submit {
   min-height: 48px;
-  border-radius: 0 !important;
+  border-radius: var(--hv-radius-pill) !important;
   box-shadow: none !important;
 }
 
 body .consult-popup .hero__consult-message {
-  border-radius: 0 !important;
+  border-radius: 12px !important;
   padding: 0.6rem 0.8rem;
   font-size: 0.9rem;
 }
@@ -1001,7 +1011,8 @@ body .consult-popup .hero__consult-message {
   body .consult-popup .consult-popup__card {
     max-height: 100dvh;
     padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
-    border-radius: 0 !important;
+    /* Trượt lên từ đáy màn hình: chỉ bo 2 góc trên. */
+    border-radius: var(--hv-radius-card) var(--hv-radius-card) 0 0 !important;
   }
 
   .consult-program__option {
