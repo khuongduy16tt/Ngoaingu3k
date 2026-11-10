@@ -1401,6 +1401,11 @@
   grid-row: span 2;
 }
 
+.hv-gallery__item picture {
+  display: block;
+  height: 100%;
+}
+
 .hv-gallery__item img {
   display: block;
   width: 100%;

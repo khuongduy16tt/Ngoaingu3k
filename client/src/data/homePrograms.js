@@ -1,6 +1,6 @@
 // Khối tab "Từ mất gốc đến IELTS / HSK" trên trang chủ. Mỗi tab: danh sách chủ
 // đề (cột trái) + thẻ mô tả khoá (cột phải). `glyph` là ký tự lớn mờ trang trí
-// phía sau khối. Ảnh lấy từ thư viện ảnh của trung tâm (public/images/imported).
+// phía sau khối. Ảnh lấy từ bộ ảnh web mới (public/images/home).
 export const homePrograms = [
   {
     id: 'tieng-anh',
@@ -15,7 +15,7 @@ export const homePrograms = [
       'Bài học hướng dẫn từng bước',
       'Bài tập theo dõi tiến độ mỗi tuần',
     ],
-    image: '/images/imported/6_Trang-chu_GT-TA.webp',
+    image: '/images/home/chuong-trinh-tieng-anh.webp',
     to: '/courses#khoa-hoc-ielts',
   },
   {
@@ -26,7 +26,7 @@ export const homePrograms = [
     description: 'Luyện thi HSK theo từng cấp độ, xây nền tảng phát âm đến tăng tốc phản xạ giao tiếp.',
     meta: 'HSK 1 – 2 – 3 – 4 – 5',
     topics: ['Phát âm, pinyin và thanh điệu', 'Chữ Hán và luyện viết nét', 'HSK theo từng cấp độ', 'Tăng tốc phản xạ giao tiếp'],
-    image: '/images/imported/7_Trang-chu_GT-TT.webp',
+    image: '/images/home/chuong-trinh-tieng-trung.webp',
     to: '/courses#khoa-hoc-hsk',
   },
   {
@@ -37,7 +37,7 @@ export const homePrograms = [
     description: 'Luyện đề bấm giờ theo 4 kỹ năng, chấm chữa bài viết chi tiết theo tiêu chí band điểm.',
     meta: 'IELTS 3.5 → 6.5 · HSK 1 – 5',
     topics: ['IELTS 3.5 · 4.0-4.5 · 5.0-5.5 · 6.0-6.5', 'TOEIC Fast Track 650+', 'HSK 1-2-3-4-5', 'Đề bấm giờ theo 4 kỹ năng'],
-    image: '/images/imported/11.1_KH-TA-scaled.webp',
+    image: '/images/home/chuong-trinh-luyen-thi.webp',
     to: '/courses',
   },
   {
@@ -48,7 +48,7 @@ export const homePrograms = [
     description: 'Luyện phản xạ qua tình huống giao tiếp hằng ngày, nhận phản hồi trực tiếp mỗi tuần.',
     meta: 'Tự tin giao tiếp và thuyết trình',
     topics: ['Tình huống giao tiếp hằng ngày', 'Luyện phản xạ nói', 'Thuyết trình tự tin', 'Phản hồi trực tiếp mỗi tuần'],
-    image: '/images/imported/8.2_Trang-chu_GT-TT.webp',
+    image: '/images/home/chuong-trinh-giao-tiep.webp',
     to: '/courses',
   },
   {
@@ -60,7 +60,7 @@ export const homePrograms = [
       'Thực hành viết email, thuyết trình và xử lý cuộc họp bằng ngoại ngữ theo tình huống thực tế. Khung viết email, báo cáo chuẩn doanh nghiệp, sửa lỗi thực tế ngay trên bài viết của bạn.',
     meta: 'Viết email và báo cáo công sở',
     topics: ['Viết email chuẩn doanh nghiệp', 'Báo cáo và tài liệu công việc', 'Thuyết trình, xử lý cuộc họp', 'Sửa lỗi trên bài viết thực tế'],
-    image: '/images/imported/8.1_Trang-chu_GT-TT.webp',
+    image: '/images/home/chuong-trinh-cong-so.webp',
     to: '/courses',
   },
 ];

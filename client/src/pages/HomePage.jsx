@@ -124,17 +124,22 @@ const features = [
 
 // Giới thiệu sản phẩm độc quyền.
 const exclusiveProducts = [
-  { src: '/images/imported/4_Trang-chu_GT-sp.webp', alt: 'Tài liệu độc quyền của Ngoaingu3k' },
-  { src: '/images/imported/5_Trang-chu_GT-sp.webp', alt: 'Bộ khoá học độc quyền của Ngoaingu3k' },
+  { src: '/images/home/san-pham-tieng-anh.webp', alt: 'Khoá luyện thi tiếng Anh IELTS 3.5 - 6.5' },
+  { src: '/images/home/san-pham-tieng-trung.webp', alt: 'Khoá luyện thi tiếng Trung HSK 1 - 5' },
 ];
 
-// Hoạt động của trung tâm + lựa chọn đáng tin cậy (gộp thành 1 lưới ảnh, 2 hàng).
+// Hoạt động của trung tâm (lưới ảnh 2 hàng). Ảnh đầu chiếm 2 hàng nên dùng bản
+// cắt dọc; trên điện thoại ô đầu lại nằm ngang nên dùng ảnh gốc (srcMobile).
 const centerActivities = [
-  { src: '/images/imported/8.1_Trang-chu_GT-TT.webp', alt: 'Hoạt động tại Ngoaingu3k' },
-  { src: '/images/imported/8.2_Trang-chu_GT-TT.webp', alt: 'Giờ học tại Ngoaingu3k' },
-  { src: '/images/imported/9.1_Trang-chu_lua-chon-tin-cay.webp', alt: 'Học viên tin tưởng lựa chọn Ngoaingu3k' },
-  { src: '/images/imported/8.3_Trang-chu_GT-TT.webp', alt: 'Không gian học tập tại Ngoaingu3k' },
-  { src: '/images/imported/9.2_Trang-chu_lua-chon-dang-tin-cay.webp', alt: 'Trải nghiệm học tập tại Ngoaingu3k' },
+  {
+    src: '/images/home/hoat-dong-doc.webp',
+    srcMobile: '/images/home/hoat-dong-ngang.webp',
+    alt: 'Giờ luyện nghe tại Ngoaingu3k',
+  },
+  { src: '/images/home/hoat-dong-1.webp', alt: 'Tư vấn lộ trình học' },
+  { src: '/images/home/hoat-dong-2.webp', alt: 'Lớp luyện nói tiếng Trung' },
+  { src: '/images/home/hoat-dong-3.webp', alt: 'Học viên và giảng viên Ngoaingu3k' },
+  { src: '/images/home/hoat-dong-4.webp', alt: 'Gian tư vấn tại sự kiện' },
 ];
 
 function StatsStrip() {
@@ -270,7 +275,7 @@ export default function HomePage() {
           </div>
           <Reveal className="hv-panel hv-panel--sky hv-panel--photo">
             <img
-              src="/images/imported/3_Trang-chu_GT-chung-toi.webp"
+              src="/images/home/ve-chung-toi.webp"
               alt="Giới thiệu về Ngoaingu3k"
               width="640"
               height="640"
@@ -341,7 +346,10 @@ export default function HomePage() {
           <Reveal className="hv-gallery hv-stagger">
             {centerActivities.map((activity, i) => (
               <figure key={activity.src} className="hv-gallery__item" style={{ '--hv-delay': `${i * 60}ms` }}>
-                <img src={activity.src} alt="" width="600" height="420" loading="lazy" decoding="async" />
+                <picture>
+                  {activity.srcMobile ? <source media="(max-width: 767px)" srcSet={activity.srcMobile} /> : null}
+                  <img src={activity.src} alt="" width="600" height="420" loading="lazy" decoding="async" />
+                </picture>
                 <figcaption>{activity.alt}</figcaption>
               </figure>
             ))}
