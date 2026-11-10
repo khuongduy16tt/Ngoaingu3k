@@ -2675,7 +2675,7 @@ export function TeacherDashboardPage() {
               <input
                 type="number"
                 min="0"
-                step="10000"
+                step="1000"
                 value={courseDraft.price}
                 onChange={(event) => updateDraft('price', event.target.value)}
               />
@@ -5469,14 +5469,14 @@ export function AdminDashboardPage() {
             </label>
             <label className="auth-field">
               <span>Giá VND</span>
-              <input type="number" min="0" step="10000" value={courseDraft.price} onChange={(event) => updateCourseDraft('price', event.target.value)} />
+              <input type="number" min="0" step="1000" value={courseDraft.price} onChange={(event) => updateCourseDraft('price', event.target.value)} />
             </label>
             <label className="auth-field">
               <span>Giá kèm dạy kèm (VND)</span>
               <input
                 type="number"
                 min="0"
-                step="10000"
+                step="1000"
                 value={courseDraft.tutoringPrice}
                 onChange={(event) => updateCourseDraft('tutoringPrice', event.target.value)}
                 placeholder="Bỏ trống nếu không bán dạy kèm"
