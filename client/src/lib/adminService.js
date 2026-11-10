@@ -303,6 +303,43 @@ function buildLessonContentPayload(content, existingContent = {}) {
   return Object.keys(previous).length ? { ...previous, note: value } : { content: value };
 }
 
+/**
+ * Link video của bài nằm ở 3 chỗ: cột video_url, content.videoUrl và tab video
+ * trong content.tabs. Học viên xem theo tab video, nên khi admin đổi ô
+ * "Video URL" phải ghi link mới vào cả content, không thì vẫn hiện video cũ.
+ */
+function syncLessonContentVideoUrl(content, videoUrl) {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    return content;
+  }
+
+  const nextUrl = String(videoUrl || '').trim();
+  const next = { ...content };
+
+  if ('videoUrl' in next || nextUrl) {
+    if (next.videoUrl !== nextUrl) {
+      next.videoUrl = nextUrl;
+      // Link nhúng cũ trỏ tới file cũ, bỏ đi để trang học tự dựng lại từ link mới.
+      if (next.videoEmbedUrl) {
+        next.videoEmbedUrl = '';
+      }
+    }
+  }
+
+  if (Array.isArray(next.tabs)) {
+    next.tabs = next.tabs.map((tab) => {
+      if (tab?.kind !== 'video' || tab.videoUrl === nextUrl) {
+        return tab;
+      }
+
+      const { videoEmbedUrl: _videoEmbedUrl, ...rest } = tab;
+      return { ...rest, videoUrl: nextUrl };
+    });
+  }
+
+  return next;
+}
+
 function normalizeLesson(lesson, chapterLookup = new Map()) {
   const chapter = chapterLookup.get(lesson.chapter_id || lesson.chapterId) || {};
 
@@ -317,7 +354,12 @@ function normalizeLesson(lesson, chapterLookup = new Map()) {
     // Giữ nguyên object content gốc: ô soạn thảo của admin chỉ hiện phần ghi chú,
     // nên khi lưu phải trộn lại chứ không được thay cả content — nếu thay, các
     // trường khác (tabs, exercises, videoUrl, readingItems) sẽ bị xóa sạch.
-    contentRaw: parseAdminLessonContent(lesson.content),
+    // Khi lưu từ form, `content` chỉ còn là chữ ghi chú — phải lấy lại contentRaw
+    // của bài đang sửa, nếu đọc lại từ ghi chú thì mất hết tabs/exercises.
+    contentRaw:
+      lesson.contentRaw && typeof lesson.contentRaw === 'object' && !Array.isArray(lesson.contentRaw)
+        ? lesson.contentRaw
+        : parseAdminLessonContent(lesson.content),
     videoUrl: lesson.video_url || lesson.videoUrl || '',
     position: Number(lesson.position || 0),
     isPreview: Boolean(lesson.is_preview ?? lesson.isPreview),
@@ -776,7 +818,10 @@ export async function saveAdminLesson(lesson) {
       .update({
         title: nextLesson.title,
         video_url: nextLesson.videoUrl || null,
-        content: buildLessonContentPayload(nextLesson.content, nextLesson.contentRaw),
+        content: syncLessonContentVideoUrl(
+          buildLessonContentPayload(nextLesson.content, nextLesson.contentRaw),
+          nextLesson.videoUrl
+        ),
         position: nextLesson.position,
         is_preview: nextLesson.isPreview
       })
@@ -793,7 +838,10 @@ export async function saveAdminLesson(lesson) {
         chapter_id: chapterId,
         title: nextLesson.title,
         video_url: nextLesson.videoUrl || null,
-        content: buildLessonContentPayload(nextLesson.content, nextLesson.contentRaw),
+        content: syncLessonContentVideoUrl(
+          buildLessonContentPayload(nextLesson.content, nextLesson.contentRaw),
+          nextLesson.videoUrl
+        ),
         position: nextLesson.position,
         is_preview: nextLesson.isPreview
       })
