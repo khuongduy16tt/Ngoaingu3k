@@ -98,8 +98,8 @@
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  /* Khe giữa các mục: thiếu khe thì chữ các mục dính vào nhau. */
-  gap: 10px;
+  /* Khe nhỏ giữa các mục để chữ không dính nhau (giãn quá thì lại thưa). */
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -456,9 +456,57 @@
   }
 }
 
-/* Nút "Đăng ký" ở cụm bên phải chỉ hiện khi đủ chỗ; màn hẹp hơn vẫn đăng ký
-   được qua "Tạo tài khoản" trong hộp đăng nhập (và trong drawer ≤767px). */
+/* Màn laptop (≤1700px): thu gọn khe logo–menu–nút và hai nút Đăng nhập/Đăng ký
+   để nút Đăng ký vẫn còn chỗ hiện. Chỉ dùng 1 class cho nút để các nấc nhỏ hơn
+   bên dưới (≤1400, ≤1240…) vẫn đè được. */
 @media (max-width: 1700px) {
+  .site-header__inner {
+    gap: 32px;
+  }
+
+  .site-menu {
+    gap: 2px;
+  }
+
+  .site-menu__item {
+    padding: 0 8px;
+  }
+
+  .site-menu__link {
+    font-size: 16px;
+  }
+
+  .site-header__actions {
+    gap: 10px;
+  }
+
+  .site-header__login {
+    padding: 10px 16px;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .site-header__signup {
+    padding: 8px 16px;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+}
+
+/* 1401–1500px: thêm cả nút Đăng ký thì menu chữ 16px không còn vừa. */
+@media (max-width: 1500px) {
+  .site-menu__item {
+    padding: 0 7px;
+  }
+
+  .site-menu__link {
+    font-size: 15px;
+  }
+}
+
+/* Nút "Đăng ký" ở cụm bên phải chỉ ẩn khi thật sự hết chỗ; màn hẹp hơn vẫn
+   đăng ký được qua "Tạo tài khoản" trong hộp đăng nhập (và trong drawer ≤767px). */
+@media (max-width: 1400px) {
   .site-header__actions > .site-header__signup {
     display: none;
   }
@@ -520,11 +568,11 @@
    nấc nào khớp — menu bật lại 16px và tràn ra ngoài. */
 @media (max-width: 1400px) {
   .site-menu {
-    gap: 6px;
+    gap: 4px;
   }
 
   .site-menu__item {
-    padding: 0 6px;
+    padding: 0 5px;
   }
 
   .site-menu__link {
@@ -553,11 +601,11 @@
   }
 
   .site-menu {
-    gap: 4px;
+    gap: 2px;
   }
 
   .site-menu__item {
-    padding: 0 6px;
+    padding: 0 5px;
   }
 
   .site-menu__link {
