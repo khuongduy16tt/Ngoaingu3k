@@ -1183,6 +1183,17 @@
   border: 0;
 }
 
+/* Che nút "mở cửa sổ mới" ở góc trên phải trình phát Google Drive (học viên). */
+.lesson-video-panel__shield {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: 72px;
+  height: 64px;
+  background: transparent;
+}
+
 .lesson-video-panel__notice,
 .lesson-video-warning {
   display: flex;

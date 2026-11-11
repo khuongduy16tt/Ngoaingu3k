@@ -23,6 +23,7 @@ import {
   saveLessonTabsToSupabase
 } from '../lib/courseService';
 import { getLessonProgress, saveLessonProgress } from '../lib/progressService';
+import { LessonFlashcardPanel, useLessonFlashcardSet } from './learning/LessonFlashcards';
 import {
   DEFAULT_READING_PROMPT,
   formatLessonCorrectAnswer,
@@ -784,7 +785,8 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', p
             ? 'Bài này chưa có link video Google Drive. Hãy mở bảng giảng viên để gắn video cho từng bài.'
             : 'Bài học này chưa có video. Chuyển sang mục Bài tập để luyện ngay.')}
         </p>
-        {rawVideoUrl ? (
+        {/* Học viên không được thấy link Drive gốc — chỉ giảng viên/admin mở để kiểm tra. */}
+        {rawVideoUrl && isTeacher ? (
           <a className="button-ghost" href={rawVideoUrl} target="_blank" rel="noreferrer">
             Mở link gốc
           </a>
@@ -815,8 +817,11 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', p
           referrerPolicy="no-referrer"
           allowFullScreen
         />
+        {/* Trình phát Drive có nút "mở trong cửa sổ mới" ở góc trên phải, bấm vào
+            là ra file Drive gốc. Lớp trong suốt này che nút đó với học viên. */}
+        {isDriveVideo && !isTeacher ? <div className="lesson-video-panel__shield" aria-hidden="true" /> : null}
       </div>
-      {isDriveVideo ? (
+      {isDriveVideo && isTeacher ? (
         <div className="lesson-video-panel__drive-fallback">
           <a
             className="button-ghost"
@@ -1428,18 +1433,27 @@ export function LessonExercisePreview({ lesson, tab, isTeacher, onSubmitted }) {
 // Hai phần độc lập của một chủ đề: Video và Bài tập. Bấm "Bài tập" mới trải ra
 // danh sách tab con ("Bài tập ngữ pháp 1", "Bài tập nghe 2"...), mỗi tab con là
 // một đề riêng — tránh đổ toàn bộ 7-8 bài tập ra cùng một màn hình.
-export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExercisesSubmitted }) {
+export function LessonTabbedContent({ lesson, courseId = '', isTeacher, dashboardPath, onExercisesSubmitted }) {
   const tabs = useMemo(() => buildLessonTabs(lesson), [lesson]);
   const videoTab = useMemo(() => getVideoTab(tabs), [tabs]);
   const exerciseTabs = useMemo(() => getExerciseTabs(tabs), [tabs]);
 
   // Chủ đề không có video lẫn nội dung đọc thì phần Video chỉ là một ô "Chưa
   // có video" — mở thẳng phần Bài tập để học viên khỏi phải bấm thêm một lần.
+  const hasVideo = Boolean(videoTab?.videoUrl || lesson?.videoUrl || lesson?.videoEmbedUrl);
   const videoPartIsEmpty =
-    !(videoTab?.videoUrl || lesson?.videoUrl || lesson?.videoEmbedUrl) &&
+    !hasVideo &&
     !(videoTab?.readingItems?.length || lesson?.readingItems?.length) &&
     !(videoTab?.pinyinTable || lesson?.pinyinTable);
-  const defaultPart = videoPartIsEmpty && exerciseTabs.length ? 'exercise' : 'video';
+
+  // Bài không có video thì dùng bộ flashcard cùng chủ đề (nếu khóa có) thay video.
+  const { set: flashcardSet, loading: flashcardLoading } = useLessonFlashcardSet({
+    courseId,
+    chapterTitle: lesson?.sectionTitle,
+    enabled: !hasVideo
+  });
+  const defaultPart =
+    videoPartIsEmpty && !flashcardSet && !flashcardLoading && exerciseTabs.length ? 'exercise' : 'video';
 
   const [activePart, setActivePart] = useState(defaultPart);
   const [activeExerciseTabId, setActiveExerciseTabId] = useState(exerciseTabs[0]?.id || '');
@@ -1448,7 +1462,7 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
   useEffect(() => {
     setActivePart(defaultPart);
     setActiveExerciseTabId('');
-  }, [lesson?.id]);
+  }, [lesson?.id, defaultPart]);
 
   // Giữ tab con hợp lệ khi giáo viên vừa thêm/xóa tab.
   useEffect(() => {
@@ -1479,9 +1493,15 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
           className={`lesson-tabs__part ${activePart === 'video' ? 'is-active' : ''}`}
           onClick={() => setActivePart('video')}
         >
-          <span className="lesson-tabs__part-label">Video bài học</span>
+          <span className="lesson-tabs__part-label">{flashcardSet ? 'Flashcard từ vựng' : 'Video bài học'}</span>
           <span className="lesson-tabs__part-meta">
-            {videoTab?.videoUrl ? 'Đã có video' : hasReadingContent ? 'Nội dung đọc' : 'Chưa có video'}
+            {flashcardSet
+              ? `${flashcardSet.cards.length} thẻ`
+              : videoTab?.videoUrl
+                ? 'Đã có video'
+                : hasReadingContent
+                  ? 'Nội dung đọc'
+                  : 'Chưa có video'}
           </span>
         </button>
 
@@ -1503,18 +1523,26 @@ export function LessonTabbedContent({ lesson, isTeacher, dashboardPath, onExerci
 
       {activePart === 'video' ? (
         <div className="lesson-tabs__panel">
-          <LessonVideoPlayer
-            lesson={{
-              ...lesson,
-              videoUrl: videoContentTab.videoUrl || lesson?.videoUrl,
-              videoTitle: videoContentTab.videoTitle || lesson?.videoTitle,
-              note: videoContentTab.note || lesson?.note
-            }}
-            isTeacher={isTeacher}
-            dashboardPath={dashboardPath}
-            pageTitle={lesson?.title}
-            pageNote={lesson?.note}
-          />
+          {flashcardSet ? (
+            <LessonFlashcardPanel set={flashcardSet} />
+          ) : flashcardLoading ? (
+            <section className="content-card content-card--enterprise video-question-empty">
+              <p>Đang tải nội dung bài học...</p>
+            </section>
+          ) : (
+            <LessonVideoPlayer
+              lesson={{
+                ...lesson,
+                videoUrl: videoContentTab.videoUrl || lesson?.videoUrl,
+                videoTitle: videoContentTab.videoTitle || lesson?.videoTitle,
+                note: videoContentTab.note || lesson?.note
+              }}
+              isTeacher={isTeacher}
+              dashboardPath={dashboardPath}
+              pageTitle={lesson?.title}
+              pageNote={lesson?.note}
+            />
+          )}
           {hasReadingContent ? <LessonReadingPanel lesson={readingLesson} /> : null}
 
           {/* Chủ đề không có tab bài tập thì file nghe/ảnh của bài không có chỗ
@@ -3810,6 +3838,7 @@ export default function LearningPage() {
               {/* Video và Bài tập là hai mục độc lập; bài tập trải ra theo tab con. */}
               <LessonTabbedContent
                 lesson={currentLesson}
+                courseId={currentCourse?.databaseId || ''}
                 isTeacher={isTeacher}
                 dashboardPath={getDashboardPathForRole(currentRole)}
                 onExercisesSubmitted={handleLessonExercisesSubmitted}
