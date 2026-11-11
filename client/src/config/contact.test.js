@@ -7,7 +7,7 @@ describe('contact config', () => {
     expect(contact.email).toContain('@');
     expect(contact.zaloUrl).toContain('zalo.me');
     expect(contact.messengerUrl).toContain('m.me');
-    expect(contact.companyName).toBe('Ngoaingu3k Academy');
+    expect(contact.companyName).toBe('Ngoại Ngữ 3K Academy');
   });
 
   it('has valid URLs', () => {

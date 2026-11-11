@@ -1452,10 +1452,16 @@ export function LessonTabbedContent({ lesson, courseId = '', isTeacher, dashboar
     chapterTitle: lesson?.sectionTitle,
     enabled: !hasVideo
   });
-  const defaultPart =
-    videoPartIsEmpty && !flashcardSet && !flashcardLoading && exerciseTabs.length ? 'exercise' : 'video';
+  // Không có video, nội dung đọc hay flashcard thì ẩn hẳn mục Video — không hiện
+  // ô "chưa có video". Riêng bài không có tab bài tập mà có file nghe/ảnh thì
+  // vẫn giữ mục này vì file đó chỉ hiện ở đây.
+  const hasLessonAssets = Boolean(lesson?.audioUrl || lesson?.imageUrl);
+  const hideVideoPart =
+    videoPartIsEmpty && !flashcardSet && !flashcardLoading && (exerciseTabs.length > 0 || !hasLessonAssets);
+  const defaultPart = hideVideoPart ? 'exercise' : 'video';
 
-  const [activePart, setActivePart] = useState(defaultPart);
+  const [selectedPart, setActivePart] = useState(defaultPart);
+  const activePart = hideVideoPart ? 'exercise' : selectedPart;
   const [activeExerciseTabId, setActiveExerciseTabId] = useState(exerciseTabs[0]?.id || '');
 
   // Đổi chủ đề → quay lại phần mặc định và chọn lại tab bài tập đầu tiên.
@@ -1486,24 +1492,28 @@ export function LessonTabbedContent({ lesson, courseId = '', isTeacher, dashboar
   return (
     <div className="lesson-tabs">
       <div className="lesson-tabs__parts" role="tablist" aria-label="Nội dung chủ đề">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activePart === 'video'}
-          className={`lesson-tabs__part ${activePart === 'video' ? 'is-active' : ''}`}
-          onClick={() => setActivePart('video')}
-        >
-          <span className="lesson-tabs__part-label">{flashcardSet ? 'Flashcard từ vựng' : 'Video bài học'}</span>
-          <span className="lesson-tabs__part-meta">
-            {flashcardSet
-              ? `${flashcardSet.cards.length} thẻ`
-              : videoTab?.videoUrl
-                ? 'Đã có video'
-                : hasReadingContent
-                  ? 'Nội dung đọc'
-                  : 'Chưa có video'}
-          </span>
-        </button>
+        {hideVideoPart ? null : (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePart === 'video'}
+            className={`lesson-tabs__part ${activePart === 'video' ? 'is-active' : ''}`}
+            onClick={() => setActivePart('video')}
+          >
+            <span className="lesson-tabs__part-label">
+              {flashcardSet ? 'Flashcard từ vựng' : hasVideo || flashcardLoading ? 'Video bài học' : 'Nội dung bài học'}
+            </span>
+            <span className="lesson-tabs__part-meta">
+              {flashcardSet
+                ? `${flashcardSet.cards.length} thẻ`
+                : hasVideo
+                  ? 'Đã có video'
+                  : hasReadingContent
+                    ? 'Nội dung đọc'
+                    : 'Tài liệu'}
+            </span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -1529,7 +1539,7 @@ export function LessonTabbedContent({ lesson, courseId = '', isTeacher, dashboar
             <section className="content-card content-card--enterprise video-question-empty">
               <p>Đang tải nội dung bài học...</p>
             </section>
-          ) : (
+          ) : !hasVideo ? null : (
             <LessonVideoPlayer
               lesson={{
                 ...lesson,
@@ -1602,7 +1612,9 @@ export function LessonTabbedContent({ lesson, courseId = '', isTeacher, dashboar
               <p>
                 {isTeacher
                   ? 'Mở phần quản lý bên dưới để thêm tab bài tập cho chủ đề.'
-                  : 'Giảng viên chưa giao bài tập cho chủ đề này. Hãy xem hết video trước.'}
+                  : hideVideoPart
+                    ? 'Giảng viên chưa giao bài tập cho chủ đề này.'
+                    : 'Giảng viên chưa giao bài tập cho chủ đề này. Hãy xem hết video trước.'}
               </p>
             </section>
           )}

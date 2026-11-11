@@ -43,7 +43,7 @@ export const testimonials = [
   {
     name: 'Quốc Trung',
     role: 'Kỹ sư phần mềm, công ty công nghệ',
-    course: 'Học viên Ngoaingu3k',
+    course: 'Học viên Ngoại Ngữ 3K',
     quote: 'Môi trường học tập cực kỳ hiện đại, bài giảng sinh động không gây nhàm chán.',
     result: '',
     avatar: '',

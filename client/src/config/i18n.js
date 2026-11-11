@@ -60,7 +60,7 @@ export const ui = {
  * Page title helper — appends site suffix.
  */
 export function buildPageTitle(pageTitle) {
-  const suffix = 'Ngoaingu3k Academy';
+  const suffix = 'Ngoại Ngữ 3K Academy';
   if (!pageTitle) return suffix;
   return `${pageTitle} | ${suffix}`;
 }

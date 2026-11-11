@@ -19,12 +19,12 @@ describe('ui constants', () => {
 
 describe('buildPageTitle', () => {
   it('appends suffix to page title', () => {
-    expect(buildPageTitle('Trang chủ')).toBe('Trang chủ | Ngoaingu3k Academy');
+    expect(buildPageTitle('Trang chủ')).toBe('Trang chủ | Ngoại Ngữ 3K Academy');
   });
 
   it('returns suffix only when no page title', () => {
-    expect(buildPageTitle('')).toBe('Ngoaingu3k Academy');
-    expect(buildPageTitle(null)).toBe('Ngoaingu3k Academy');
-    expect(buildPageTitle(undefined)).toBe('Ngoaingu3k Academy');
+    expect(buildPageTitle('')).toBe('Ngoại Ngữ 3K Academy');
+    expect(buildPageTitle(null)).toBe('Ngoại Ngữ 3K Academy');
+    expect(buildPageTitle(undefined)).toBe('Ngoại Ngữ 3K Academy');
   });
 });

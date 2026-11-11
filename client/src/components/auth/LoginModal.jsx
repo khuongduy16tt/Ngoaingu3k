@@ -26,7 +26,7 @@ const FOCUSABLE =
 const VIEW_COPY = {
   'sign-in': {
     title: 'Chào mừng bạn trở lại',
-    subtitle: 'Tiếp tục học tập cùng Ngoaingu3K'
+    subtitle: 'Tiếp tục học tập cùng Ngoại Ngữ 3K'
   },
   'sign-up': {
     title: 'Tạo tài khoản',

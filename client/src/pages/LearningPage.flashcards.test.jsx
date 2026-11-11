@@ -70,7 +70,7 @@ describe('LessonTabbedContent — flashcard thay video', () => {
     expect(screen.queryByText(/chưa có video/i)).not.toBeInTheDocument();
   });
 
-  it('chủ đề chưa có bộ thẻ thì giữ như cũ (mở phần Bài tập)', async () => {
+  it('chủ đề không có video lẫn bộ thẻ thì ẩn mục Video, mở thẳng Bài tập', async () => {
     renderLesson({
       id: 'l3',
       title: 'TỪ VỰNG',
@@ -79,7 +79,8 @@ describe('LessonTabbedContent — flashcard thay video', () => {
     });
 
     expect((await screen.findAllByText('Câu 1')).length).toBeGreaterThan(0);
-    expect(screen.getByRole('tab', { name: /Video bài học/ })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Video bài học/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/chưa có (link )?video/i)).not.toBeInTheDocument();
   });
 
   it('bài đã có video thì vẫn hiện video', () => {

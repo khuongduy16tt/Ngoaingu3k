@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../providers/AuthProvider';
+import { AuthModalLink } from '../providers/AuthModalProvider';
 import { getFeaturedCourses } from '../lib/courseService';
 import { handleRemoteImageError, supabaseImageSrcSet, supabaseImageUrl } from '../lib/imageCdn';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -124,8 +126,8 @@ const features = [
 
 // Giới thiệu sản phẩm độc quyền.
 const exclusiveProducts = [
-  { src: '/images/home/san-pham-tieng-anh.webp', alt: 'Khoá luyện thi tiếng Anh IELTS 3.5 - 6.5' },
-  { src: '/images/home/san-pham-tieng-trung.webp', alt: 'Khoá luyện thi tiếng Trung HSK 1 - 5' },
+  { src: '/images/home/san-pham-tieng-anh.webp', alt: 'Khoá luyện thi tiếng Anh IELTS 3.5 - 6.5', coursesTo: '/courses#khoa-hoc-ielts' },
+  { src: '/images/home/san-pham-tieng-trung.webp', alt: 'Khoá luyện thi tiếng Trung HSK 1 - 5', coursesTo: '/courses#khoa-hoc-hsk' },
 ];
 
 // Hoạt động của trung tâm (lưới ảnh 2 hàng). Ảnh đầu chiếm 2 hàng nên dùng bản
@@ -134,11 +136,11 @@ const centerActivities = [
   {
     src: '/images/home/hoat-dong-doc.webp',
     srcMobile: '/images/home/hoat-dong-ngang.webp',
-    alt: 'Giờ luyện nghe tại Ngoaingu3k',
+    alt: 'Giờ luyện nghe tại Ngoại Ngữ 3K',
   },
   { src: '/images/home/hoat-dong-1.webp', alt: 'Tư vấn lộ trình học' },
   { src: '/images/home/hoat-dong-2.webp', alt: 'Lớp luyện nói tiếng Trung' },
-  { src: '/images/home/hoat-dong-3.webp', alt: 'Học viên và giảng viên Ngoaingu3k' },
+  { src: '/images/home/hoat-dong-3.webp', alt: 'Học viên và giảng viên Ngoại Ngữ 3K' },
   { src: '/images/home/hoat-dong-4.webp', alt: 'Gian tư vấn tại sự kiện' },
 ];
 
@@ -188,6 +190,8 @@ function FeatureRow({ feature, index }) {
 export default function HomePage() {
   const pageRef = useRef(null);
   const mascotTimer = useRef(null);
+  const auth = useAuth();
+  const signedIn = Boolean(auth.session);
   usePageTitle('Trang chủ');
   const [featuredCourses, setFeaturedCourses] = useState([]);
   const [mascotMood, setMascotMood] = useState('happy');
@@ -268,7 +272,7 @@ export default function HomePage() {
             <span className="hv-eyebrow">Về chúng tôi</span>
             <h2 id="hv-about-title">Trung tâm ngoại ngữ đồng hành cùng bạn trên từng chặng học</h2>
             <p>
-              Ngoaingu3k xây dựng lộ trình học cá nhân hoá cho tiếng Anh và tiếng Trung, với giảng viên theo sát, học
+              Ngoại Ngữ 3K xây dựng lộ trình học cá nhân hoá cho tiếng Anh và tiếng Trung, với giảng viên theo sát, học
               liệu độc quyền và hệ thống theo dõi tiến độ minh bạch — giúp bạn luôn biết mình đang ở đâu và cần học gì
               tiếp theo.
             </p>
@@ -276,7 +280,7 @@ export default function HomePage() {
           <Reveal className="hv-panel hv-panel--sky hv-panel--photo">
             <img
               src="/images/home/ve-chung-toi.webp"
-              alt="Giới thiệu về Ngoaingu3k"
+              alt="Giới thiệu về Ngoại Ngữ 3K"
               width="640"
               height="640"
               loading="lazy"
@@ -288,7 +292,7 @@ export default function HomePage() {
         {/* ── Vì sao chọn: 3 section tính năng xen kẽ ─────────────────── */}
         <div className="hv-why">
           <Reveal as="p" className="hv-section-kicker">
-            Vì sao chọn Ngoaingu3k
+            Vì sao chọn Ngoại Ngữ 3K
           </Reveal>
           {features.map((feature, index) => (
             <FeatureRow key={feature.id} feature={feature} index={index} />
@@ -309,16 +313,29 @@ export default function HomePage() {
         <section className="hv-feature hv-feature--reverse hv-products" aria-labelledby="hv-products-title">
           <div className="hv-feature__copy">
             <span className="hv-eyebrow">Sản phẩm độc quyền</span>
-            <h2 id="hv-products-title">Tài liệu và khoá học chỉ có tại Ngoaingu3k</h2>
+            <h2 id="hv-products-title">Tài liệu và khoá học chỉ có tại Ngoại Ngữ 3K</h2>
             <p>
               Bộ giáo trình và khoá học được đội ngũ chuyên môn biên soạn riêng, bám sát nhu cầu học viên Việt Nam —
               không sao chép, cập nhật liên tục theo phản hồi thực tế.
             </p>
           </div>
           <Reveal className="hv-panel hv-panel--mint hv-products__gallery">
-            {exclusiveProducts.map((product) => (
-              <img key={product.src} src={product.src} alt={product.alt} width="981" height="552" loading="lazy" decoding="async" />
-            ))}
+            {/* Ảnh có sẵn nút "Học Thử Ngay!" nên cả ảnh phải bấm được: khách mở
+                hộp đăng ký, người đã đăng nhập sang thẳng danh sách khoá. */}
+            {exclusiveProducts.map((product) => {
+              const image = (
+                <img src={product.src} alt={product.alt} width="981" height="552" loading="lazy" decoding="async" />
+              );
+              return signedIn ? (
+                <Link key={product.src} className="hv-products__link" to={product.coursesTo}>
+                  {image}
+                </Link>
+              ) : (
+                <AuthModalLink key={product.src} className="hv-products__link" mode="sign-up">
+                  {image}
+                </AuthModalLink>
+              );
+            })}
           </Reveal>
         </section>
       </div>
@@ -340,7 +357,7 @@ export default function HomePage() {
           <Reveal className="hv-section-head">
             <span className="hv-eyebrow hv-eyebrow--center">Hoạt động của trung tâm</span>
             <h2 id="hv-activities-title" className="hv-display-title">
-              Không khí học tập và sự kiện tại Ngoaingu3k
+              Không khí học tập và sự kiện tại Ngoại Ngữ 3K
             </h2>
           </Reveal>
           <Reveal className="hv-gallery hv-stagger">

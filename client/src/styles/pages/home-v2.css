@@ -280,7 +280,7 @@
   text-align: center;
 }
 
-/* Lưới hình thoi rất mờ, nhạt dần về mép. */
+/* Đã bỏ lưới hình thoi ở nền (bị chê nhìn quê). */
 .hv-hero::before {
   content: '';
   position: absolute;
@@ -288,8 +288,6 @@
   z-index: 0;
   pointer-events: none;
   opacity: 0.06;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M28 0 56 28 28 56 0 28Z' fill='none' stroke='%23111111' stroke-width='1'/%3E%3C/svg%3E");
-  background-size: 56px 56px;
   background-position: center top;
   -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 40%, #000 30%, transparent 100%);
   mask-image: radial-gradient(ellipse 70% 65% at 50% 40%, #000 30%, transparent 100%);
@@ -701,16 +699,23 @@
   box-shadow: var(--hv-shadow-lift);
 }
 
+/* Ảnh tràn hết khung, không còn viền nền màu bao quanh. */
 .hv-panel--photo {
   min-height: 0;
-  padding: 24px;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Hai lớp để thắng .hv-panel { padding } trong các media query bên dưới. */
+.hv-panel.hv-panel--photo {
+  padding: 0;
 }
 
 .hv-panel--photo img {
   display: block;
-  width: min(420px, 100%);
-  height: auto;
-  border-radius: 24px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .hv-panel__mascot {
@@ -1264,6 +1269,18 @@
   gap: 16px;
   min-height: 0;
   padding: 24px;
+}
+
+.hv-products__link {
+  display: block;
+  border-radius: 20px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hv-products__link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hv-shadow-lift);
 }
 
 .hv-products__gallery img {

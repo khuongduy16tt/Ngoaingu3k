@@ -98,6 +98,8 @@
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
+  /* Khe giữa các mục: thiếu khe thì chữ các mục dính vào nhau. */
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -517,8 +519,12 @@
    (1200,8px), rơi đúng vào kẽ giữa max-width:1200 và min-width:1201 nên không
    nấc nào khớp — menu bật lại 16px và tràn ra ngoài. */
 @media (max-width: 1400px) {
+  .site-menu {
+    gap: 6px;
+  }
+
   .site-menu__item {
-    padding: 0 5px;
+    padding: 0 6px;
   }
 
   .site-menu__link {
@@ -546,8 +552,12 @@
     --brand-logo-width: 66px;
   }
 
+  .site-menu {
+    gap: 4px;
+  }
+
   .site-menu__item {
-    padding: 0 5px;
+    padding: 0 6px;
   }
 
   .site-menu__link {
@@ -573,6 +583,10 @@
 
   .site-header__logo .brand-logo {
     --brand-logo-width: 60px;
+  }
+
+  .site-menu {
+    gap: 2px;
   }
 
   .site-menu__item {
@@ -743,6 +757,7 @@
     flex-direction: column;
     align-items: stretch;
     flex-wrap: nowrap;
+    gap: 0;
     padding: 8px 0;
   }
 

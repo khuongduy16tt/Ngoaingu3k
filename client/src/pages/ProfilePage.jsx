@@ -563,7 +563,7 @@ export default function ProfilePage() {
             </form>
           ) : provider === 'google' ? (
             <p className="profile-password-form__note">
-              Bạn đăng nhập bằng Google nên không cần mật khẩu riêng cho Ngoaingu3k.
+              Bạn đăng nhập bằng Google nên không cần mật khẩu riêng cho Ngoại Ngữ 3K.
             </p>
           ) : null}
 

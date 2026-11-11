@@ -87,7 +87,7 @@ const fallbackProfiles = [
   },
   {
     id: 'local-admin-1',
-    fullName: 'Admin Ngoaingu3k',
+    fullName: 'Admin Ngoại Ngữ 3K',
     email: 'admin@ngoaingu3k.com',
     phone: '0901000999',
     role: 'admin',

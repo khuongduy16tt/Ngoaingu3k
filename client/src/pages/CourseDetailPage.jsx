@@ -364,12 +364,11 @@ export default function CourseDetailPage() {
                 // thì khối thông tin và cột giá bị đẩy xuống (CLS 0.12).
                 width={1200}
                 height={600}
+                // Hiện trọn ảnh theo tỉ lệ gốc: ép 2:1 + cắt (cover) làm mất logo ở mép trên.
                 style={{
+                  display: 'block',
                   width: '100%',
                   height: 'auto',
-                  aspectRatio: '2 / 1',
-                  maxHeight: '400px',
-                  objectFit: 'cover',
                   borderRadius: 'var(--radius)'
                 }}
               />
