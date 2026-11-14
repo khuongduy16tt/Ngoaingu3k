@@ -2077,21 +2077,26 @@
 
 .hv-hero::before { display: none; }
 .hv-hero__inner { max-width: none; }
-.hv-hero__banner { display: block; width: 100%; aspect-ratio: 1923 / 818; background: url('/images/imported/hero-banner-blue-v3.webp') center / cover no-repeat; }
+/* Banner cao đúng phần màn hình dưới menu (không hở dải trắng); ảnh có sẵn trời phía trên nên màn thấp chỉ cắt bớt trời. */
+.hv-hero__banner { display: block; width: 100%; height: calc(100vh - var(--site-header-height)); height: min(calc(100svh - var(--site-header-height) - env(safe-area-inset-top)), 66vw); min-height: 420px; background: url('/images/imported/hero-banner-3k-v4.webp') 100% 100% / cover no-repeat; }
 .hv-hero__mobile-visual { display: none; }
+/* Trang trí phẳng góc trên bên phải banner (chỉ màn rộng). */
+.hv-hero__deco { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.hv-hero__deco-art { position: absolute; top: 6%; right: 5%; width: clamp(220px, 22vw, 420px); height: auto; opacity: 0.9; }
 .hv-hero__mobile-copy {
   position: absolute;
   z-index: 3;
   top: 10%;
-  left: 4.2%;
-  width: 35%;
+  left: 3.4%;
+  width: 60%;
   text-align: left;
 }
-.hv-hero h1.hv-hero__mobile-title { max-width: none; margin: 0; color: #14223f; font-size: clamp(32px, 4vw, 68px) !important; font-weight: 700; line-height: 1.08 !important; letter-spacing: -0.035em !important; text-align: left; }
+.hv-hero h1.hv-hero__mobile-title { max-width: none; margin: 0; color: #14223f; font-size: clamp(32px, 3.8vw, 74px) !important; font-weight: 700; line-height: 1.08 !important; letter-spacing: -0.035em !important; text-align: left; }
+@media (min-width: 1051px) { .hv-hero__title-line { white-space: nowrap; } }
 .hv-hero h1.hv-hero__mobile-title em { color: #253c63; background: none; }
-.hv-hero .hv-hero__lead { max-width: 43ch; margin: 20px 0 0; color: #42506b; font-size: clamp(14px, 1.12vw, 19px); line-height: 1.55; }
-.hv-hero .hv-hero__actions { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; margin: 22px 0 0; }
-.hv-hero__actions .hv-btn { min-height: 52px; padding: 0 23px; border-radius: 999px; font-size: clamp(13px, 1.1vw, 17px); font-weight: 700; white-space: nowrap; }
+.hv-hero .hv-hero__lead { max-width: 34ch; margin: 24px 0 0; color: #42506b; font-size: clamp(16px, 1.6vw, 29px); line-height: 1.55; }
+.hv-hero .hv-hero__actions { display: flex; flex-wrap: wrap; gap: 16px; width: 100%; margin: clamp(48px, 7vw, 130px) 0 0; }
+.hv-hero__actions .hv-btn { min-height: 56px; padding: 0 28px; border-radius: 999px; font-size: clamp(14px, 1.25vw, 19px); font-weight: 700; white-space: nowrap; }
 .hv-hero__actions .hv-btn--primary { border: 1px solid #385791; background: linear-gradient(135deg, #385791, #2d4876); color: #fff; box-shadow: 0 9px 20px rgba(56, 87, 145, 0.25); }
 .hv-hero__actions .hv-btn--light { border: 1.5px solid #385791; background: #fff; color: #253c63; box-shadow: 0 7px 18px rgba(56, 87, 145, 0.12); }
 .hv-hero__actions .hv-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(56, 87, 145, 0.25); }
@@ -2100,12 +2105,19 @@
 .hv-hero__demo {
   position: absolute;
   z-index: 2;
-  top: 22%;
-  left: 50%;
-  width: min(32vw, 440px);
+  top: 41%;
+  left: 58.5%;
+  width: min(37vw, 620px);
   min-width: 330px;
   margin: 0;
 }
+/* Bật bởi HomePage.jsx: ô bài tập được chiếu khớp khung trắng nghiêng của banner. */
+.hv-hero__demo.is-mapped { top: 0 !important; left: 0 !important; width: 560px !important; min-width: 0 !important; transform-origin: 0 0; }
+.hv-hero__demo.is-mapped .hv-quiz { display: flex; flex-direction: column; justify-content: center; box-sizing: border-box; height: 318px; padding: 18px 26px; border: 0; background: transparent; box-shadow: none; }
+.hv-hero__demo.is-mapped .hv-hero__mascot { top: -58px; }
+.hv-hero__demo.is-mapped .hv-quiz__options { justify-content: flex-start; gap: 10px; }
+.hv-hero__demo.is-mapped .hv-chip { flex: 0 0 auto; min-width: 84px; min-height: 32px; padding: 0 16px; border-radius: 8px; font-size: 14px; }
+.hv-hero__demo.is-mapped .hv-quiz__ghost { height: 32px; font-size: 14px; }
 .hv-hero__mascot {
   top: -65px;
   left: 43%;
@@ -2160,12 +2172,12 @@
 .hv-hero .hv-quiz__ghost { height: 39px; padding: 0 8px; font-size: 15px; }
 
 @media (max-width: 1050px) and (min-width: 768px) {
-  .hv-hero__mobile-copy { top: 7%; width: 40%; }
+  .hv-hero__mobile-copy { top: 7%; width: 33%; }
   .hv-hero h1.hv-hero__mobile-title { font-size: clamp(30px, 3.8vw, 40px) !important; }
   .hv-hero .hv-hero__lead { margin-top: 10px; font-size: 12px; line-height: 1.45; }
   .hv-hero .hv-hero__actions { gap: 7px; margin-top: 12px; }
   .hv-hero__actions .hv-btn { min-height: 44px; padding: 0 12px; font-size: 12px; }
-  .hv-hero__demo { left: 49%; top: 20%; width: 37vw; min-width: 285px; }
+  .hv-hero__demo { left: 58%; top: 36%; width: 36vw; min-width: 285px; }
   .hv-hero__mascot { top: -55px; width: 70px; }
   .hv-hero .hv-quiz { padding: 12px; }
   .hv-hero .hv-quiz__sentence { font-size: 19px; }
@@ -2173,7 +2185,8 @@
 }
 
 @media (max-width: 767px) {
-  .hv-hero { padding: calc(var(--site-header-height) + env(safe-area-inset-top)) 0 44px; text-align: left; }
+  /* Điện thoại: bỏ ảnh banner, nền caro ô vuông nhạt, chỉ giữ chữ + ô bài tập. */
+  .hv-hero { padding: calc(var(--site-header-height) + env(safe-area-inset-top)) 0 44px; text-align: left; background-color: #f7faff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M28 0H0V28' fill='none' stroke='%23d6e2f2' stroke-width='1'/%3E%3C/svg%3E"); background-size: 28px 28px; background-position: -1px -1px; }
   .hv-hero__inner { width: 100%; }
   .hv-hero__banner { display: none; }
   .hv-hero__mobile-copy { position: relative; top: auto; left: auto; box-sizing: border-box; width: 100%; padding: 34px 20px 0; }
@@ -2182,8 +2195,9 @@
   .hv-hero .hv-hero__lead { max-width: 42ch; margin: 16px 0 0; color: #42506b; font-size: 15px; line-height: 1.55; }
   .hv-hero .hv-hero__actions { gap: 10px; margin-top: 20px; }
   .hv-hero__actions .hv-btn { min-height: 44px; padding-inline: 18px; font-size: 13px; }
-  .hv-hero__mobile-visual { display: block; height: clamp(180px, 52vw, 290px); margin-top: 12px; background: url('/images/imported/hero-banner-blue-v3.webp') 54% center / cover no-repeat; }
-  .hv-hero__demo { position: relative; top: auto; left: auto; width: min(390px, calc(100% - 28px)); min-width: 0; margin: -22px auto 0; }
+  .hv-hero__mobile-visual { display: none; }
+  .hv-hero__deco { display: none; }
+  .hv-hero__demo { transform: none; position: relative; top: auto; left: auto; width: min(390px, calc(100% - 28px)); min-width: 0; margin: 92px auto 0; }
   .hv-hero__mascot { top: -57px; left: 43%; right: auto; width: 74px; }
   .hv-hero .hv-quiz { padding: 16px; }
   .hv-hero .hv-quiz__sentence { font-size: 21px; }
@@ -2327,4 +2341,42 @@
   .hv-freetest__tile {
     transition: none;
   }
+}
+
+/* ── Tối ưu điện thoại (≤767px) ──────────────────────────────────────────
+   Vùng bấm ≥44px, chữ phụ ≥12px, khóa học nổi bật vuốt ngang thay vì xếp dọc
+   3 thẻ dài. Chỉ áp dụng màn hẹp, máy tính giữ nguyên. */
+@media (max-width: 767px) {
+  /* Hero: nút to, dễ bấm bằng ngón cái. */
+  .hv-hero .hv-hero__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+  .hv-hero__actions .hv-btn { justify-content: center; min-height: 48px; padding-inline: 12px; font-size: 15px; }
+  .hv-hero .hv-chip { min-height: 44px; font-size: 17px; }
+  .hv-hero .hv-quiz__ghost { height: 44px; }
+
+  /* Link dạng chữ "Xem chi tiết →": tăng vùng bấm mà không đổi giao diện. */
+  .hv-link { min-height: 44px; }
+
+  /* Nút chọn học viên trong bảng tiến độ. */
+  .hv-dash__tabs button { min-height: 44px; font-size: 14px; }
+
+  /* Chữ phụ quá nhỏ (11px) khó đọc trên điện thoại. */
+  .hv-bubble__who,
+  .hv-dash__label { font-size: 12px; }
+
+  /* Khóa học nổi bật: vuốt ngang, mỗi thẻ ~84% bề ngang, thấy mép thẻ sau. */
+  .hv-courses__grid {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    margin-inline: -16px;
+    padding: 4px 16px 14px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .hv-courses__grid::-webkit-scrollbar { display: none; }
+  .hv-courses__grid > .hv-course { flex: 0 0 84%; scroll-snap-align: start; }
+  .hv-course__body { padding: 16px 18px 18px; }
+  .hv .hv-course__body p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 }

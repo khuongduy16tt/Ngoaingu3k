@@ -187,9 +187,31 @@ function FeatureRow({ feature, index }) {
   );
 }
 
+// 4 góc khung trắng trong ảnh banner (tỉ lệ theo chiều rộng/cao ảnh 3762x2213),
+// thứ tự: trên-trái, trên-phải, dưới-phải, dưới-trái. Ô bài tập được "dán" đúng
+// vào khung này bằng phép chiếu phối cảnh nên nghiêng khớp theo ảnh.
+const HERO_FRAME = [[0.6771, 0.6390], [0.9669, 0.6155], [0.9514, 0.9131], [0.6469, 0.9145]];
+const HERO_FRAME_INSET = 0.05;
+const HERO_DEMO_W = 560;
+const HERO_DEMO_H = 318;
+
+function quadToMatrix3d(quad, w, h) {
+  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = quad;
+  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3;
+  const dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+  const det = dx1 * dy2 - dx2 * dy1;
+  const g = (dx3 * dy2 - dx2 * dy3) / det;
+  const k = (dx1 * dy3 - dx3 * dy1) / det;
+  const a = x1 - x0 + g * x1, b = x3 - x0 + k * x3;
+  const d = y1 - y0 + g * y1, e = y3 - y0 + k * y3;
+  return `matrix3d(${a / w},${d / w},0,${g / w},${b / h},${e / h},0,${k / h},0,0,1,0,${x0},${y0},0,1)`;
+}
+
 export default function HomePage() {
   const pageRef = useRef(null);
   const mascotTimer = useRef(null);
+  const heroBannerRef = useRef(null);
+  const heroDemoRef = useRef(null);
   const auth = useAuth();
   const signedIn = Boolean(auth.session);
   usePageTitle('Trang chủ');
@@ -222,6 +244,46 @@ export default function HomePage() {
     }, 2200);
   }
 
+  // Màn rộng: chiếu ô bài tập vào đúng khung trắng nghiêng của ảnh banner.
+  useLayoutEffect(() => {
+    const banner = heroBannerRef.current;
+    const demo = heroDemoRef.current;
+    if (!banner || !demo || typeof window.matchMedia !== 'function') return undefined;
+    const wide = window.matchMedia('(min-width: 768px)');
+    function place() {
+      if (!wide.matches) {
+        demo.classList.remove('is-mapped');
+        demo.style.transform = '';
+        return;
+      }
+      // Banner cao đúng bằng màn hình (background cover, neo góc dưới bên phải),
+      // nên tính khung theo kích thước ảnh thực sự đang hiển thị.
+      const bw = banner.offsetWidth;
+      const bh = banner.offsetHeight;
+      const scale = Math.max(bw / 3762, bh / 2213);
+      const iw = 3762 * scale;
+      const ih = 2213 * scale;
+      const ox = bw - iw;
+      const oy = bh - ih;
+      const pts = HERO_FRAME.map(([x, y]) => [ox + x * iw, oy + y * ih]);
+      const cx = pts.reduce((s, p) => s + p[0], 0) / 4;
+      const cy = pts.reduce((s, p) => s + p[1], 0) / 4;
+      const quad = pts.map(([x, y]) => [x + (cx - x) * HERO_FRAME_INSET, y + (cy - y) * HERO_FRAME_INSET]);
+      demo.classList.add('is-mapped');
+      demo.style.transform = quadToMatrix3d(quad, HERO_DEMO_W, HERO_DEMO_H);
+    }
+    place();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null;
+    observer?.observe(banner);
+    wide.addEventListener?.('change', place);
+    window.addEventListener('resize', place);
+    return () => {
+      observer?.disconnect();
+      wide.removeEventListener?.('change', place);
+      window.removeEventListener('resize', place);
+    };
+  }, []);
+
   // Chỉ ẩn các khối .hv-reveal khi JS đã chạy — thiếu JS thì trang hiện đủ.
   useLayoutEffect(() => {
     pageRef.current?.classList.add('hv--motion');
@@ -242,9 +304,20 @@ export default function HomePage() {
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section id="home-hero" className="hv-hero" aria-labelledby="hv-hero-title">
         <div className="hv-hero__inner">
-          <div className="hv-hero__banner" aria-hidden="true" />
+          <div ref={heroBannerRef} className="hv-hero__banner" aria-hidden="true" />
+          <div className="hv-hero__deco" aria-hidden="true">
+            <svg className="hv-hero__deco-art" viewBox="0 0 360 220" fill="none">
+              <path d="M14 196 C 70 120, 150 190, 196 120 S 262 52, 300 46" stroke="#8cc8ec" strokeWidth="2.5" strokeDasharray="7 8" strokeLinecap="round" />
+              <path d="M300 30 L346 22 L318 62 L310 46 Z M310 46 L346 22" stroke="#4a8fd0" strokeWidth="2.5" strokeLinejoin="round" fill="#ffffff" />
+              <path d="M70 36 l5 13 13 5 -13 5 -5 13 -5 -13 -13 -5 13 -5z" fill="#8cc8ec" />
+              <path d="M236 150 l3.5 9 9 3.5 -9 3.5 -3.5 9 -3.5 -9 -9 -3.5 9 -3.5z" fill="#6fd35a" />
+              <path d="M150 22 l2.5 6.5 6.5 2.5 -6.5 2.5 -2.5 6.5 -2.5 -6.5 -6.5 -2.5 6.5 -2.5z" fill="#4a8fd0" />
+              <circle cx="118" cy="104" r="5" stroke="#8cc8ec" strokeWidth="2" />
+              <circle cx="272" cy="118" r="3.5" fill="#b9def3" />
+            </svg>
+          </div>
           <div className="hv-hero__mobile-copy">
-            <h1 id="hv-hero-title" className="hv-hero__mobile-title">Học tiếng Trung &amp; tiếng Anh <em>dễ dàng, hiệu quả</em></h1>
+            <h1 id="hv-hero-title" className="hv-hero__mobile-title"><span className="hv-hero__title-line">Học tiếng Trung &amp; tiếng Anh</span> <em>dễ dàng, hiệu quả</em></h1>
             <p className="hv-hero__lead">Bài học tương tác sinh động, lộ trình cá nhân hoá, luyện phát âm chuẩn, mở rộng vốn từ vựng và nắm vững ngữ pháp.</p>
             <div className="hv-hero__actions">
               <button type="button" className="hv-btn hv-btn--primary" onClick={openConsultation}>Học thử miễn phí</button>
@@ -252,7 +325,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="hv-hero__mobile-visual" aria-hidden="true" />
-          <div className="hv-hero__demo">
+          <div ref={heroDemoRef} className="hv-hero__demo">
             <button type="button" className={`hv-hero__mascot is-${mascotMood}`} onClick={greetMascot} aria-label="Chạm vào bạn 3K để nhận lời động viên">
               <Mascot className="hv-hero__mascot-art" mood={mascotMood} />
               {mascotLine ? <span className="hv-hero__mascot-message" aria-hidden="true">{mascotLine}</span> : null}
