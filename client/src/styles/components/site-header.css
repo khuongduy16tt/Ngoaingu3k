@@ -73,15 +73,8 @@
   --brand-logo-width: 74px;
 }
 
-/* Tâm logo thẳng chữ "tiếng" trong tiêu đề trang chủ "Học tiếng Trung &":
-   tâm chữ đó cách mép trái tiêu đề 3.323 × cỡ chữ tiêu đề (cỡ chữ =
-   clamp(32px, 4vw, 68px), xem .hv-hero h1 ở home-v2.css); trừ nửa logo (37px).
-   Dùng margin (chiếm chỗ thật) để menu tự lùi sang phải, không bị logo đè. */
-@media (min-width: 1241px) {
-  .site-header__logo {
-    margin-left: calc(3.323 * clamp(32px, 4vw, 68px) - 37px);
-  }
-}
+/* Logo bám lề trái 4.2% của .site-header__inner — thẳng hàng với chữ "H"
+   của tiêu đề trang chủ "Học tiếng Trung &", không lùi vào nữa. */
 
 /* ── Menu chính ─────────────────────────────────────────────────────────── */
 /* Chiếm trọn cột giữa và tự căn giữa trong đó. Logo giờ nằm trong luồng grid
@@ -98,8 +91,8 @@
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  /* Khe nhỏ giữa các mục để chữ không dính nhau (giãn quá thì lại thưa). */
-  gap: 4px;
+  /* Khe giữa các mục menu — logo không còn lùi vào nên dãn rộng ra được. */
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -465,7 +458,7 @@
   }
 
   .site-menu {
-    gap: 2px;
+    gap: 10px;
   }
 
   .site-menu__item {
@@ -954,11 +947,15 @@
   }
 }
 
-/* Laptop 1241–1480px: logo đã lùi vào thẳng chữ "tiếng" nên menu gọn lại cho
-   khỏi đè. Đặt cuối file để thắng quy tắc chữ menu chung ở trên. */
+/* Laptop 1241–1480px: menu gọn lại cho khỏi đè. Đặt cuối file để thắng quy
+   tắc chữ menu chung ở trên. */
 @media (min-width: 1241px) and (max-width: 1480px) {
   .site-header__inner {
     gap: 24px;
+  }
+
+  .site-menu {
+    gap: 8px;
   }
 
   .site-menu__item {
