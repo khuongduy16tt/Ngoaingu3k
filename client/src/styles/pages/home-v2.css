@@ -2078,7 +2078,7 @@
 .hv-hero::before { display: none; }
 .hv-hero__inner { max-width: none; }
 /* Banner cao đúng phần màn hình dưới menu (không hở dải trắng); ảnh có sẵn trời phía trên nên màn thấp chỉ cắt bớt trời. */
-.hv-hero__banner { display: block; width: 100%; height: calc(100vh - var(--site-header-height)); height: min(calc(100svh - var(--site-header-height) - env(safe-area-inset-top)), 66vw); min-height: 420px; background: url('/images/imported/hero-banner-3k-v4.webp') 100% 100% / cover no-repeat; }
+.hv-hero__banner { display: block; width: 100%; height: calc(100vh - var(--site-header-height)); height: calc(100svh - var(--site-header-height) - env(safe-area-inset-top)); min-height: 420px; background: url('/images/imported/hero-banner-3k-v4.webp') 100% 100% / cover no-repeat; }
 .hv-hero__mobile-visual { display: none; }
 /* Trang trí phẳng góc trên bên phải banner (chỉ màn rộng). */
 .hv-hero__deco { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
@@ -2174,9 +2174,9 @@
 @media (max-width: 1050px) and (min-width: 768px) {
   .hv-hero__mobile-copy { top: 7%; width: 33%; }
   .hv-hero h1.hv-hero__mobile-title { font-size: clamp(30px, 3.8vw, 40px) !important; }
-  .hv-hero .hv-hero__lead { margin-top: 10px; font-size: 12px; line-height: 1.45; }
+  .hv-hero .hv-hero__lead { margin-top: 12px; font-size: 14px; line-height: 1.5; }
   .hv-hero .hv-hero__actions { gap: 7px; margin-top: 12px; }
-  .hv-hero__actions .hv-btn { min-height: 44px; padding: 0 12px; font-size: 12px; }
+  .hv-hero__actions .hv-btn { min-height: 44px; padding: 0 16px; font-size: 14px; }
   .hv-hero__demo { left: 58%; top: 36%; width: 36vw; min-width: 285px; }
   .hv-hero__mascot { top: -55px; width: 70px; }
   .hv-hero .hv-quiz { padding: 12px; }
@@ -2184,14 +2184,16 @@
   .hv-hero .hv-quiz__feedback { margin-top: 8px; }
 }
 
-@media (max-width: 767px) {
+/* Máy tính bảng dọc và điện thoại nằm ngang dùng chung bố cục điện thoại: banner ngang
+   trên màn dọc hoặc màn quá thấp sẽ cắt mất người và ô bài tập. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait), (max-height: 540px) and (orientation: landscape) {
   /* Điện thoại: bỏ ảnh banner, nền caro ô vuông nhạt, chỉ giữ chữ + ô bài tập. */
   .hv-hero { padding: calc(var(--site-header-height) + env(safe-area-inset-top)) 0 44px; text-align: left; background-color: #f7faff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M28 0H0V28' fill='none' stroke='%23d6e2f2' stroke-width='1'/%3E%3C/svg%3E"); background-size: 28px 28px; background-position: -1px -1px; }
   .hv-hero__inner { width: 100%; }
   .hv-hero__banner { display: none; }
   .hv-hero__mobile-copy { position: relative; top: auto; left: auto; box-sizing: border-box; width: 100%; padding: 34px 20px 0; }
   .hv-hero h1.hv-hero__mobile-title { max-width: 16ch; font-size: clamp(34px, 9vw, 48px) !important; line-height: 1.1 !important; }
-  .hv-hero__mobile-title em { color: #385791; font-style: normal; }
+  .hv-hero h1.hv-hero__mobile-title em { display: block; color: #385791; font-style: normal; white-space: normal; }
   .hv-hero .hv-hero__lead { max-width: 42ch; margin: 16px 0 0; color: #42506b; font-size: 15px; line-height: 1.55; }
   .hv-hero .hv-hero__actions { gap: 10px; margin-top: 20px; }
   .hv-hero__actions .hv-btn { min-height: 44px; padding-inline: 18px; font-size: 13px; }
@@ -2346,12 +2348,15 @@
 /* ── Tối ưu điện thoại (≤767px) ──────────────────────────────────────────
    Vùng bấm ≥44px, chữ phụ ≥12px, khóa học nổi bật vuốt ngang thay vì xếp dọc
    3 thẻ dài. Chỉ áp dụng màn hẹp, máy tính giữ nguyên. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait), (max-height: 540px) and (orientation: landscape) {
   /* Hero: nút to, dễ bấm bằng ngón cái. */
-  .hv-hero .hv-hero__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+  .hv-hero .hv-hero__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 520px; margin-top: 22px; }
   .hv-hero__actions .hv-btn { justify-content: center; min-height: 48px; padding-inline: 12px; font-size: 15px; }
   .hv-hero .hv-chip { min-height: 44px; font-size: 17px; }
   .hv-hero .hv-quiz__ghost { height: 44px; }
+}
+
+@media (max-width: 767px) {
 
   /* Link dạng chữ "Xem chi tiết →": tăng vùng bấm mà không đổi giao diện. */
   .hv-link { min-height: 44px; }

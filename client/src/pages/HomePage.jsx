@@ -244,14 +244,15 @@ export default function HomePage() {
     }, 2200);
   }
 
-  // Màn rộng: chiếu ô bài tập vào đúng khung trắng nghiêng của ảnh banner.
+  // Màn ngang rộng: chiếu ô bài tập vào đúng khung trắng nghiêng của ảnh banner.
   useLayoutEffect(() => {
     const banner = heroBannerRef.current;
     const demo = heroDemoRef.current;
     if (!banner || !demo || typeof window.matchMedia !== 'function') return undefined;
-    const wide = window.matchMedia('(min-width: 768px)');
+    // Trùng điều kiện CSS bố cục điện thoại (gồm máy tính bảng dọc, điện thoại nằm ngang).
+    const narrow = window.matchMedia('(max-width: 767px), (max-width: 1100px) and (orientation: portrait), (max-height: 540px) and (orientation: landscape)');
     function place() {
-      if (!wide.matches) {
+      if (narrow.matches) {
         demo.classList.remove('is-mapped');
         demo.style.transform = '';
         return;
@@ -275,11 +276,11 @@ export default function HomePage() {
     place();
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null;
     observer?.observe(banner);
-    wide.addEventListener?.('change', place);
+    narrow.addEventListener?.('change', place);
     window.addEventListener('resize', place);
     return () => {
       observer?.disconnect();
-      wide.removeEventListener?.('change', place);
+      narrow.removeEventListener?.('change', place);
       window.removeEventListener('resize', place);
     };
   }, []);
