@@ -821,6 +821,13 @@ function LessonVideoPlayer({ lesson, isTeacher, dashboardPath, pageTitle = '', p
             là ra file Drive gốc. Lớp trong suốt này che nút đó với học viên. */}
         {isDriveVideo && !isTeacher ? <div className="lesson-video-panel__shield" aria-hidden="true" /> : null}
       </div>
+      {/* Google Drive có lúc chặn người xem chưa đăng nhập, và trang không đọc được
+          trạng thái bên trong khung phát nên dòng nhắc luôn hiện với video Drive. */}
+      {isDriveVideo ? (
+        <p className="lesson-video-panel__signin-hint">
+          Nếu video yêu cầu đăng nhập, hãy đăng nhập Gmail trên trình duyệt rồi tải lại trang.
+        </p>
+      ) : null}
       {isDriveVideo && isTeacher ? (
         <div className="lesson-video-panel__drive-fallback">
           <a

@@ -2333,6 +2333,18 @@ textarea:focus-visible {
   border: 0;
 }
 
+.lesson-video-panel__signin-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--color-background);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .lesson-video-panel__drive-fallback {
   padding: 10px 0 2px;
   text-align: center;
